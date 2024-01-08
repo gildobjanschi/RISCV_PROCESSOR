@@ -1,6 +1,6 @@
 # Blue Whale - a 32-bit RISC-V Processor
 
-Blue Whale is a 32-bit RISC V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
+Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
 The Blue Whale project includes a simulator that can execute RISC-V application code on the actual SystemVerilog design.
 
@@ -35,7 +35,7 @@ the RAM test, the memory space test, the sequential processor and the pipelined 
 
 'fpga.sh' synthesizes a design, place and routes for the target FPGA, packs a bitstream and programs the FPGA for the aforementioned designs.
 
-The source code for the TestC, Console and Dhrystone RISC V C code applications is also available in this repository. Here is a brief description of each application:
+The source code for the TestC, Console and Dhrystone RISC-V C code applications is also available in this repository. Here is a brief description of each application:
 * TestC is a simple application that runs from RAM or flash and handles timer interrupts.
 * Console.bin: a UART console that allows you to communicate over USB with the serial port implemented in the processor. You can use any serial communication program configured for 3,000,000 baudrate in 8N1 mode for this purpose.
 * Dhrystone.bin: processor performance evaluation application that enables you to view printf output of this application with a serial communication program.
@@ -69,7 +69,7 @@ To test the memory space (RAM, flash, IO, CSR and interrupts):
 > ./sim.sh -m
 ```
 
-To run the processor either in the simmulator or on the FPGA you need to build the RISC V sample apps first. 
+To run the processor either in the simmulator or on the FPGA you need to build the RISC-V sample apps first. To build each one of the Console, TestC and the Dhrystone applications:
 
 ```
 > cd <blue_whale_repository>/apps/<name_of_the_app>/Release
@@ -77,32 +77,37 @@ To run the processor either in the simmulator or on the FPGA you need to build t
 > make -f makefile_ulx3s all
 ```
 
-Sequential RISC V processor:
+Run the TestC.bin application on the sequential processor:
 ```
-# Run the TestC.bin application on the sequential processor.
 > ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
-# Run the Dhrystone.bin application on the sequential processor.
+```
+Run the Dhrystone.bin application on the sequential processor:
+```
 > ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
 ```
 
-Pipelined RISC V processor:
+Run the TestC.bin application on the pipelined processor:
 ```
-# Run the TestC.bin application on the pipelined processor.
 > ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
-# Run the Dhrystone.bin application on the pipelined processor.
+```
+
+Run the Dhrystone.bin application on the pipelined processor:
+```
 > ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
 ```
 
+Run the TestC.bin application on the pipelined processor and view executing instructions:
 ```
-# Run the TestC.bin application on the pipelined processor and view executing instructions.
 > ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+```
 
-or write the output to a file to view it:
+Write the output to a file to view it:
+```
 > ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\" > out.txt
 ```
 
+Run the TestC.bin application on the pipelined processor, view executing instructions and view pipeline operations:
 ```
-# Run the TestC.bin application on the pipelined processor, view executing instructions and view pipeline operations.
 > ./sim.sh -p -D D_CORE -D D_CORE_FINE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
 
@@ -122,12 +127,12 @@ Memory space test:
 > ./fpga.sh -m -D CLK_PERIOD_NS=16
 ```
 
-Sequential RISC V processor:
+Sequential RISC-V processor:
 ```
 > ./fpga.sh -s -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
 ```
 
-Pipelined RISC V processor:
+Pipelined RISC-V processor:
 ```
 > ./fpga.sh -p -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
 ```
@@ -269,7 +274,7 @@ The diagram below will help you understand the architecture of the processor and
 ![Block Diagram](block_diagram.png)
 
 ## Programming the FPGA
-The fpga.sh script can write the RISC V application to flash (option -b) and the FPGA bitstream to the FPGA SRAM. 
+The fpga.sh script can write the RISC-V application to flash (option -b) and the FPGA bitstream to the FPGA SRAM. 
 Should you want to write the FPGA bitstream to flash, so that on the next power up it will be loaded from from flash, you can use the following command:
 ```
 > openFPGALoader -b ulx3s --unprotect-flash -f out.bit
@@ -277,7 +282,7 @@ Should you want to write the FPGA bitstream to flash, so that on the next power 
 
 You need to be aware of the fact that if the bitstream from flash is switching the mode of the flash from SPI to quad SPI (QSPI) writting to the flash next time will fail. 
 This is due to the fact that the FPGA writes to the flash in SPI mode and if the bitstream switches to QSPI there is no facility to switch it back to SPI mode.
-This is a [known issue](https://github.com/trabucayre/openFPGALoader/issues/124) and as it is suggested in one of the comments it has a 'HW' solution until a potential workaround is found in openFPGALoader. The solution, which I verified, is to short two adjacent flash pins (CS, MISO) while the USB cable is being inserted. This will cause the FPGA to fail read of the configuration from flash and therefore the flash will remain in SPI mode. The easy way to avoid this issue is not to write the FPGA bitstream to flash.
+This is a [known issue](https://github.com/trabucayre/openFPGALoader/issues/124) and as it is suggested in one of the comments it has a 'hardware' solution until a potential workaround is found in openFPGALoader. The solution, which I verified, is to short two adjacent flash pins (CS, MISO) while the USB cable is being inserted. This will cause the FPGA to fail read of the configuration from flash and therefore the flash will remain in SPI mode.
 
 ## More work needed
 I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
@@ -287,4 +292,4 @@ I appreciate feedback for bug fixes and improvements. There are a few area where
 * Increase the maximum frequency for the overall design with optimizations.
 
 ## Blue Whale Hardware
-If you look at the project sources you will notice that in the Verilog source code, in the script files as well as the application makefiles there is mention of the Blue Whale hardware. This hardware exists and it is a small board based on ECP5 that features a 8MB PSRAM. I mentioned this here so you can make sense of the various flags and makefiles that reference the Blue Whale hardware. The Kicad project for this board will be published soon.
+If you look at the project sources you will notice that in the Verilog source code, in the script files as well as the application makefiles there is mention of the Blue Whale hardware. This hardware is fully functional and it is a small board based on ECP5 that features a 8MB PSRAM. I mentioned this here so you can make sense of the various flags and makefiles that reference the Blue Whale hardware. The Kicad project for this board will be published soon.
