@@ -1,4 +1,4 @@
-# Blue Whale - a 32-bit RISC-V Processor
+# Blue Whale - A 32-bit RISC-V Processor
 
 Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
@@ -280,9 +280,7 @@ Should you want to write the FPGA bitstream to flash, so that on the next power 
 > openFPGALoader -b ulx3s --unprotect-flash -f out.bit
 ```
 
-You need to be aware of the fact that if the bitstream from flash is switching the mode of the flash from SPI to quad SPI (QSPI) writting to the flash next time will fail. 
-This is due to the fact that the FPGA writes to the flash in SPI mode and if the bitstream switches to QSPI there is no facility to switch it back to SPI mode.
-This is a [known issue](https://github.com/trabucayre/openFPGALoader/issues/124) and as it is suggested in one of the comments it has a 'hardware' solution until a potential workaround is found in openFPGALoader. The solution, which I verified, is to short two adjacent flash pins (CS, MISO) while the USB cable is being inserted. This will cause the FPGA to fail read of the configuration from flash and therefore the flash will remain in SPI mode.
+You need to be aware of the fact that if the bitstream from flash is switching the mode of the flash from SPI to quad SPI (QSPI) writting to the flash next time will fail. The error could happen when you are trying to write an application or a FPGA bitstream to flash. The reason for the error is the fact the FPGA writes to the flash in SPI mode and if the bitstream switches to QSPI there is no facility to switch it back to SPI mode. This is a [known issue](https://github.com/trabucayre/openFPGALoader/issues/124) and as it is suggested in one of the comments it has a 'hardware' solution until a potential workaround is found in openFPGALoader. The solution, which I verified, is to short two adjacent flash pins (CS, MISO) while the USB cable is being inserted. This will cause the FPGA to fail read of the configuration from flash and therefore the flash will remain in SPI mode.
 
 ## More work needed
 I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
