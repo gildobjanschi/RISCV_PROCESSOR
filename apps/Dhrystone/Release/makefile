@@ -1,0 +1,92 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+-include ../makefile.init
+
+RM := rm -rf
+
+# All of the sources participating in the build are defined here
+-include sources.mk
+-include src/subdir.mk
+-include subdir.mk
+-include objects.mk
+
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(strip $(ASM_DEPS)),)
+-include $(ASM_DEPS)
+endif
+ifneq ($(strip $(S_UPPER_DEPS)),)
+-include $(S_UPPER_DEPS)
+endif
+ifneq ($(strip $(C_DEPS)),)
+-include $(C_DEPS)
+endif
+endif
+
+-include ../makefile.defs
+
+OPTIONAL_TOOL_DEPS := \
+$(wildcard ../makefile.defs) \
+$(wildcard ../makefile.init) \
+$(wildcard ../makefile.targets) \
+
+
+BUILD_ARTIFACT_NAME := Dhrystone
+BUILD_ARTIFACT_EXTENSION := elf
+BUILD_ARTIFACT_PREFIX :=
+BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
+
+# Add inputs and outputs from these tool invocations to the build variables 
+SECONDARY_FLASH += \
+Dhrystone.bin \
+
+SECONDARY_LIST += \
+Dhrystone.lst \
+
+SECONDARY_SIZE += \
+Dhrystone.siz \
+
+
+# All Target
+all: main-build
+
+# Main-build Target
+main-build: Dhrystone.elf secondary-outputs
+
+# Tool invocations
+Dhrystone.elf: $(OBJS) $(USER_OBJS) makefile objects.mk $(OPTIONAL_TOOL_DEPS)
+	@echo 'Building target: $@'
+	@echo 'Invoking: GNU RISC-V Cross C Linker'
+	riscv-none-elf-gcc -march=rv32imac_zicsr -mabi=ilp32 -mtune=rocket -msmall-data-limit=8 -mno-save-restore -Ofast -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -nostartfiles -Xlinker --gc-sections -Wl,-Map,"Dhrystone.map" --specs=nano.specs --specs=nosys.specs -T ../linker_script.ld -o "Dhrystone.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+	@echo 'Finished building target: $@'
+	@echo ' '
+
+Dhrystone.bin: Dhrystone.elf makefile objects.mk $(OPTIONAL_TOOL_DEPS)
+	@echo 'Invoking: GNU RISC-V Cross Create Flash Image'
+	riscv-none-elf-objcopy -O binary "Dhrystone.elf"  "Dhrystone.bin"
+	@echo 'Finished building: $@'
+	@echo ' '
+
+Dhrystone.lst: Dhrystone.elf makefile objects.mk $(OPTIONAL_TOOL_DEPS)
+	@echo 'Invoking: GNU RISC-V Cross Create Listing'
+	riscv-none-elf-objdump --source --all-headers --demangle --line-numbers --reloc --wide "Dhrystone.elf" > "Dhrystone.lst"
+	@echo 'Finished building: $@'
+	@echo ' '
+
+Dhrystone.siz: Dhrystone.elf makefile objects.mk $(OPTIONAL_TOOL_DEPS)
+	@echo 'Invoking: GNU RISC-V Cross Print Size'
+	riscv-none-elf-size --format=berkeley "Dhrystone.elf"
+	@echo 'Finished building: $@'
+	@echo ' '
+
+# Other Targets
+clean:
+	-$(RM) $(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_UPPER_DEPS)$(C_DEPS) Dhrystone.elf
+	-@echo ' '
+
+secondary-outputs: $(SECONDARY_FLASH) $(SECONDARY_LIST) $(SECONDARY_SIZE)
+
+.PHONY: all clean dependents main-build
+
+-include ../makefile.targets

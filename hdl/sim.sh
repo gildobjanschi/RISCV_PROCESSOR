@@ -1,0 +1,127 @@
+########################################################################################################################
+# Configure SIMULATION mode for iverilog with the following command line parameters:
+#
+# Use -D SIMULATION to enable simulation.
+# Use -D TEST_MODE only for instruction testing (tests.sh)
+# Use -D BIN_FILE_NAME in the command line to specify the application (RISC V code) bin file name
+# Use -D D_CORE, D_CORE_FINE for core and trap debug messages
+# Use -D D_MEM_SPACE for mem_space.sv messages
+# Use -D D_SDRAM for SDRAM extra debugging
+# Use -D D_FLASH_MASTER for FLASH debugging
+# Use -D D_IO for IO messages (including printfs)
+# Use -D D_TIMER for timer messages
+# Use -D D_EXEC for instruction detailed messages
+# Use -D GENERATE_VCD to generate a waveform file for GtkWave
+#
+# Note that all the -D flags above only apply if SIMULATION is enabled. For sythesis none of this flags are used.
+########################################################################################################################
+#!/usr/bin/bash
+
+helpFunction()
+{
+    echo ""
+    echo "Usage: $0 -u -w -p -s -f -r -m -h [-D <flag>]"
+    echo "    -u: ULX3S board."
+    echo "    -w: Blue Whale board."
+    echo "    -p: Run pipelined version."
+    echo "    -s: Run sequential version."
+    echo "    -f: Flash test."
+    echo "    -r: Flash and RAM test."
+    echo "    -m: Memory space test."
+    echo "    -D: debug flags (e.g. -D D_CORE, -D D_EXEC, -D D_IO, -D BIN_FILE_NAME=\"<app_bin_file>\" ...)"
+    echo "    -h: Help."
+    exit 1
+}
+
+BOARD=""
+
+# Flags added by default by the script
+#
+# SIMULATION:          Use simulation mode
+# CLK_PERIOD_NS        The main clock period in nano seconds.
+# ENABLE_RV32M_EXT:    Multiply and divide instructions support.
+# ENABLE_ZISCR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
+#                          implementation useless.
+# ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
+# ENABLE_HPM_COUNTERS: Enables support for High Performance Counters.
+# QPI_MODE:            Use quad SPI for flash.
+OPTIONS="-D SIMULATION -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZISCR_EXT -D ENABLE_RV32C_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
+
+APP_NAME=""
+OUTPUT_FILE=out.sim
+RAM_FILE=""
+SIM_RAM_FILE=""
+
+while getopts 'uwpsfrmhD:' opt; do
+    case "$opt" in
+        u ) BOARD="BOARD_ULX3S" ;;
+        w ) BOARD="BOARD_BLUE_WHALE" ;;
+        p ) APP_NAME="risc_p" ;;
+        s ) APP_NAME="risc_s" ;;
+        f ) APP_NAME="flash_test" ;;
+        r ) APP_NAME="flash_ram_test" ;;
+        m ) APP_NAME="mem_space_test" ;;
+        D ) OPTIONS="$OPTIONS -D ${OPTARG}" ;;
+        h ) helpFunction ;;
+        ? ) helpFunction ;; # Print helpFunction in case parameter is non-existent
+    esac
+done
+
+if test -z "$APP_NAME"; then
+    helpFunction
+    exit 1
+fi
+
+if test -f "$OUTPUT_FILE"; then
+    rm $OUTPUT_FILE
+fi
+
+if test -z "$BOARD"; then
+    BOARD="BOARD_ULX3S"
+fi
+if [ "$BOARD" = "BOARD_ULX3S" ] ; then
+    echo "Running on ULX3S."
+    RAM_FILE="sdram.sv"
+    SIM_RAM_FILE="sim_sdram.sv"
+else if [ "$BOARD" = "BOARD_BLUE_WHALE" ] ; then
+    echo "Running on Blue Whale."
+    RAM_FILE="psram.sv"
+    SIM_RAM_FILE="sim_psram.sv"
+fi
+fi
+
+if [ "$APP_NAME" = "flash_test" ] ; then
+    echo "Running flash test."
+    iverilog -g2005-sv -D $BOARD -D D_FLASH_ONLY_TEST -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE utils.sv flash_master.sv $RAM_FILE ecp5pll.sv flash_ram_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_flash_ram_test.sv
+    if [ $? -eq 0 ]; then
+        vvp $OUTPUT_FILE
+    fi
+else if [ "$APP_NAME" = "flash_ram_test" ] ; then
+    echo "Running flash and RAM test."
+    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE utils.sv flash_master.sv $RAM_FILE ecp5pll.sv flash_ram_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_flash_ram_test.sv
+    if [ $? -eq 0 ]; then
+        vvp $OUTPUT_FILE
+    fi
+else if [ "$APP_NAME" = "mem_space_test" ] ; then
+    echo "Memory space test."
+    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE uart_tx.sv uart_rx.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv mem_space.sv ecp5pll.sv mem_space_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_mem_space_test.sv
+    if [ $? -eq 0 ]; then
+        vvp $OUTPUT_FILE
+    fi
+else if [ "$APP_NAME" = "risc_s" ] ; then
+    echo "Running sequential version."
+    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv mem_space.sv ecp5pll.sv risc_s.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_s.sv
+    if [ $? -eq 0 ]; then
+        vvp $OUTPUT_FILE
+    fi
+else if [ "$APP_NAME" = "risc_p" ] ; then
+    echo "Running pipeline version."
+    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
+    if [ $? -eq 0 ]; then
+        vvp $OUTPUT_FILE
+    fi
+fi
+fi
+fi
+fi
+fi

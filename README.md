@@ -1,2 +1,295 @@
-# blue_whale
- Blue Whale 32-bit RISC-V Processor
+# Blue Whale: a 32-bit RISC-V Processor
+
+Blue Whale is a 32-bit RISC V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the base 32-bit ISA, compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented.
+
+Blue Whale includes a simulator that can execute RISC V application code on the actual SystemVerilog design.
+
+Blue Whale is entirely developed using open source tools:
+* iverilog and vvp: a Verilog compiler and a runtime engine.
+* gtkwave: view waveforms exported by iverilog.
+* yosys: synthesis tool for FPGAs.
+* next-pnr: place and route tool for FPGAs.
+* ecppack: bitstream packer
+* openFPGALoader: FPGA programmer.
+
+The RISC V application binaries are compiled using the GNU toolchain for RISC V.
+
+## How to get started?
+The development was done entirely on Linux (Ubuntu 22.04).
+
+The simplest way to install most of the tools you will need is to use [apio](https://pypi.org/project/apio/). 
+Run apio to install oss-cad-suite:
+```
+> ./apio install oss-cad-suite
+```
+
+To view the list of installed packages use the command:
+```
+./apio install --list
+```
+
+Later when you will need to update packages installed by apio you can use the following command:
+```
+./apio install --all
+```
+You will also need to download the [Project Trellis database](https://github.com/YosysHQ/prjtrellis-db) for ECP5. The 'prjtrellis-db' folder should be placed in the root repository (at the same level as hdl folder).
+
+### Using scripts to run the simulator and/or program the FPGA
+Three scripts are available to simplify the use of the simulator as well as building and flashing the FPGA. 
+
+'tests.sh' runs a test for each one of the supported RISC V instructions.
+
+'sim.sh' is used to simulate a Verilog design. It supports five designs at this time: the flash test, 
+the flash and RAM test, the memory space test, the sequential processor and the pipelined processor.
+
+'fpga.sh' synthesizes a design, place and routes for the target FPGA, packs a bitstream and programs the FPGA for the aforementioned designs.
+
+The source code for the TestC, Console and Dhrystone RISC V C code applications is also available in this repository. Here is a brief description of each application:
+* TestC is a simple application that runs from RAM or flash and handles timer interrupts.
+* Console.bin: a UART console that allows you to communicate over USB with the serial port implemented in the processor. You can use any serial communication program configured for 3,000,000 baudrate in 8N1 mode for this purpose.
+* Dhrystone.bin: processor performance evaluation application that enables you to view printf output of this application with a serial communication program.
+
+### Simulation
+Before running the instructions test script you need to build the test binaries (over 60 .bin files):
+
+```
+> cd <blue_whale repository>/apps/TestCompliance/Release
+> ./build.sh
+```
+
+Run all the instruction tests in the pipelined processor:
+```
+> cd <blue_whale_repository>/hdl
+> ./tests.sh -p 
+```
+
+To run the flash test:
+```
+> ./sim.sh -f
+```
+
+To run the RAM test:
+```
+> ./sim.sh -r
+```
+
+To test the memory space (RAM, flash, IO, CSR and interrupts):
+```
+> ./sim.sh -m
+```
+
+To run the processor either in the simmulator or on the FPGA you need to build the RISC V sample apps first. 
+
+```
+> cd <blue_whale_repository>/apps/<name_of_the_app>/Release
+> make all
+```
+
+Sequential RISC V processor:
+```
+# Run the TestC.bin application on the sequential processor.
+> ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+# Run the Dhrystone.bin application on the sequential processor.
+> ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
+```
+
+Pipelined RISC V processor:
+```
+# Run the TestC.bin application on the pipelined processor.
+> ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+# Run the Dhrystone.bin application on the pipelined processor.
+> ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
+```
+
+```
+# Run the TestC.bin application on the pipelined processor and view executing instructions.
+> ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+
+or write the output to a file to view it:
+> ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\" > out.txt
+```
+
+```
+# Run the TestC.bin application on the pipelined processor, view executing instructions and view pipeline operations.
+> ./sim.sh -p -D D_CORE -D D_CORE_FINE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+```
+
+### FPGA
+Flash only test:
+```
+> ./fpga.sh -f -D CLK_PERIOD_NS=12
+```
+
+Flash and RAM test:
+```
+> ./fpga.sh -r -D CLK_PERIOD_NS=16
+```
+
+Memory space test:
+```
+> ./fpga.sh -m -D CLK_PERIOD_NS=16
+```
+
+Sequential RISC V processor:
+```
+> ./fpga.sh -s -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
+```
+
+Pipelined RISC V processor:
+```
+> ./fpga.sh -p -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
+```
+
+## Performance
+Running Dhrystone in the simulator yields the following output.
+
+```
+> ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
+Running on ULX3S.
+Running pipeline version.
+                   0 INITIAL: Loading .bin file: ../apps/Dhrystone/Release/Dhrystone.bin...
+                   0 INITIAL: Loaded 00002580 bytes to flash.
+                   0 INITIAL: CLK_PERIOD_NS: 20 ns.
+                   0 INITIAL: ------------------------- Simulation begin ---------------------------
+                  10 CORE: Reset start.
+                 810 CORE: Reset complete.
+              200010 CORE: Starting execution @[00600000]...
+Microseconds for one run through Dhrystone: 182
+Dhrystones per Second:                      5491
+mcycle = 91339
+minstret = 5448
+             8319150 CORE: ------------- Halt: looping instruction @[800010c8]. -------------
+             8319150 CORE: Cycles:                 415916
+             8319150 CORE: Instructions retired:   34271
+             8319150 CORE: Instructions from ROM:  28
+             8319150 CORE: Instructions from RAM:  5953
+             8319150 CORE: I-Cache hits:           40558
+             8319150 CORE: Load from ROM:          2386
+             8319150 CORE: Load from RAM:          1693
+             8319150 CORE: Store to RAM:           6439
+             8319150 CORE: IO load:                0
+             8319150 CORE: IO store:               128
+             8319150 CORE: CSR load:               9
+             8319150 CORE: CSR store:              2
+             8319150 CORE: Timer interrupts:       0
+             8319150 CORE: External interrupts:    0
+```
+The numbers above yield a DMIPS of 5491 / 1757 = 3.1
+DMIPS/MHz = 3.1 / 50 = 0.0625
+CPI = 91339 / 5448 = 16.76
+
+The CPI is rather high due to 32-bit RAM accesses. The 32-bit RAM access time can be improved by using burst mode. 
+
+I ran the Dhrystone application on the FPGA and the output in the serial communication program was the same as the one in the simulator.
+
+## FPGA implementation
+With all the options enabled (see OPTIONS in fpga.sh) the maximum frequency is 63MHz and the number of cells is 25,121.
+
+Removing the High Performance Counters (remove -D ENABLE_HPM_COUNTERS) yields a maximum frequency to 67MHz and the number of cells is down to 21,531.
+
+Further removing the multiplication/division (ENABLE_RV32M_EXT) yields a maximum frequency to 71MHz and the number of cells drops to 18,699.
+
+## Example usages
+The code makes use of flags to turn on/off debug output in the simulator. Here are a few examples:
+* D_IO: enables output from the IO module (and therefore printf).
+* D_EXEC: enables output from the execution module with all details about each executing instruction.
+* D_CORE: Core debug output
+* D_CORE_FINE: Core detailed debug output (sequential/pipeline operations).
+See a complete list in sim.sh.
+
+Here is a snippet of output when running an application with D_CORE and D_IO to view the application printf output.
+
+```
+> ./sim.sh -p -D D_CORE -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+Running on ULX3S.
+Running pipeline version.
+                   0 INITIAL: Loading .bin file: ../apps/TestC/Release/TestC.bin...
+                   0 INITIAL: Loaded 0000166c bytes to flash.
+                   0 INITIAL: CLK_PERIOD_NS: 20 ns.
+                   0 INITIAL: ------------------------- Simulation begin ---------------------------
+                  10 CORE: Reset start.
+                 810 CORE: Reset complete.
+              200010 CORE: Starting execution @[00600000]...
+             2549530 CSR: New interrupts: 00000080. Enabled: 00000880. Pending now: 00000080.
+             2550250 CSR: [8000041c]: === INTERRUPT_TIMER @[80000030] ===
+             2602270 CSR: [8000041c]: === Exit interrupt. ===
+             ...
+Hello RISC-V on FPGA!
+             3805830 CSR: New interrupts: 00000080. Enabled: 00000880. Pending now: 00000080.
+             3806690 CSR: [8000115a]: === INTERRUPT_TIMER @[80000030] ===
+             3858770 CSR: [8000115a]: === Exit interrupt. ===
+             3898870 CORE: ------------- Halt: looping instruction @[800014f8]. -------------
+             3898870 CORE: Cycles:                 194902
+             3898870 CORE: Instructions retired:   14967
+             3898870 CORE: Instructions from ROM:  28
+             3898870 CORE: Instructions from RAM:  2619
+             3898870 CORE: I-Cache hits:           16906
+             3898870 CORE: Load from ROM:          1410
+             3898870 CORE: Load from RAM:          724
+             3898870 CORE: Store to RAM:           2603
+             3898870 CORE: IO load:                24
+             3898870 CORE: IO store:               47
+             3898870 CORE: CSR load:               48
+             3898870 CORE: CSR store:              36
+             3898870 CORE: Timer interrupts:       11
+             3898870 CORE: External interrupts:    0
+```
+
+The output snippet below is from an application running with D_EXEC flag to view each instruction executed by the processor.
+```
+> ./sim.sh -p -D D_CORE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+Running on ULX3S.
+Running pipeline version.
+                   0 INITIAL: Loading .bin file: ../apps/TestC/Release/TestC.bin...
+                   0 INITIAL: Loaded 0000166c bytes to flash.
+                   0 INITIAL: CLK_PERIOD_NS: 20 ns.
+                   0 INITIAL: ------------------------- Simulation begin ---------------------------
+                  10 CORE: Reset start.
+                 810 CORE: Reset complete.
+              200010 CORE: Starting execution @[00600000]...
+              200770 [00600000]: 82000137 lui rdx2[82000000], 82000000; PC: [00600004]
+              201550 [00600004]: ff810113 addi rdx2[81fffff8], rs1x2[82000000] fffffff8; PC: [00600008]
+              202210 [00600008]: 800002b7 lui rdx5[80000000], 80000000; PC: [0060000c]
+              202990 [0060000c]: 00028293 addi rdx5[80000000], rs1x5[80000000] 00000000; PC: [00600010]
+              203650 [00600010]: 80001e37 lui rdx28[80001000], 80001000; PC: [00600014]
+              204430 [00600014]: 608e0e13 addi rdx28[80001608], rs1x28[80001000] 00000608; PC: [00600018]
+              205150 [00600018]: 405e0333 sub rdx6[00001608], rs1x28[80001608] rs2x5[80000000]; PC: [0060001c]
+              205870 [0060001c]: 00235f13 srli rdx30[00000582], rs1x6[00001608] 00000002; PC: [00600020]
+              206530 [00600020]: 006003b7 lui rdx7[00600000], 00600000; PC: [00600024]
+              207310 [00600024]: 06438393 addi rdx7[00600064], rs1x7[00600000] 00000064; PC: [00600028]
+              208030 [00600028]: 000f0a63 beq rs1x30[00000582], rs2x0[00000000] 00000014; PC: [0060002c]
+              208750 [0060002c]: 0003ae83 lw rdx29, rs1x7[00600064] 00000000; load @[00600064]...
+              210030           :          @[00600064] -> rdx29[00002197]; PC: [00600030]
+              210090 [00600030]:     0391 c.addi rdx7[00600068], rs1x7[00600064] 00000004; PC: [00600032]
+              210910 [00600032]: 01d2a023 sw rs1x5[80000000], rs2x29[00002197] 00000000; store @[80000000]
+              211050           :          rs2x29[00002197] -> @[80000000]; PC: [00600036]
+              211630 [00600036]:     0291 c.addi rdx5[80000004], rs1x5[80000000] 00000004; PC: [00600038]
+              212350 [00600038]:     1f7d c.addi rdx30[00000581], rs1x30[00000582] ffffffff; PC: [0060003a]
+              213010 [0060003a]:     b7fd c.jal rdx0[00000000], ffffffee; PC: [00600028]
+              213850 [00600028]: 000f0a63 beq rs1x30[00000581], rs2x0[00000000] 00000014; PC: [0060002c]
+              213910 [0060002c]: 0003ae83 lw rdx29, rs1x7[00600068] 00000000; load @[00600068]...
+              214550           :          @[00600068] -> rdx29[e0018193]; PC: [00600030]
+              ...
+```
+## Block Diagram
+The diagram below will help you understand the architecture of the processor and help you navigate the source code a bit easier.
+
+![Block Diagram](block_diagram.png)
+
+## Programming the FPGA
+The fpga.sh script can write the RISC V application to flash (option -b) and the FPGA bitstream to the FPGA SRAM. 
+Should you want to write the FPGA bitstream to flash, so that on the next power up it will be loaded from from flash, you can use the following command:
+```
+> openFPGALoader -b ulx3s --unprotect-flash -f out.bit
+```
+
+You need to be aware of the fact that if the bitstream from flash is switching the mode of the flash from SPI to quad SPI (QSPI) writting to the flash next time will fail. 
+This is due to the fact that the FPGA writes to the flash in SPI mode and if the bitstream switches to QSPI there is no facility to switch it back to SPI mode.
+This is a [known issue](https://github.com/trabucayre/openFPGALoader/issues/124) and as it is suggested in one of the comments it has a 'HW' solution until a potential workaround is found in openFPGALoader. The solution, which I verified, is to short two adjacent flash pins (CS, MISO) while the USB cable is being inserted. This will cause the FPGA to fail read of the configuration from flash and therefore the flash will remain in SPI mode. The easy way to avoid this issue is not to write the FPGA bitstream to flash.
+
+## More work needed
+I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
+* Implement the RAM burst mode to lower the amount of time it takes to read/write 32-bit from RAM. Right now, in order to read 32-bit values, two 16-bit words are read which takes 13 cycles.
+* Improve the performance of the multiplier and divider.
+* One of the performance bottlenecks is the instruction cache in mem_space.sv.
+* Increase the maximum frequency for the overall design with optimizations.
