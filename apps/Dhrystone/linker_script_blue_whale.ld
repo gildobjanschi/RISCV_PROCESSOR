@@ -13,7 +13,7 @@ _HEAP_SIZE  = 0x400;
 MEMORY
 {
     ROM (rx) :   ORIGIN = 0x00600000, LENGTH = 0x00a00000
-    RAM (wx!r) : ORIGIN = 0x80000000, LENGTH = 0x02000000
+    RAM (wx!r) : ORIGIN = 0x80000000, LENGTH = 0x00080000
 }
 
 SECTIONS
@@ -51,69 +51,94 @@ SECTIONS
 		. = ALIGN(4);
 	} > ROM
 
+	/* ---- ROM address where RAM data begins ----- */
+	PROVIDE( _rom_copy_to_ram_begin = .);
 	.text :
 	{
+    	PROVIDE(_text_start = .);
    		*(.text)
-   		*(.text.*)
+		*(.text.*)
 		. = ALIGN(4);
-	} > ROM
+    	PROVIDE(_text_end = .);
+	} > RAM AT > ROM 
 
 	.rodata :
 	{
-		*(.rodata)
-		*(.rodata.*)
+		__rodata_start = .;
+		KEEP (*(.rodata))
+		KEEP (*(.rodata.*))
 		. = ALIGN(4);
-	} > ROM
+		__rodata_end = .;
+	} > RAM AT > ROM
 
 	.srodata :
 	{
-		*(.srodata)
-		*(.srodata.*)
+		__srodata_start = .;
+		KEEP (*(.srodata))
+		KEEP (*(.srodata.*))
 		. = ALIGN(4);
-	} > ROM
+		__srodata_end = .;
+	} > RAM AT > ROM
 
-	/* ---- ROM address where RAM data begins ----- */
-	PROVIDE( _rom_copy_to_ram_begin = .);
 	.data :
 	{
-		*(.data)
-		*(.data.*)
+		__data_start = .;
+		KEEP (*(.data))
+		KEEP (*(.data.*))
 		. = ALIGN(4);
+		__data_end = .;
 	} > RAM AT > ROM
 
 	PROVIDE( __global_pointer$ = . + 0x800);
-
 	.sdata :
 	{ 
-		*(.sdata)
-		*(.sdata.*)
+		__sdata_start = .;
+		KEEP (*(.sdata))
+		KEEP (*(.sdata.*))
+		. = ALIGN(4);
+		__sdata_end = .;
+	} > RAM AT > ROM
+
+	/* thread-local data segment */
+	.tdata :
+	{
+		_tdata_begin = .;
+		KEEP (*(.tdata))
+	    _tdata_end = .;
 		. = ALIGN(4);
 	} > RAM AT > ROM
 	PROVIDE( _ram_data_end = .);
-	/* ---- ROM address where RAM data end ----- */
 
 	.bss :
 	{ 
-		__bss_start = .;
+		_bss_start = .;
 		KEEP (*(.bss))
 		KEEP (*(.bss.*))
-
 		. = ALIGN(4);
+		_bss_end = .;
 	} > RAM
 
 	.sbss :
 	{ 
-		KEEP (*(.sbss))
-		KEEP (*(.sbss.*))
-
+		__sbss_start = .;
+	    *(.sbss .sbss.* .gnu.linkonce.sb.*)
+		*(.scommon)
 		. = ALIGN(4);
+		__sbss_end = .;
 	} > RAM
 
-	. = ALIGN(8);
+	.tbss :
+	{
+		KEEP (*(.tbss))
+		. = ALIGN(8);
+		_tbss_end = .;
+	} > RAM
 
 	PROVIDE( _end = . );
 	PROVIDE( end = . );
+	PROVIDE( _rom_end = ORIGIN(ROM) + LENGTH(ROM));
 
+  . = ALIGN(0x1000);
 	.heap ALIGN(4) :
 	{
 		__heap_start = .;

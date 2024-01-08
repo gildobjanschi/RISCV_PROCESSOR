@@ -1,10 +1,10 @@
-# Blue Whale: a 32-bit RISC-V Processor
+# Blue Whale - a 32-bit RISC-V Processor
 
-Blue Whale is a 32-bit RISC V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the base 32-bit ISA, compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented.
+Blue Whale is a 32-bit RISC V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
-Blue Whale includes a simulator that can execute RISC V application code on the actual SystemVerilog design.
+The Blue Whale project includes a simulator that can execute RISC-V application code on the actual SystemVerilog design.
 
-Blue Whale is entirely developed using open source tools:
+The project is entirely developed using open source tools:
 * iverilog and vvp: a Verilog compiler and a runtime engine.
 * gtkwave: view waveforms exported by iverilog.
 * yosys: synthesis tool for FPGAs.
@@ -12,35 +12,26 @@ Blue Whale is entirely developed using open source tools:
 * ecppack: bitstream packer
 * openFPGALoader: FPGA programmer.
 
-The RISC V application binaries are compiled using the GNU toolchain for RISC V.
+The RISC-V application binaries are compiled using the GNU toolchain for RISC-V.
 
 ## How to get started?
-The development was done entirely on Linux (Ubuntu 22.04).
+My development was done entirely on Linux (Ubuntu 22.04).
 
-The simplest way to install most of the tools you will need is to use [apio](https://pypi.org/project/apio/). 
+The simplest way to install the tools you will need is to use [apio](https://pypi.org/project/apio/). 
 Run apio to install oss-cad-suite:
 ```
 > ./apio install oss-cad-suite
 ```
 
-To view the list of installed packages use the command:
-```
-./apio install --list
-```
-
-Later when you will need to update packages installed by apio you can use the following command:
-```
-./apio install --all
-```
-You will also need to download the [Project Trellis database](https://github.com/YosysHQ/prjtrellis-db) for ECP5. The 'prjtrellis-db' folder should be placed in the root repository (at the same level as hdl folder).
+You also need to install the [Project Trellis database](https://github.com/YosysHQ/prjtrellis-db).
 
 ### Using scripts to run the simulator and/or program the FPGA
 Three scripts are available to simplify the use of the simulator as well as building and flashing the FPGA. 
 
-'tests.sh' runs a test for each one of the supported RISC V instructions.
+'tests.sh' runs a test for each one of the supported RISC-V instructions.
 
 'sim.sh' is used to simulate a Verilog design. It supports five designs at this time: the flash test, 
-the flash and RAM test, the memory space test, the sequential processor and the pipelined processor.
+the RAM test, the memory space test, the sequential processor and the pipelined processor.
 
 'fpga.sh' synthesizes a design, place and routes for the target FPGA, packs a bitstream and programs the FPGA for the aforementioned designs.
 
@@ -54,7 +45,7 @@ Before running the instructions test script you need to build the test binaries 
 
 ```
 > cd <blue_whale repository>/apps/TestCompliance/Release
-> ./build.sh
+> ./build_ulx3s.sh
 ```
 
 Run all the instruction tests in the pipelined processor:
@@ -82,7 +73,8 @@ To run the processor either in the simmulator or on the FPGA you need to build t
 
 ```
 > cd <blue_whale_repository>/apps/<name_of_the_app>/Release
-> make all
+> make -f makefile_ulx3s clean
+> make -f makefile_ulx3s all
 ```
 
 Sequential RISC V processor:
@@ -293,3 +285,6 @@ I appreciate feedback for bug fixes and improvements. There are a few area where
 * Improve the performance of the multiplier and divider.
 * One of the performance bottlenecks is the instruction cache in mem_space.sv.
 * Increase the maximum frequency for the overall design with optimizations.
+
+## Blue Whale Hardware
+If you look at the project sources you will notice that in the Verilog source code, in the script files as well as the application makefiles there is mention of the Blue Whale hardware. This hardware exists and it is a small board based on ECP5 that features a 8MB PSRAM. I mentioned this here so you can make sense of the various flags and makefiles that reference the Blue Whale hardware. The Kicad project for this board will be published soon.
