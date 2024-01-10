@@ -36,7 +36,7 @@ BOARD=""
 # Flags added by default by the script
 #
 # SIMULATION:          Use simulation mode
-# CLK_PERIOD_NS        The main clock period in nano seconds.
+# CLK_PERIOD_NS        The main clock period in nano seconds (can be overridden by the command line).
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_ZISCR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
