@@ -420,17 +420,8 @@ module mem_space_test(
                     if (CHECKSUM_LED == 0) begin
                         led[test_num] <= 1'b1;
                     end
-// This flag is used by yosys.
-`ifdef D_FLASH_ONLY_TEST
-`ifdef D_CORE
-                    $display($time, " CORE: Core checksum OK.");
-`endif
-                    // Flash test only
-                    test_ok <= 1'b1;
-`else // D_FLASH_ONLY_TEST
                     // Start the reading from RAM
                     do_next_data_read <= 1'b1;
-`endif // D_FLASH_ONLY_TEST
                 end else begin
                     if (CHECKSUM_LED == 0) begin
                         led[6] <= 1'b1;

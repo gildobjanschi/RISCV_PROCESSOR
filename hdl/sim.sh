@@ -20,13 +20,11 @@
 helpFunction()
 {
     echo ""
-    echo "Usage: $0 -u -w -p -s -f -r -m -h [-D <flag>]"
+    echo "Usage: $0 -u -w -p -s -m -h [-D <flag>]"
     echo "    -u: ULX3S board."
     echo "    -w: Blue Whale board."
     echo "    -p: Run pipelined version."
     echo "    -s: Run sequential version."
-    echo "    -f: Flash test."
-    echo "    -r: Flash and RAM test."
     echo "    -m: Memory space test."
     echo "    -D: debug flags (e.g. -D D_CORE, -D D_EXEC, -D D_IO, -D BIN_FILE_NAME=\"<app_bin_file>\" ...)"
     echo "    -h: Help."
@@ -52,14 +50,12 @@ OUTPUT_FILE=out.sim
 RAM_FILE=""
 SIM_RAM_FILE=""
 
-while getopts 'uwpsfrmhD:' opt; do
+while getopts 'uwpsmhD:' opt; do
     case "$opt" in
         u ) BOARD="BOARD_ULX3S" ;;
         w ) BOARD="BOARD_BLUE_WHALE" ;;
         p ) APP_NAME="risc_p" ;;
         s ) APP_NAME="risc_s" ;;
-        f ) APP_NAME="flash_test" ;;
-        r ) APP_NAME="flash_ram_test" ;;
         m ) APP_NAME="mem_space_test" ;;
         D ) OPTIONS="$OPTIONS -D ${OPTARG}" ;;
         h ) helpFunction ;;
@@ -90,19 +86,7 @@ else if [ "$BOARD" = "BOARD_BLUE_WHALE" ] ; then
 fi
 fi
 
-if [ "$APP_NAME" = "flash_test" ] ; then
-    echo "Running flash test."
-    iverilog -g2005-sv -D $BOARD -D D_FLASH_ONLY_TEST -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE utils.sv flash_master.sv $RAM_FILE ecp5pll.sv flash_ram_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_flash_ram_test.sv
-    if [ $? -eq 0 ]; then
-        vvp $OUTPUT_FILE
-    fi
-else if [ "$APP_NAME" = "flash_ram_test" ] ; then
-    echo "Running flash and RAM test."
-    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE utils.sv flash_master.sv $RAM_FILE ecp5pll.sv flash_ram_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_flash_ram_test.sv
-    if [ $? -eq 0 ]; then
-        vvp $OUTPUT_FILE
-    fi
-else if [ "$APP_NAME" = "mem_space_test" ] ; then
+if [ "$APP_NAME" = "mem_space_test" ] ; then
     echo "Memory space test."
     iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE uart_tx.sv uart_rx.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv mem_space.sv ecp5pll.sv mem_space_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_mem_space_test.sv
     if [ $? -eq 0 ]; then
@@ -120,8 +104,6 @@ else if [ "$APP_NAME" = "risc_p" ] ; then
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi
-fi
-fi
 fi
 fi
 fi

@@ -30,8 +30,7 @@ Three scripts are available to simplify the use of the simulator as well as buil
 
 'tests.sh' runs a test for each one of the supported RISC-V instructions.
 
-'sim.sh' is used to simulate a Verilog design. It supports five designs at this time: the flash test, 
-the RAM test, the memory space test, the sequential processor and the pipelined processor.
+'sim.sh' is used to simulate a Verilog design. It supports three designs at this time: the memory space test, the sequential processor and the pipelined processor.
 
 'fpga.sh' synthesizes a design, place and routes for the target FPGA, packs a bitstream and programs the FPGA for the aforementioned designs.
 
@@ -44,24 +43,14 @@ The source code for the TestC, Console and Dhrystone RISC-V C code applications 
 Before running the instructions test script you need to build the test binaries (over 60 .bin files):
 
 ```
-> cd <blue_whale repository>/apps/TestCompliance/Release
+> cd apps/TestCompliance/Release
 > ./build_ulx3s.sh
 ```
 
 Run all the instruction tests in the pipelined processor:
 ```
-> cd <blue_whale_repository>/hdl
+> cd hdl
 > ./tests.sh -p 
-```
-
-To run the flash test:
-```
-> ./sim.sh -f
-```
-
-To run the RAM test:
-```
-> ./sim.sh -r
 ```
 
 To test the memory space (RAM, flash, IO, CSR and interrupts):
@@ -112,16 +101,6 @@ Run the TestC.bin application on the pipelined processor, view executing instruc
 ```
 
 ### FPGA
-Flash only test:
-```
-> ./fpga.sh -f -D CLK_PERIOD_NS=12
-```
-
-Flash and RAM test:
-```
-> ./fpga.sh -r -D CLK_PERIOD_NS=16
-```
-
 Memory space test:
 ```
 > ./fpga.sh -m -D CLK_PERIOD_NS=16
@@ -151,31 +130,29 @@ Running pipeline version.
                   10 CORE: Reset start.
                  810 CORE: Reset complete.
               200010 CORE: Starting execution @[00600000]...
-Microseconds for one run through Dhrystone: 182
-Dhrystones per Second:                      5491
-mcycle = 91339
+Microseconds for one run through Dhrystone: 166
+Dhrystones per Second:                      6009
+mcycle = 83450
 minstret = 5448
-             8319150 CORE: ------------- Halt: looping instruction @[800010c8]. -------------
-             8319150 CORE: Cycles:                 415916
-             8319150 CORE: Instructions retired:   34271
-             8319150 CORE: Instructions from ROM:  28
-             8319150 CORE: Instructions from RAM:  5953
-             8319150 CORE: I-Cache hits:           40558
-             8319150 CORE: Load from ROM:          2386
-             8319150 CORE: Load from RAM:          1693
-             8319150 CORE: Store to RAM:           6439
-             8319150 CORE: IO load:                0
-             8319150 CORE: IO store:               128
-             8319150 CORE: CSR load:               9
-             8319150 CORE: CSR store:              2
-             8319150 CORE: Timer interrupts:       0
-             8319150 CORE: External interrupts:    0
+             7787110 CORE: ------------- Halt: looping instruction @[800010c8]. -------------
+             7787110 CORE: Cycles:                 389314
+             7787110 CORE: Instructions retired:   34271
+             7787110 CORE: Instructions from ROM:  28
+             7787110 CORE: Instructions from RAM:  5953
+             7787110 CORE: I-Cache hits:           40558
+             7787110 CORE: Load from ROM:          2386
+             7787110 CORE: Load from RAM:          1693
+             7787110 CORE: Store to RAM:           6439
+             7787110 CORE: IO load:                0
+             7787110 CORE: IO store:               128
+             7787110 CORE: CSR load:               9
+             7787110 CORE: CSR store:              2
+             7787110 CORE: Timer interrupts:       0
+             7787110 CORE: External interrupts:    0
 ```
-The numbers above yield a DMIPS of 5491 / 1757 = 3.1
-DMIPS/MHz = 3.1 / 50 = 0.0625
-CPI = 91339 / 5448 = 16.76
-
-The CPI is rather high due to 32-bit RAM accesses. The 32-bit RAM access time can be improved by using burst mode. 
+The numbers above yield a DMIPS of 5491 / 1757 = 3.42
+DMIPS/MHz = 3.1 / 50 = 0.0684
+CPI = 91339 / 5448 = 15.3
 
 I ran the Dhrystone application on the FPGA and the output in the serial communication program was the same as the one in the simulator.
 
@@ -284,7 +261,6 @@ You need to be aware of the fact that if the bitstream from flash is switching t
 
 ## More work needed
 I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
-* Implement the RAM burst mode to lower the amount of time it takes to read/write 32-bit from RAM. Right now, in order to read 32-bit values, two 16-bit words are read which takes 13 cycles.
 * Improve the performance of the multiplier and divider.
 * One of the performance bottlenecks is the instruction cache in mem_space.sv.
 * Increase the maximum frequency for the overall design with optimizations.

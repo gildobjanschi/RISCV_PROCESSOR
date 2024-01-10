@@ -3,15 +3,13 @@
 helpFunction()
 {
     echo ""
-    echo "Usage: $0 -u -w -p -s -f -r -m -h [-b <file name>] [-D <define>]"
+    echo "Usage: $0 -u -w -p -s -m -h [-b <file name>] [-D <define>]"
     echo "    -u: ULX3S board."
     echo "    -w: Blue Whale board."
     echo "    -p: Run pipelined version."
     echo "    -s: Run sequential version."
-    echo "    -f: Run the flash test."
-    echo "    -r: Run the flash and RAM test."
     echo "    -m: Run the memory space test."
-    echo "    -b: The name of the bin f ile to flash. Use this option only with -p -n."
+    echo "    -b: The name of the bin file to flash. Use this option only with -p -n."
     echo "    -D: define (e.g. -D CLK_PERIOD_NS)."
     echo "    -h: Help."
     exit 1 # Exit script after printing help
@@ -36,14 +34,12 @@ RAM_FILE=""
 LPF_FILE=""
 SPEED=""
 
-while getopts "uwpsfrmhb:D:" flag; do
+while getopts "uwpsmhb:D:" flag; do
     case "${flag}" in
         u ) BOARD="BOARD_ULX3S" ;;
         w ) BOARD="BOARD_BLUE_WHALE" ;;
         p ) echo "Running pipeline version."; APP_NAME="risc_p" ;;
         s ) echo "Running sequential version."; APP_NAME="risc_s" ;;
-        f ) echo "Running flash test."; APP_NAME="flash_test" ;;
-        r ) echo "Running flash and RAM test."; APP_NAME="flash_ram_test" ;;
         m ) echo "Running memory space test."; APP_NAME="mem_space_test" ;;
         D ) OPTIONS="$OPTIONS -D ${OPTARG}" ;;
         h ) helpFunction ;;
@@ -86,28 +82,13 @@ else if [ "$BOARD" = "BOARD_BLUE_WHALE" ] ; then
 fi
 fi
 
-if [ "$APP_NAME" = "flash_test" ] ; then
-    openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash ../apps/TestBlob/TestBlob.bin
-    yosys -p "synth_ecp5 -json out.json" -D $BOARD -D D_FLASH_ONLY_TEST $OPTIONS utils.sv $RAM_FILE flash_master.sv ecp5pll.sv flash_ram_test.sv
-    nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
-    ecppack --db ../prjtrellis-db out.config out.bit
-    openFPGALoader -b ulx3s out.bit
-else
-if [ "$APP_NAME" = "flash_ram_test" ] ; then
-    openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash ../apps/TestBlob/TestBlob.bin
-    yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS utils.sv $RAM_FILE flash_master.sv ecp5pll.sv flash_ram_test.sv
-    nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
-    ecppack --db ../prjtrellis-db out.config out.bit
-    openFPGALoader -b ulx3s out.bit
-else
 if [ "$APP_NAME" = "mem_space_test" ] ; then
     openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash ../apps/TestBlob/TestBlob.bin
     yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS uart_tx.sv uart_rx.sv utils.sv $RAM_FILE flash_master.sv io.sv timer.sv csr.sv mem_space.sv ecp5pll.sv mem_space_test.sv
     nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
     ecppack --db ../prjtrellis-db out.config out.bit
     openFPGALoader -b ulx3s out.bit
-else
-if [ "$APP_NAME" = "risc_s" ] ; then
+else if [ "$APP_NAME" = "risc_s" ] ; then
     if test ! -z "$BIN_FILE"; then
         echo "Flashing bin file: $BIN_FILE ..."
         openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash $BIN_FILE
@@ -116,8 +97,7 @@ if [ "$APP_NAME" = "risc_s" ] ; then
     nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
     ecppack --db ../prjtrellis-db out.config out.bit
     openFPGALoader -b ulx3s out.bit
-else
-if [ "$APP_NAME" = "risc_p" ] ; then
+else if [ "$APP_NAME" = "risc_p" ] ; then
     if test ! -z "$BIN_FILE"; then
         echo "Flashing bin file: $BIN_FILE ..."
         openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash $BIN_FILE
@@ -126,8 +106,6 @@ if [ "$APP_NAME" = "risc_p" ] ; then
     nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
     ecppack --db ../prjtrellis-db out.config out.bit
     openFPGALoader -b ulx3s out.bit
-fi
-fi
 fi
 fi
 fi
