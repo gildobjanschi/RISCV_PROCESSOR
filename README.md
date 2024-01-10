@@ -151,7 +151,9 @@ minstret = 5448
              7787110 CORE: External interrupts:    0
 ```
 The numbers above yield a DMIPS of 5491 / 1757 = 3.42
+
 DMIPS/MHz = 3.1 / 50 = 0.0684
+
 CPI = 91339 / 5448 = 15.3
 
 I ran the Dhrystone application on the FPGA and the output in the serial communication program was the same as the one in the simulator.
