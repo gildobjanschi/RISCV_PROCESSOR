@@ -39,12 +39,12 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     input logic rst_i,
     input logic stb_i,
     input logic cyc_i,
-    input logic [1:0] sel_i,
+    input logic [3:0] sel_i,
     input logic we_i,
     input logic [21:0] addr_i,
-    input logic [15:0] data_i,
+    input logic [31:0] data_i,
     output logic ack_o,
-    output logic [15:0] data_o,
+    output logic [31:0] data_o,
     // PSRAM wires
     output logic psram_cen,
     output logic psram_wen,
@@ -104,6 +104,7 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     logic [1:0] state_m;
 
     logic [3:0] wait_clock_cycles;
+    logic next_word;
 
     //==================================================================================================================
     // PSRAM controller
@@ -121,24 +122,37 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
              */
             psram_cmd <= PSRAM_CMD_STANDBY;
             {psram_ubn, psram_lbn} <= 2'b11;
+            next_word <= 1'b0;
 
             state_m <= STATE_IDLE;
         end else begin
-            // At the end of a transaction reset ack_o
+            // At the end of a transaction reset sync_ack_o
             if (sync_ack_o) sync_ack_o <= stb_i;
 
             (* parallel_case, full_case *)
             case (state_m)
                 STATE_IDLE: begin
                     if (stb_i & cyc_i & ~sync_ack_o) begin
-                        psram_a <= addr_i;
                         {psram_ubn, psram_lbn} <= ~sel_i;
 
                         if (we_i) begin
-                            psram_d_o <= data_i;
+                            if (sel_i[3]) begin
+                                psram_d_o <= next_word ? data_i[31:16] : data_i[15:0];
+                                psram_a <= next_word ? addr_i + 1 : addr_i;
+                            end else begin
+                                psram_d_o <= data_i[15:0];
+                                psram_a <= addr_i;
+                            end
+
                             psram_cmd <= PSRAM_CMD_WRITE;
                             state_m <= STATE_WRITE;
                         end else begin
+                            if (sel_i[3]) begin
+                                psram_a <= next_word ? addr_i + 1 : addr_i;
+                            end else begin
+                                psram_a <= addr_i;
+                            end
+
                             psram_cmd <= PSRAM_CMD_READ;
                             state_m <= STATE_READ;
                         end
@@ -150,10 +164,21 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                 STATE_READ: begin
                     wait_clock_cycles <= wait_clock_cycles - 4'h1;
                     if (wait_clock_cycles == 4'h1) begin
-                        data_o <= psram_d_i;
-                        psram_cmd <= PSRAM_CMD_STANDBY;
+                        if (sel_i[3]) begin
+                            if (next_word) begin
+                                data_o[31:16] <= psram_d_i;
+                                sync_ack_o <= 1'b1;
+                            end else begin
+                                data_o[15:0] <= psram_d_i;
+                            end
 
-                        sync_ack_o <= 1'b1;
+                            next_word <= ~next_word;
+                        end else begin
+                            data_o[15:0] <= psram_d_i;
+                            sync_ack_o <= 1'b1;
+                        end
+
+                        psram_cmd <= PSRAM_CMD_STANDBY;
                         state_m <= STATE_IDLE;
                     end
                 end
@@ -161,9 +186,14 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                 STATE_WRITE: begin
                     wait_clock_cycles <= wait_clock_cycles - 4'h1;
                     if (wait_clock_cycles == 4'h1) begin
-                        psram_cmd <= PSRAM_CMD_STANDBY;
+                        if (sel_i[3]) begin
+                            if (next_word) sync_ack_o <= 1'b1;
+                            next_word <= ~next_word;
+                        end else begin
+                            sync_ack_o <= 1'b1;
+                        end
 
-                        sync_ack_o <= 1'b1;
+                        psram_cmd <= PSRAM_CMD_STANDBY;
                         state_m <= STATE_IDLE;
                     end
                 end

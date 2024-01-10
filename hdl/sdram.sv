@@ -45,12 +45,12 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     input logic rst_i,
     input logic stb_i,
     input logic cyc_i,
-    input logic [1:0] sel_i,
+    input logic [3:0] sel_i,
     input logic we_i,
     input logic [23:0] addr_i,
-    input logic [15:0] data_i,
+    input logic [31:0] data_i,
     output logic ack_o,
-    output logic [15:0] data_o,
+    output logic [31:0] data_o,
     // The device clock is driving sdram_clk
     input logic device_clk_i,
     // SDRAM signals
@@ -208,6 +208,9 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     // The following two bits are used to determine when a new transaction starts.
     logic prev_stb_cyc, transaction_start_q;
     logic reset_refresh_timer;
+    logic next_word;
+    logic [23:0] next_addr, active_addr;
+    assign active_addr = next_word ? next_addr : addr_i;
 
     //==================================================================================================================
     // Precharge all banks task
@@ -374,6 +377,7 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                 /* At this point the DRAM is ready for any valid command.*/
                 activated_row_bank <= 0;
                 state_m <= STATE_IDLE;
+                next_word <= 1'b0;
             end
 
             default: begin
@@ -496,8 +500,8 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                      * The row remains active for accesses until a PRECHARGE command is issued to that bank.
                      * A PRECHARGE command must be issued before opening a different row in the same bank.
                      */
-                    sdram_ba  <= activated_row_bank[14:13];
-                    sdram_a   <= activated_row_bank[12:0];
+                    sdram_ba <= activated_row_bank[14:13];
+                    sdram_a <= activated_row_bank[12:0];
 
                     // Activate the bank and the row
                     sdram_cmd <= SDRAM_CMD_ACTIVE;
@@ -520,7 +524,7 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
 
                 STATE_ACTIVATED: begin
                     if ((stb_i & cyc_i & ~ack_o & ~prev_stb_cyc) | transaction_start_q) begin
-                        if (activated_row_bank == addr_i[23:9]) begin
+                        if (activated_row_bank == active_addr[23:9]) begin
                             // We started servicing this request
                             transaction_start_q <= 1'b0;
                             /*
@@ -529,29 +533,47 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                              * Auto precharge (A10) is disabled and therefore the row remains open for subsequent
                              * accesses.
                              */
-                            sdram_a <= {4'b0000, addr_i[8:0]};
+                            sdram_a <= {4'b0000, active_addr[8:0]};
                             // DQM: Specify 0 for dqm[1] to get bites [15:8] and specify 0 for dqm[0] to get bits [7:0].
-                            sdram_dqm <= ~sel_i;
+                            sdram_dqm <= ~sel_i[1:0];
 
                             if (we_i) begin
-                                sdram_cmd  <= SDRAM_CMD_WRITE;
-                                sdram_d_o  <= data_i;
-                                // The transaction is complete
-                                sync_ack_o <= 1'b1;
+                                sdram_cmd <= SDRAM_CMD_WRITE;
+                                if (sel_i[3]) begin
+                                    if (next_word) begin
+                                        sdram_d_o <= data_i[31:16];
+                                        // The transaction is complete
+                                        sync_ack_o <= 1'b1;
+                                    end else begin
+                                        sdram_d_o <= data_i[15:0];
+                                        next_addr <= active_addr + 1;
+                                        transaction_start_q <= 1'b1;
+                                    end
+                                    next_word <= ~next_word;
+                                end else begin
+                                    sdram_d_o <= data_i[15:0];
+                                    // The transaction is complete
+                                    sync_ack_o <= 1'b1;
+                                end
                             end else begin
-                                // Read requests will complete when the bit is shifted to the MSB
+`ifdef D_SDRAM
+                                $display($time,
+                                    " SDRAM: STATE_ACTIVATED: Read: sel %h, @[%h]-> STATE_READ_PENDING (next word %h)",
+                                            sel_i, active_addr, next_word);
+`endif
+                                // Read requests will complete when the bit is shifted left to the MSB of cas_latency.
                                 cas_latency <= 1'b1;
                                 sdram_cmd <= SDRAM_CMD_READ;
                                 state_m <= STATE_READ_PENDING;
                             end
                         end else begin
-                            activated_row_bank <= addr_i[23:9];
+                            activated_row_bank <= active_addr[23:9];
                             // Clear the bank and the row and activate the new bank and the new row.
                             sdram_cmd <= SDRAM_CMD_NOP;
                             state_m <= STATE_PRECHARGE;
 `ifdef D_SDRAM
                             $display($time, " SDRAM: STATE_ACTIVATED: BR: prev: %h, now: %h -> STATE_PRECHARGE",
-                                        activated_row_bank, addr_i[23:9]);
+                                        activated_row_bank, active_addr[23:9]);
 `endif
                         end
                     end else if (refresh_expired) begin
@@ -569,18 +591,31 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
 
                 STATE_READ_PENDING: begin
                     cas_latency <= {cas_latency[CAS_DELAY-1:0], 1'b0};
-                    sync_ack_o  <= cas_latency[CAS_DELAY];
                     /*
                      * Read data appears on the DQ subject to the logic level on the DQM inputs two clocks earlier.
                      * If a given DQM signal was registered HIGH, the corresponding DQ will be High- Z two clocks later;
                      * if the DQM signal was registered LOW, the DQ will provide valid data (see ACTIVATE states).
                      */
-                    sdram_cmd   <= SDRAM_CMD_NOP;
+                    sdram_cmd <= SDRAM_CMD_NOP;
                     if (cas_latency[CAS_DELAY]) begin
 `ifdef D_SDRAM
-                        $display($time, " SDRAM: STATE_READ_PENDING @[%h]: %h", addr_i, sdram_d_i);
+                        $display($time, " SDRAM: STATE_READ_PENDING @[%h]: %h (next_word %h)", active_addr, sdram_d_i,
+                                    next_word);
 `endif
-                        data_o  <= sdram_d_i;
+                        if (sel_i[3]) begin
+                            if (next_word) begin
+                                data_o[31:16] <= sdram_d_i;
+                                sync_ack_o <= 1'b1;
+                            end else begin
+                                data_o[15:0] <= sdram_d_i;
+                                next_addr <= active_addr + 1;
+                                transaction_start_q <= 1'b1;
+                            end
+                            next_word <= ~next_word;
+                        end else begin
+                            data_o <= sdram_d_i;
+                            sync_ack_o <= 1'b1;
+                        end
                         state_m <= STATE_ACTIVATED;
                     end else begin
                         sdram_dqm <= 2'b11;

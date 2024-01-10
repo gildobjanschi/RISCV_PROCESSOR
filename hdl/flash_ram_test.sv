@@ -183,7 +183,7 @@ module flash_ram_test(
 `endif // SIMULATION
 
     logic sync_flash_ack_i_pulse;
-    DFF_META dff_meta(.reset (reset), .D (flash_ack_i), .clk (clk), .Q_pulse(sync_flash_ack_i_pulse));
+    DFF_META dff_meta_flash_ack(.reset (reset), .D (flash_ack_i), .clk (clk), .Q_pulse(sync_flash_ack_i_pulse));
 
     //==================================================================================================================
     // Instantiate the modules
@@ -195,26 +195,47 @@ module flash_ram_test(
     logic [31:0] flash_data_i;
     logic flash_ack_i;
 
+    flash_master #(.FLASH_CLK_PERIOD_NS(FLASH_CLK_PERIOD_NS)) flash_master_m (
+        // Wishbone interface
+        .clk_i          (flash_master_clk),
+        .rst_i          (reset),
+        .stb_i          (flash_stb_o),
+        .cyc_i          (flash_cyc_o),
+        .sel_i          (flash_sel_o),
+        .addr_i         (flash_addr_o),
+        .ack_o          (flash_ack_i),
+        .data_o         (flash_data_i),
+        // Flash clock
+        .device_clk_i   (flash_device_clk),
+        // Flash wires
+        .flash_csn      (flash_csn),
+        .flash_clk      (flash_clk),
+        .flash_mosi     (flash_mosi),
+        .flash_miso     (flash_miso),
+        .flash_wpn      (flash_wpn),
+        .flash_holdn    (flash_holdn));
+
+`ifdef D_FLASH_ONLY_TEST
     // RAM ports
-    logic [15:0] ram_data_o;
+    logic [31:0] ram_data_o;
     logic ram_stb_o;
     logic ram_cyc_o;
-    logic [1:0] ram_sel_o;
+    logic [3:0] ram_sel_o;
     logic ram_we_o;
     logic ram_ack_i;
-    logic [15:0] ram_data_i;
+    logic [31:0] ram_data_i;
 `ifdef BOARD_ULX3S
     logic [23:0] ram_addr_o;
     sdram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) sdram_m (
         // Wishbone interface
         .clk_i          (clk),
         .rst_i          (reset),
-        .addr_i         (ram_addr_o),
-        .data_i         (ram_data_o),
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
         .sel_i          (ram_sel_o),
         .we_i           (ram_we_o),
+        .addr_i         (ram_addr_o),
+        .data_i         (ram_data_o),
         .ack_o          (ram_ack_i),
         .data_o         (ram_data_i),
         // SDRAM clock
@@ -236,12 +257,12 @@ module flash_ram_test(
         // Wishbone interface
         .clk_i          (clk),
         .rst_i          (reset),
-        .addr_i         (ram_addr_o),
-        .data_i         (ram_data_o),
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
         .sel_i          (ram_sel_o),
         .we_i           (ram_we_o),
+        .addr_i         (ram_addr_o),
+        .data_i         (ram_data_o),
         .ack_o          (ram_ack_i),
         .data_o         (ram_data_i),
         // PSRAM signals
@@ -253,27 +274,7 @@ module flash_ram_test(
         .psram_a        (psram_a),
         .psram_d        (psram_d));
 `endif // BOARD_ULX3S
-
-    flash_master #(.FLASH_CLK_PERIOD_NS(FLASH_CLK_PERIOD_NS)) flash_master_m (
-        // Wishbone interface
-        .clk_i          (flash_master_clk),
-        .rst_i          (reset),
-        .addr_i         (flash_addr_o),
-        .stb_i          (flash_stb_o),
-        .cyc_i          (flash_cyc_o),
-        .sel_i          (flash_sel_o),
-        .ack_o          (flash_ack_i),
-        .data_o         (flash_data_i),
-        // Flash clock
-        .device_clk_i   (flash_device_clk),
-        // Flash wires
-        .flash_csn      (flash_csn),
-        .flash_clk      (flash_clk),
-        .flash_mosi     (flash_mosi),
-        .flash_miso     (flash_miso),
-        .flash_wpn      (flash_wpn),
-        .flash_holdn    (flash_holdn));
-
+`endif // D_FLASH_ONLY_TEST
     //==================================================================================================================
     // The test code
     //==================================================================================================================
@@ -283,6 +284,7 @@ module flash_ram_test(
 `else
     localparam [2:0] CHECKSUM_LED = 0;
 `endif
+    localparam RAM_OFFSET = 24'h01_0000;
 
     //==================================================================================================================
     // Flash
@@ -469,10 +471,6 @@ module flash_ram_test(
     //==================================================================================================================
     // Start a rd/wr RAM transaction
     //==================================================================================================================
-    // The number of 16 bit words to read/write
-    logic [2:0] t_words;
-    logic [15:0] ram_high_wr, ram_low_rd;
-
     task start_ram_transaction_task (input we, input [23:0] addr, input [2:0] byte_count, input [31:0] wr_data);
         ram_we_o <= we;
         {ram_stb_o, ram_cyc_o} <= 2'b11;
@@ -484,38 +482,30 @@ module flash_ram_test(
 
         case (byte_count)
             1: begin
-                t_words <= 1;
-
                 if (addr[0] == 1'b0) begin
-                    ram_sel_o <= 2'b01;
+                    ram_sel_o <= 4'b0001;
                     if (we) ram_data_o <= wr_data[7:0];
                 end else begin
-                    ram_sel_o <= 2'b10;
+                    ram_sel_o <= 4'b0010;
                     if (we) ram_data_o[15:8] <= wr_data[7:0];
                 end
             end
 
             2: begin
-                t_words <= 1;
-
-                if (we) ram_data_o <= wr_data[15:0];
-                ram_sel_o <= 2'b11;
+                if (we) ram_data_o[15:0] <= wr_data[15:0];
+                ram_sel_o <= 4'b0011;
             end
 
             4: begin
-                t_words <= 2;
-
-                if (we) ram_data_o <= wr_data[15:0];
-                ram_sel_o <= 2'b11;
+                if (we) ram_data_o <= wr_data;
+                ram_sel_o <= 4'b1111;
             end
         endcase
     endtask
 
     //==================================================================================================================
-    // RAM processing
+    // RAM
     //==================================================================================================================
-    localparam RAM_OFFSET = 24'h01_0000;
-
     logic done_rd, done_wr, do_next_flash_read, do_next_ram_read_r;
     logic test_done_ram_ok, test_done_ram_error;
     logic [31:0] rd_checksum;
@@ -617,78 +607,53 @@ module flash_ram_test(
             test_done_ram_ok <= 1'b0;
 
             if (ram_cyc_o & ram_stb_o & ram_ack_i) begin
-                // A transaction is complete
-                ram_stb_o <= 1'b0;
-
-                if (t_words == 1) begin
-                    // Cycle complete
-                    ram_cyc_o <= 1'b0;
-                    if (ram_we_o) begin
+                // The transaction is complete
+                {ram_stb_o, ram_cyc_o} <= 2'b00;
+                if (ram_we_o) begin
 `ifdef D_CORE_FINE
-                        $display($time, " CORE: RAM wr @[%h] %h", ram_addr_o << 1, ram_data_o);
+                    $display($time, " CORE: RAM wr @[%h] %h", ram_addr_o << 1, ram_data_o);
 `endif
-                        if (wr_count == WR_COUNT) begin
-                            done_wr <= 1'b1;
-                        end else begin
-                            do_next_flash_read <= 1'b1;
-                        end
+                    if (wr_count == WR_COUNT) begin
+                        done_wr <= 1'b1;
                     end else begin
-                        case (1'b1)
-                            RD_INCR[0]: begin
+                        do_next_flash_read <= 1'b1;
+                    end
+                end else begin
+                    case (1'b1)
+                        RD_INCR[0]: begin
 `ifdef D_CORE_FINE
-                                $display($time, " CORE: RAM rd data @[%h]: %h", ram_addr_o << 1, ram_data_i);
+                            $display($time, " CORE: RAM rd data @[%h]: %h", ram_addr_o << 1,
+                                        ram_sel_o[1:0] == 2'b01 ? ram_data_i[7:0] : ram_data_i[15:8]);
 `endif
-                                rd_checksum <= rd_checksum
-                                    + (rd_checksum ^ (ram_sel_o == 2'b01 ? ram_data_i[7:0] : ram_data_i[15:8]));
-                                if (CHECKSUM_LED == 3) begin
-                                    if (rd_count == 0) led <= ram_data_i[7:0];
-                                end
+                            rd_checksum <= rd_checksum
+                                    + (rd_checksum ^ (ram_sel_o[1:0] == 2'b01 ? ram_data_i[7:0] : ram_data_i[15:8]));
+                            if (CHECKSUM_LED == 3) begin
+                                if (rd_count == 0) led <= ram_data_i[7:0];
                             end
-
-                            RD_INCR[1]: begin
-`ifdef D_CORE_FINE
-                                $display($time, " CORE: RAM rd data @[%h]: %h", ram_addr_o << 1, ram_data_i);
-`endif
-                                rd_checksum <= rd_checksum + (rd_checksum ^ ram_data_i);
-                            end
-
-                            RD_INCR[2]: begin
-`ifdef D_CORE_FINE
-                                $display($time, " CORE: RAM rd data @[%h]: %h", (ram_addr_o << 1) - 1,
-                                            {ram_data_i, ram_low_rd});
-`endif
-                                rd_checksum <= rd_checksum + (rd_checksum ^ {ram_data_i, ram_low_rd});
-                            end
-                        endcase
-
-                        rd_count <= rd_count + 1;
-                        if (rd_count == RD_COUNT - 1) begin
-                            done_rd <= 1'b1;
-                        end else begin
-                            ram_rd_address <= ram_rd_address + RD_INCR;
-                            do_next_ram_read_r <= 1'b1;
                         end
-                    end
-                end else begin
-                    if (~ram_we_o) begin
-                        // The low word is stored
-                        ram_low_rd <= ram_data_i;
-                    end
 
-                    // We will continue in the next clk when sdram_stb_o == 0 and sdram_ack_i == 0
-                    t_words <= t_words - 1;
-                end
-            end else if (ram_cyc_o & ~ram_stb_o & ~ram_ack_i) begin
-                // RAM is ready for a new transaction (ready for reading/writing the high byte)
-                if (t_words == 1) begin
-                    // Next address
-                    ram_addr_o <= ram_addr_o + 1;
-                    if (ram_we_o) ram_data_o <= ram_high_wr;
-                    // Start the next transaction
-                    ram_stb_o <= 1'b1;
-                end else begin
-                    // Cycle complete
-                    ram_cyc_o <= 1'b0;
+                        RD_INCR[1]: begin
+`ifdef D_CORE_FINE
+                            $display($time, " CORE: RAM rd data @[%h]: %h", ram_addr_o << 1, ram_data_i[15:0]);
+`endif
+                            rd_checksum <= rd_checksum + (rd_checksum ^ ram_data_i[15:0]);
+                        end
+
+                        RD_INCR[2]: begin
+`ifdef D_CORE_FINE
+                            $display($time, " CORE: RAM rd data @[%h]: %h", (ram_addr_o << 1) - 1, ram_data_i);
+`endif
+                            rd_checksum <= rd_checksum + (rd_checksum ^ ram_data_i);
+                        end
+                    endcase
+
+                    rd_count <= rd_count + 1;
+                    if (rd_count == RD_COUNT - 1) begin
+                        done_rd <= 1'b1;
+                    end else begin
+                        ram_rd_address <= ram_rd_address + RD_INCR;
+                        do_next_ram_read_r <= 1'b1;
+                    end
                 end
             end
 
@@ -720,7 +685,6 @@ module flash_ram_test(
             if (do_ram_write) begin
                 // Write to RAM the same number of bytes that you read from the flash
                 start_ram_transaction_task (1'b1, ram_wr_address, WR_INCR, ram_wr_data);
-                ram_high_wr <= ram_wr_data[31:16];
             end
 
             if (test_done_flash_error) begin

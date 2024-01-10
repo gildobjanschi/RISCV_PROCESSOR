@@ -177,15 +177,15 @@ module mem_space #(
     logic [31:0] incr_internal_event_counters;
     // Wishbone flip flop for handling cross domain flash ack
     logic sync_flash_ack_i, sync_flash_ack_i_pulse;
-    DFF_META dff_meta (.reset(rst_i), .D(flash_ack_i), .clk(clk_i), .Q(sync_flash_ack_i),
+    DFF_META dff_meta_flash_ack (.reset(rst_i), .D(flash_ack_i), .clk(clk_i), .Q(sync_flash_ack_i),
                             .Q_pulse(sync_flash_ack_i_pulse));
     //==================================================================================================================
     // Instantiate the modules
     //==================================================================================================================
     // RAM ports
-    logic [15:0] ram_data_o, ram_data_i;
+    logic [31:0] ram_data_o, ram_data_i;
     logic ram_stb_o, ram_cyc_o, ram_we_o, ram_ack_i;
-    logic [1:0] ram_sel_o;
+    logic [3:0] ram_sel_o;
 
     // Flash ports
     logic flash_stb_o, flash_cyc_o, flash_ack_i;
@@ -319,9 +319,6 @@ module mem_space #(
     //==================================================================================================================
     // Start a rd/wr RAM transaction
     //==================================================================================================================
-    logic additional_word;
-    logic [15:0] ram_high_wr, ram_low_rd;
-
     task start_ram_transaction_task(input we, input [23:0] addr, input [3:0] sel, input [31:0] wr_data);
 `ifdef BOARD_ULX3S
         ram_addr_o <= {1'b0, addr[23:1]};
@@ -332,27 +329,21 @@ module mem_space #(
 
         case (1'b1)
             sel[3]: begin
-                additional_word <= 1'b1;  // 2 words to transact
-                //if (we) begin
-                ram_data_o <= wr_data[15:0];
-                ram_high_wr <= wr_data[31:16];
-                //end
-                ram_sel_o <= 2'b11;
+                /*if (we)*/ ram_data_o <= wr_data;
+                ram_sel_o <= 4'b1111;
             end
 
             sel[1]: begin
-                additional_word <= 1'b0;  // 1 word to transact
-                /*if (we)*/ ram_data_o <= wr_data[15:0];
-                ram_sel_o <= 2'b11;
+                /*if (we)*/ ram_data_o[15:0] <= wr_data[15:0];
+                ram_sel_o <= 4'b0011;
             end
 
             sel[0]: begin
-                additional_word <= 1'b0;  // 1 word to transact
                 if (addr[0] == 0) begin
-                    ram_sel_o <= 2'b01;
+                    ram_sel_o <= 4'b0001;
                     /*if (we)*/ram_data_o <= wr_data[7:0];
                 end else begin
-                    ram_sel_o <= 2'b10;
+                    ram_sel_o <= 4'b0010;
                     /*if (we)*/ ram_data_o[15:8] <= wr_data[7:0];
                 end
             end
@@ -659,69 +650,47 @@ module mem_space #(
 
         // --------------------------------- Handle RAM transaction complete -----------------------------------------
         if (ram_cyc_o & ram_stb_o & ram_ack_i) begin
-            // A transaction is complete
-            ram_stb_o <= 1'b0;
+            // The transaction is complete
+            {ram_stb_o, ram_cyc_o} <= 2'b00;
 
-            if (~additional_word) begin
-                // Cycle complete
-                ram_cyc_o <= 1'b0;
-
-                if (core_access == ACCESS_RAM) begin
-                    core_data_o <= {ram_data_i, ram_low_rd};
-                    {core_sync_ack_o, core_sync_err_o} <= 2'b10;
-                    // Write the instruction into the cache.
-                    i_cache_addr[i_cache_index] <= core_addr_i;
-                    i_cache_data[i_cache_index] <= {ram_data_i, ram_low_rd};
+            if (core_access == ACCESS_RAM) begin
+                core_data_o <= ram_data_i;
+                {core_sync_ack_o, core_sync_err_o} <= 2'b10;
+                // Write the instruction into the cache.
+                i_cache_addr[i_cache_index] <= core_addr_i;
+                i_cache_data[i_cache_index] <= ram_data_i;
 `ifdef ENABLE_HPM_COUNTERS
-                    incr_internal_event_counters[`EVENT_INSTR_FROM_RAM] <= 1'b1;
+                incr_internal_event_counters[`EVENT_INSTR_FROM_RAM] <= 1'b1;
 `endif
-                    `ifdef BOARD_BLUE_WHALE led[2] <= 1'b0;`endif
-                    `ifdef BOARD_BLUE_WHALE led[3] <= 1'b0;`endif
-                    core_access <= ACCESS_NONE;
-                end else begin
-                    //if (~ram_we_o) begin
-                    case (1'b1)
-                        data_sel_i[3]: data_data_o <= {ram_data_i, ram_low_rd};
-                        data_sel_i[1]: data_data_o[15:0] <= ram_data_i;
-                        data_sel_i[0]: data_data_o[7:0] <= ram_sel_o == 2'b01 ? ram_data_i[7:0] : ram_data_i[15:8];
-                    endcase
-                    //end
-
-                    {data_sync_ack_o, data_sync_err_o} <= 2'b10;
-
-`ifdef ENABLE_HPM_COUNTERS
-                    if (~ram_we_o) begin
-                        incr_internal_event_counters[`EVENT_LOAD_FROM_RAM] <= 1'b1;
-                    end else begin
-                        incr_internal_event_counters[`EVENT_STORE_TO_RAM] <= 1'b1;
-                    end
-`endif
-                    `ifdef BOARD_BLUE_WHALE led[10] <= 1'b0;`endif
-                    `ifdef BOARD_BLUE_WHALE led[11] <= 1'b0;`endif
-                    data_access <= ACCESS_NONE;
-                end
+                `ifdef BOARD_BLUE_WHALE led[2] <= 1'b0;`endif
+                `ifdef BOARD_BLUE_WHALE led[3] <= 1'b0;`endif
+                core_access <= ACCESS_NONE;
             end else begin
-                // The low word is stored for reads
-                /*if (~ram_we_o)*/ ram_low_rd <= ram_data_i;
-                // One more word to go
-                additional_word <= 1'b0;
-            end
-`ifdef D_MEM_SPACE
-           $display($time, " MEM_SPACE: RAM read @[%h]: %h [%h word remaining]", ram_addr_o, ram_data_i,
-							additional_word);
+                //if (~ram_we_o) begin
+                case (1'b1)
+                    data_sel_i[3]: data_data_o <= ram_data_i;
+                    data_sel_i[1]: data_data_o[15:0] <= ram_data_i[15:0];
+                    data_sel_i[0]: data_data_o[7:0] <= ram_sel_o[1:0] == 2'b01 ? ram_data_i[7:0] : ram_data_i[15:8];
+                endcase
+                //end
+
+                {data_sync_ack_o, data_sync_err_o} <= 2'b10;
+
+`ifdef ENABLE_HPM_COUNTERS
+                if (~ram_we_o) begin
+                    incr_internal_event_counters[`EVENT_LOAD_FROM_RAM] <= 1'b1;
+                end else begin
+                    incr_internal_event_counters[`EVENT_STORE_TO_RAM] <= 1'b1;
+                end
 `endif
-        end else if (ram_cyc_o & ~ram_stb_o & ~ram_ack_i) begin
-            // RAM is ready for a new transaction (ready for reading/writing the high byte)
-            if (~additional_word) begin
-                // Next address
-                ram_addr_o <= ram_addr_o + 1;
-                /*if (ram_we_o)*/ram_data_o <= ram_high_wr;
-                // Start the next transaction
-                ram_stb_o <= 1'b1;
-`ifdef D_MEM_SPACE
-               $display($time, " MEM_SPACE: Start RAM read (high) @[%h]", ram_addr_o + 1);
-`endif
+                `ifdef BOARD_BLUE_WHALE led[10] <= 1'b0;`endif
+                `ifdef BOARD_BLUE_WHALE led[11] <= 1'b0;`endif
+                data_access <= ACCESS_NONE;
             end
+
+`ifdef D_MEM_SPACE
+            $display($time, " MEM_SPACE: RAM read @[%h]: %h", ram_addr_o, ram_data_i);
+`endif
         end
 
         // ----------------------------------- Handle IO transaction complete ------------------------------------------
