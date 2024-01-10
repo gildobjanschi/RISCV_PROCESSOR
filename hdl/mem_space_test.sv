@@ -217,22 +217,22 @@ module mem_space_test(
     .clk_i              (clk),
     .rst_i              (reset),
     // Wishbone interface for reading instructions
-    .core_addr_i        (core_addr_o),
-    .core_data_i        (core_data_o),
     .core_stb_i         (core_stb_o),
     .core_cyc_i         (core_cyc_o),
     .core_sel_i         (core_sel_o),
     .core_we_i          (core_we_o),
+    .core_addr_i        (core_addr_o),
+    .core_data_i        (core_data_o),
     .core_ack_o         (core_ack_i),
     .core_err_o         (core_err_i),
     .core_data_o        (core_data_i),
     // Wishbone interface for reading and writing data
-    .data_addr_i        (data_addr_o),
-    .data_data_i        (data_data_o),
     .data_stb_i         (data_stb_o),
     .data_cyc_i         (data_cyc_o),
     .data_sel_i         (data_sel_o),
     .data_we_i          (data_we_o),
+    .data_addr_i        (data_addr_o),
+    .data_data_i        (data_data_o),
     .data_ack_o         (data_ack_i),
     .data_err_o         (data_err_i),
     .data_data_o        (data_data_i),
@@ -278,30 +278,28 @@ module mem_space_test(
     //==================================================================================================================
     // The test code
     //==================================================================================================================
-    // 0: ROM & RAM checksum OK | 2, 3: DEBUG
-    localparam [2:0] CHECKSUM_LED = 0;
+    // 0: ROM & RAM checksum OK | 1, 2, 3: DEBUG
+    localparam [1:0] CHECKSUM_LED = 2'h0;
 
     //==================================================================================================================
     // Flash
     //==================================================================================================================
     localparam RAM_OFFSET = 24'h00_0000;
 
-    logic done_rd, done_wr, do_next_core_read, do_next_data_read, do_data_write;
-    logic test_ok, test_error;
-    logic [31:0] rd_checksum;
-    logic [31:0] RD_CHECKSUM;
-    logic [15:0] rd_count;
-    logic [15:0] RD_COUNT;
-    logic [2:0] RD_INCR;
-    logic [31:0] data_address;
+    logic done_ram_rd, done_flash_rd, do_next_core_read, do_next_data_read, do_data_write, test_ok;
+    // Test error
+    localparam [2:0] TEST_ERROR_NONE = 3'h0;
+    localparam [2:0] TEST_ERROR_CORE = 3'h1;
+    localparam [2:0] TEST_ERROR_FLASH_CHECKSUM = 3'h2;
+    localparam [2:0] TEST_ERROR_DATA = 3'h3;
+    localparam [2:0] TEST_ERROR_RAM_CHECKSUM = 3'h4;
+    localparam [2:0] TEST_ERROR_IRQ = 3'h5;
+    logic [2:0] test_error;
 
-    logic [31:0] wr_checksum;
-    logic [31:0] WR_CHECKSUM;
-    logic [15:0] wr_count;
-    logic [15:0] WR_COUNT;
-    logic [2:0] WR_INCR;
-    logic [31:0] core_address, data_wr_address;
-    logic [31:0] data_wr_data;
+    logic [31:0] rd_ram_checksum, RD_RAM_CHECKSUM, rd_flash_checksum, RD_FLASH_CHECKSUM;
+    logic [15:0] rd_ram_count, RD_RAM_COUNT, rd_flash_count, RD_FLASH_COUNT;
+    logic [2:0] RD_RAM_INCR, RD_FLASH_INCR;
+    logic [31:0] data_wr_data, core_rd_address, data_rd_address, data_wr_address;
 
     task test_mem_task;
         if (start_test) begin
@@ -312,53 +310,87 @@ module mem_space_test(
             do_next_data_read <= 1'b0;
             do_data_write <= 1'b0;
 
-            wr_checksum <= 0;
-            rd_checksum <= 0;
-            wr_count <= 0;
-            rd_count <= 0;
+            rd_flash_checksum <= 0;
+            rd_ram_checksum <= 0;
+            rd_flash_count <= 0;
+            rd_ram_count <= 0;
 
-            data_address <= `RAM_BEGIN_ADDR + RAM_OFFSET;
-            core_address <= `ROM_BEGIN_ADDR;
+            data_rd_address <= `RAM_BEGIN_ADDR + RAM_OFFSET;
+            core_rd_address <= `ROM_BEGIN_ADDR;
 
             (* parallel_case, full_case *)
             case (test_num)
                 0: begin
-                    // Read 4 from flash, write 4 to RAM, read 1 from RAM
-                    WR_COUNT <= 16'h05c9;
-                    WR_INCR <= 3'h4;
-                    WR_CHECKSUM <= 32'hd800_1834;
-                    core_sel_o <= 4'b1111;
+                    // Read 1 byte from flash, write 1 byte to RAM, read 1 byte from RAM
+                    RD_FLASH_COUNT <= 16'h1724;
+                    RD_FLASH_INCR <= 3'h1;
+                    RD_FLASH_CHECKSUM <= 32'h0000_34dc;
+                    core_sel_o <= 4'b0001;
 
-                    RD_COUNT <= 16'h1724;
-                    RD_INCR <= 3'h1;
-                    RD_CHECKSUM <= 32'h0000_34dc;
-                    `ifdef BOARD_BLUE_WHALE led_a <= 16'h1;`endif
+                    RD_RAM_COUNT <= 16'h1724;
+                    RD_RAM_INCR <= 3'h1;
+                    RD_RAM_CHECKSUM <= 32'h0000_34dc;
+                    `ifdef BOARD_BLUE_WHALE led_a <= 16'h0;`endif
                 end
 
                 1: begin
-                    // Read 4 from flash, write 4 to RAM, read 2 from RAM
-                    WR_COUNT <= 16'h05c9;
-                    WR_INCR <= 3'h4;
-                    WR_CHECKSUM <= 32'hd800_1834;
-                    core_sel_o <= 4'b1111;
+                    // Read 2 bytes from flash, write 2 bytes to RAM, read 2 bytes from RAM
+                    RD_FLASH_COUNT <= 16'h0b92;
+                    RD_FLASH_INCR <= 3'h2;
+                    RD_FLASH_CHECKSUM <= 32'h0003_4fc8;
+                    core_sel_o <= 4'b0011;
 
-                    RD_COUNT <= 16'h0b92;
-                    RD_INCR <= 3'h2;
-                    RD_CHECKSUM <= 32'h0003_4fc8;
-                    `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b1;`endif
+                    RD_RAM_COUNT <= 16'h0b92;
+                    RD_RAM_INCR <= 3'h2;
+                    RD_RAM_CHECKSUM <= 32'h0003_4fc8;
                 end
 
                 2: begin
-                    // Read 4 from flash, write 4 to RAM, read 4 from RAM
-                    WR_COUNT <= 16'h05c9;
-                    WR_INCR <= 3'h4;
-                    WR_CHECKSUM <= 32'hd800_1834;
+                    // Read 2 bytes from flash, write 2 bytes to RAM, read 4 bytes from RAM
+                    RD_FLASH_COUNT <= 16'h0b92;
+                    RD_FLASH_INCR <= 3'h2;
+                    RD_FLASH_CHECKSUM <= 32'h0003_4fc8;
+                    core_sel_o <= 4'b0011;
+
+                    RD_RAM_COUNT <= 16'h05c9;
+                    RD_RAM_INCR <= 3'h4;
+                    RD_RAM_CHECKSUM <= 32'hd800_1834;
+                end
+
+                3: begin
+                    // Read 4 bytes from flash, write 4 bytes to RAM, read 1 byte from RAM
+                    RD_FLASH_COUNT <= 16'h05c9;
+                    RD_FLASH_INCR <= 3'h4;
+                    RD_FLASH_CHECKSUM <= 32'hd800_1834;
                     core_sel_o <= 4'b1111;
 
-                    RD_COUNT <= 16'h05c9;
-                    RD_INCR <= 3'h4;
-                    RD_CHECKSUM <= 32'hd800_1834;
-                    `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b1;`endif
+                    RD_RAM_COUNT <= 16'h1724;
+                    RD_RAM_INCR <= 3'h1;
+                    RD_RAM_CHECKSUM <= 32'h0000_34dc;
+                end
+
+                4: begin
+                    // Read 4 bytes from flash, write 4 bytes to RAM, read 2 bytes from RAM
+                    RD_FLASH_COUNT <= 16'h05c9;
+                    RD_FLASH_INCR <= 3'h4;
+                    RD_FLASH_CHECKSUM <= 32'hd800_1834;
+                    core_sel_o <= 4'b1111;
+
+                    RD_RAM_COUNT <= 16'h0b92;
+                    RD_RAM_INCR <= 3'h2;
+                    RD_RAM_CHECKSUM <= 32'h0003_4fc8;
+                end
+
+                5: begin
+                    // Read 4 bytes from flash, write 4 bytes to RAM, read 4 bytes from RAM
+                    RD_FLASH_COUNT <= 16'h05c9;
+                    RD_FLASH_INCR <= 3'h4;
+                    RD_FLASH_CHECKSUM <= 32'hd800_1834;
+                    core_sel_o <= 4'b1111;
+
+                    RD_RAM_COUNT <= 16'h05c9;
+                    RD_RAM_INCR <= 3'h4;
+                    RD_RAM_CHECKSUM <= 32'hd800_1834;
                 end
 
                 default: begin
@@ -371,65 +403,59 @@ module mem_space_test(
             // Signals that stay on for only one clock cycle
             do_next_data_read <= 1'b0;
             do_data_write <= 1'b0;
-            done_wr <= 1'b0;
+            done_flash_rd <= 1'b0;
             do_next_core_read <= 1'b0;
 
             if (core_cyc_o & core_stb_o & core_ack_i) begin
                 {core_stb_o, core_cyc_o} <= 2'b00;
-
 `ifdef D_CORE_FINE
                 $display($time, " CORE: Core data @[%h]: %h", core_addr_o, core_data_i);
 `endif
                 case (1'b1)
-                    WR_INCR[0]: begin
-                        wr_checksum <= wr_checksum + (wr_checksum ^ core_data_i[7:0]);
-                        if (CHECKSUM_LED == 2) begin
-                            if (wr_count == 0) led <= core_data_i[7:0];
+                    RD_FLASH_INCR[0]: begin
+                        rd_flash_checksum <= rd_flash_checksum + (rd_flash_checksum ^ core_data_i[7:0]);
+                        if (CHECKSUM_LED == 2'h2) begin
+                            if (rd_flash_count == 0) led <= core_data_i[7:0];
                         end
                     end
 
-                    WR_INCR[1]: begin
-                        wr_checksum <= wr_checksum + (wr_checksum ^ core_data_i[15:0]);
+                    RD_FLASH_INCR[1]: begin
+                        rd_flash_checksum <= rd_flash_checksum + (rd_flash_checksum ^ core_data_i[15:0]);
                     end
 
-                    WR_INCR[2]: begin
-                        wr_checksum <= wr_checksum + (wr_checksum ^ core_data_i);
+                    RD_FLASH_INCR[2]: begin
+                        rd_flash_checksum <= rd_flash_checksum + (rd_flash_checksum ^ core_data_i);
                     end
                 endcase
 
-                core_address <= core_address + WR_INCR;
-                wr_count <= wr_count + 1;
+                core_rd_address <= core_rd_address + RD_FLASH_INCR;
+                rd_flash_count <= rd_flash_count + 1;
                 // Write the flash data to RAM
                 data_wr_data <= core_data_i;
                 data_wr_address <= `RAM_BEGIN_ADDR + (core_addr_o - `ROM_BEGIN_ADDR) + RAM_OFFSET;
                 do_data_write <= 1'b1;
             end else if (core_cyc_o & core_stb_o & core_err_i) begin
                 {core_stb_o, core_cyc_o} <= 2'b00;
-                // Error
-                if (CHECKSUM_LED == 0) begin
-                    led[7] <= 1'b1;
-                end
-                test_error <= 1'b1;
+                test_error <= TEST_ERROR_CORE;
             end else if (do_next_core_read) begin
-                core_addr_o <= core_address;
+                core_addr_o <= core_rd_address;
                 core_we_o <= 1'b0;
                 // core_sel_o was set at the beginning of the test
                 {core_stb_o, core_cyc_o} <= 2'b11;
-            end else if (done_wr) begin
-                if (wr_checksum == WR_CHECKSUM) begin
-                    if (CHECKSUM_LED == 0) begin
+            end else if (done_flash_rd) begin
+                if (rd_flash_checksum == RD_FLASH_CHECKSUM) begin
+                    if (CHECKSUM_LED == 2'h0) begin
                         led[test_num] <= 1'b1;
+                        `ifdef BOARD_BLUE_WHALE led_a[test_num] <= 1'b1;`endif
                     end
                     // Start the reading from RAM
                     do_next_data_read <= 1'b1;
                 end else begin
-                    if (CHECKSUM_LED == 0) begin
-                        led[6] <= 1'b1;
-                    end
 `ifdef D_CORE
-                    $display($time, " CORE: Core checksum failed: %h, expected: %h.", wr_checksum, WR_CHECKSUM);
+                    $display($time, " CORE: Core checksum failed: %h, expected: %h.", rd_flash_checksum,
+                                    RD_FLASH_CHECKSUM);
 `endif
-                    test_error <= 1'b1;
+                    test_error <= TEST_ERROR_FLASH_CHECKSUM;
                 end
             end else if (data_cyc_o & data_stb_o & data_ack_i) begin
                 // A transaction is complete
@@ -439,86 +465,80 @@ module mem_space_test(
 `ifdef D_CORE_FINE
                     $display($time, " CORE: Data write complete %h -> @[%h]", data_data_o, data_addr_o);
 `endif
-                    if (wr_count == WR_COUNT) begin
-                        done_wr <= 1'b1;
+                    if (rd_flash_count == RD_FLASH_COUNT) begin
+                        done_flash_rd <= 1'b1;
                     end else begin
                         do_next_core_read <= 1'b1;
                     end
                 end else begin
                     case (1'b1)
-                        RD_INCR[0]: begin
+                        RD_RAM_INCR[0]: begin
 `ifdef D_CORE_FINE
                             $display($time, " CORE: Data read @[%h]: %h", data_addr_o, data_data_i[7:0]);
 `endif
-                            rd_checksum <= rd_checksum + (rd_checksum ^ data_data_i[7:0]);
-                            if (CHECKSUM_LED == 3) begin
-                                if (rd_count == 0) led <= data_data_i[7:0];
+                            rd_ram_checksum <= rd_ram_checksum + (rd_ram_checksum ^ data_data_i[7:0]);
+                            if (CHECKSUM_LED == 2'h3) begin
+                                if (rd_ram_count == 0) led <= data_data_i[7:0];
                             end
                         end
 
-                        RD_INCR[1]: begin
+                        RD_RAM_INCR[1]: begin
 `ifdef D_CORE_FINE
                             $display($time, " CORE: Data read @[%h]: %h", data_addr_o, data_data_i[15:0]);
 `endif
-                            rd_checksum <= rd_checksum + (rd_checksum ^ data_data_i[15:0]);
+                            rd_ram_checksum <= rd_ram_checksum + (rd_ram_checksum ^ data_data_i[15:0]);
                         end
 
-                        RD_INCR[2]: begin
+                        RD_RAM_INCR[2]: begin
 `ifdef D_CORE_FINE
                             $display($time, " CORE: Data read @[%h]: %h", data_addr_o, data_data_i);
 `endif
-                            rd_checksum <= rd_checksum + (rd_checksum ^ data_data_i);
+                            rd_ram_checksum <= rd_ram_checksum + (rd_ram_checksum ^ data_data_i);
                         end
                     endcase
 
-                    rd_count <= rd_count + 1;
-                    if (rd_count == RD_COUNT - 1) begin
-                        done_rd <= 1'b1;
+                    rd_ram_count <= rd_ram_count + 1;
+                    if (rd_ram_count == RD_RAM_COUNT - 1) begin
+                        done_ram_rd <= 1'b1;
                     end else begin
-                        data_address <= data_address + RD_INCR;
+                        data_rd_address <= data_rd_address + RD_RAM_INCR;
                         do_next_data_read <= 1'b1;
                     end
                 end
             end else if (data_cyc_o & data_stb_o & data_err_i) begin
                 {data_stb_o, data_cyc_o} <= 2'b00;
-                // Error
-                if (CHECKSUM_LED == 0) begin
-                    led[7] <= 1'b1;
-                end
-                test_error <= 1'b1;
+                test_error <= TEST_ERROR_DATA;
             end else if (do_next_data_read) begin
 `ifdef D_CORE_FINE
-                $display($time, " CORE: Reading data @[%h]", data_address);
+                $display($time, " CORE: Reading data @[%h]", data_rd_address);
 `endif
                 do_next_data_read <= 1'b0;
 
-                data_addr_o <= data_address;
+                data_addr_o <= data_rd_address;
                 data_we_o <= 1'b0;
                 case (1'b1)
-                    RD_INCR[0]: data_sel_o <= 4'b0001;
-                    RD_INCR[1]: data_sel_o <= 4'b0011;
-                    RD_INCR[2]: data_sel_o <= 4'b1111;
+                    RD_RAM_INCR[0]: data_sel_o <= 4'b0001;
+                    RD_RAM_INCR[1]: data_sel_o <= 4'b0011;
+                    RD_RAM_INCR[2]: data_sel_o <= 4'b1111;
                 endcase
                 {data_stb_o, data_cyc_o} <= 2'b11;
-            end else if (done_rd) begin
-                done_rd <= 1'b0;
-                if (rd_checksum == RD_CHECKSUM) begin
+            end else if (done_ram_rd) begin
+                done_ram_rd <= 1'b0;
+                if (rd_ram_checksum == RD_RAM_CHECKSUM) begin
 `ifdef D_CORE
                     $display($time, " CORE: Core and data checksum OK.");
 `endif
-                    if (CHECKSUM_LED == 0) begin
+                    if (CHECKSUM_LED == 2'h0) begin
                         led[test_num] <= 1'b1;
+                        `ifdef BOARD_BLUE_WHALE led_a[test_num + 8] <= 1'b1;`endif
                     end
 
                     test_ok <= 1'b1;
                 end else begin
 `ifdef D_CORE
-                    $display($time, " CORE: Core checksum failed: %h, expected: %h.", rd_checksum, RD_CHECKSUM);
+                    $display($time, " CORE: Core checksum failed: %h, expected: %h.", rd_ram_checksum, RD_RAM_CHECKSUM);
 `endif
-                    if (CHECKSUM_LED == 0) begin
-                        led[7] <= 1'b1;
-                    end
-                    test_error <= 1'b1;
+                    test_error <= TEST_ERROR_RAM_CHECKSUM;
                 end
             end else if (do_data_write) begin
                 data_addr_o <= data_wr_address;
@@ -564,12 +584,10 @@ module mem_space_test(
     logic [63:0] time_now, timecmp;
     task test_io_task;
         if (start_test) begin
-                `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b1;`endif
 `ifdef D_CORE
             $display($time, " CORE: Test %0d", test_num);
 `endif
             state_m <= STATE_WRITE_MTVEC;
-
         end else begin
             (* parallel_case, full_case *)
             case (state_m)
@@ -811,8 +829,9 @@ module mem_space_test(
                 end
 
                 STATE_DONE: begin
-                    if (CHECKSUM_LED == 0) begin
+                    if (CHECKSUM_LED == 2'h0) begin
                         led[test_num] <= 1'b1;
+                        `ifdef BOARD_BLUE_WHALE led_a[test_num] <= 1'b1;`endif
                     end
 
                     test_ok <= 1'b1;
@@ -822,11 +841,7 @@ module mem_space_test(
                 end
 
                 STATE_ERROR: begin
-                    if (CHECKSUM_LED == 0) begin
-                        led[7] <= 1'b1;
-                    end
-
-                    test_error <= 1'b1;
+                    test_error <= TEST_ERROR_IRQ;
 `ifdef D_CORE
                     $display($time, " CORE: IO/CSR test failed.");
 `endif
@@ -852,8 +867,9 @@ module mem_space_test(
     // Number of clock periods that we stay in the reset state
     logic [15:0] reset_clks = 0;
     logic sleep, start_test;
-    logic [1:0] test_num;
+    logic [2:0] test_num;
     logic [15:0] sleep_count;
+    logic [31:0] blink_count;
     logic reset_btn_p = 1'b0;
     logic reset_btn = 1'b0;
 
@@ -873,9 +889,7 @@ module mem_space_test(
                 reset_and_wait <= 1'b1;
                 reset_clks <= 0;
                 led <= 0;
-`ifdef BOARD_BLUE_WHALE
-                led_a <= 0;
-`endif
+                `ifdef BOARD_BLUE_WHALE led_a <= 16'h0;`endif
             end
 
             reset_and_wait: begin
@@ -890,9 +904,10 @@ module mem_space_test(
                             start_test <= 1'b0;
                             sleep <= 1'b0;
                             test_ok <= 1'b0;
-                            test_error <= 1'b0;
+                            test_error <= TEST_ERROR_NONE;
                             {core_stb_o, core_cyc_o} <= 2'b00;
                             {data_stb_o, data_cyc_o} <= 2'b00;
+                            blink_count <= 32'h0;
                         end else begin
                             // Back to zero to wait for PLL lock
                             reset_clks <= 0;
@@ -934,8 +949,7 @@ module mem_space_test(
 
             test_ok: begin
                 test_ok <= 1'b0;
-                incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-                if (test_num == 2'h3) begin
+                if (test_num == 3'h6) begin
                     // Sleep before starting over
                     sleep <= 1'b1;
                     sleep_count <= 0;
@@ -946,7 +960,58 @@ module mem_space_test(
                 end
             end
 
-            test_error: begin
+            |test_error: begin
+                blink_count <= blink_count + 32'h1;
+                (* parallel_case, full_case *)
+                case (test_error)
+                    TEST_ERROR_CORE: begin
+                        // 2 seconds on, 2 seconds off
+                        if (blink_count >= 2000000000/CLK_PERIOD_NS) begin
+                            led[7] <= ~led[7];
+                            `ifdef BOARD_BLUE_WHALE led_a[7] <= ~led[7];`endif
+                            blink_count <= 32'h0;
+                        end
+                    end
+
+                    TEST_ERROR_FLASH_CHECKSUM: begin
+                        // 1 second on, 1 second off
+                        if (blink_count >= 1000000000/CLK_PERIOD_NS) begin
+                            led[7] <= ~led[7];
+                            `ifdef BOARD_BLUE_WHALE led_a[7] <= ~led[7];`endif
+                            blink_count <= 32'h0;
+                        end
+                    end
+
+                    TEST_ERROR_DATA: begin
+                        // 2 seconds on, 2 seconds off
+                        if (blink_count >= 2000000000/CLK_PERIOD_NS) begin
+                            led[7] <= ~led[7];
+                            `ifdef BOARD_BLUE_WHALE led_a[15] <= ~led[7];`endif
+                            blink_count <= 32'h0;
+                        end
+                    end
+
+                    TEST_ERROR_RAM_CHECKSUM: begin
+                        // 1 second on, 1 second off
+                        if (blink_count >= 1000000000/CLK_PERIOD_NS) begin
+                            led[7] <= ~led[7];
+                            `ifdef BOARD_BLUE_WHALE led_a[15] <= ~led[7];`endif
+                            blink_count <= 32'h0;
+                        end
+                    end
+
+                    TEST_ERROR_IRQ: begin
+                        // 0.5 second on, 0.5 second off
+                        if (blink_count >= 500000000/CLK_PERIOD_NS) begin
+                            led[7] <= ~led[7];
+                            `ifdef BOARD_BLUE_WHALE led_a[7] <= ~led[7];`endif
+                            blink_count <= 32'h0;
+                        end
+                    end
+
+                    default: begin
+                    end
+                endcase
 `ifdef SIMULATION
                 $finish(0);
 `endif
@@ -955,7 +1020,7 @@ module mem_space_test(
             default: begin
                 incr_event_counters_o <= 0;
                 start_test <= 1'b0;
-                if (test_num < 3) test_mem_task;
+                if (test_num < 3'h6) test_mem_task;
                 else test_io_task;
             end
         endcase

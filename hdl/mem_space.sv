@@ -34,21 +34,21 @@
  *
  * clk_i                -- The clock signal.
  * rst_i                -- Reset active high.
- * core_addr_i          -- The address from where data is read/written.
- * core_data_i          -- The input data to write.
  * core_stb_i           -- The transaction starts on the posedge of this signal.
  * core_cyc_i           -- This signal is asserted for the duration of a cycle.
  * core_sel_i           -- The number of bytes to r/w (1 -> 4'b0001, 2 -> 4'b0011, 3 -> 4'b0111 or 4 bytes -> 4'b1111).
  * core_we_i            -- 1 to write data, 0 to read.
+ * core_addr_i          -- The address from where data is read/written.
+ * core_data_i          -- The input data to write.
  * core_ack_o           -- The core transaction completes successfully on the posedge of this signal.
  * core_err_o           -- The core transaction completes with an error on the posedge of this signal.
  * core_data_o          -- The data that was read.
- * data_addr_i          -- The address from where data is read/written.
- * data_data_i          -- The input data to write.
  * data_stb_i           -- The transaction starts on the posedge of this signal.
  * data_cyc_i           -- This signal is asserted for the duration of a cycle.
  * data_sel_i           -- The number of bytes to r/w (1 -> 4'b0001, 2 -> 4'b0011, 3 -> 4'b0111 or 4 bytes -> 4'b1111).
  * data_we_i            -- 1'b1 to write data, 0 to read.
+ * data_addr_i          -- The address from where data is read/written.
+ * data_data_i          -- The input data to write.
  * data_ack_o           -- The data transaction completes successfully on the posedge of this signal.
  * data_err_o           -- The data transaction completes with an error on the posedge of this signal.
  * data_data_o          -- The data that was read.
@@ -74,22 +74,22 @@ module mem_space #(
     input logic clk_i,
     input logic rst_i,
     // Wishbone interface for reading instructions and read/write CSR
-    input logic [31:0] core_addr_i,
-    input logic [31:0] core_data_i,
     input logic core_stb_i,
     input logic core_cyc_i,
     input logic [3:0] core_sel_i,
     input logic core_we_i,
+    input logic [31:0] core_addr_i,
+    input logic [31:0] core_data_i,
     output logic core_ack_o,
     output logic core_err_o,
     output logic [31:0] core_data_o,
     // Wishbone interface for reading and writing data from the execution module
-    input logic [31:0] data_addr_i,
-    input logic [31:0] data_data_i,
     input logic data_stb_i,
     input logic data_cyc_i,
     input logic [3:0] data_sel_i,
     input logic data_we_i,
+    input logic [31:0] data_addr_i,
+    input logic [31:0] data_data_i,
     output logic data_ack_o,
     output logic data_err_o,
     output logic [31:0] data_data_o,
