@@ -499,6 +499,10 @@ module risc_p (
                 $display($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
 `endif
                 fetch_address <= `ROM_BEGIN_ADDR;
+`ifdef D_STATS_FILE
+                stats_start_execution_time <= $time;
+                stats_prev_end_execution_time <= $time;
+`endif
 
                 cpu_state_m <= STATE_RUNNING;
                 // Clear the RESET LED
@@ -622,6 +626,9 @@ module risc_p (
 
 `ifdef D_CORE_FINE
         $display($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry, instr_addr);
+`endif
+`ifdef D_STATS_FILE
+        stats_start_execution_time <= $time;
 `endif
     endtask
 
@@ -989,6 +996,13 @@ module risc_p (
 `ifdef D_CORE_FINE
             $display($time, " CORE:    [%h] Execution complete", pipeline_rd_ptr);
 `endif
+`ifdef D_STATS_FILE
+            stats_prev_end_execution_time <= $time;
+            $fdisplay(fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
+                        ($time - stats_start_execution_time)/CLK_PERIOD_NS,
+                        (stats_start_execution_time - stats_prev_end_execution_time)/CLK_PERIOD_NS);
+`endif
+
             // Invalidate the pipeline entry
             pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EMPTY;
             pipeline_op_rs1[pipeline_rd_ptr] <= 0;
@@ -1282,10 +1296,17 @@ module risc_p (
 `ifdef SIMULATION
     logic[3:0] finish_simulation;
     logic looping_instruction;
+`ifdef D_STATS_FILE
+    integer fd;
+    integer stats_start_execution_time, stats_prev_end_execution_time;
+`endif
 
     initial begin
         finish_simulation = 4'h2;
         looping_instruction = 1'b0;
+`ifdef D_STATS_FILE
+        fd = $fopen("out.csv", "w");
+`endif
     end
 
     //==================================================================================================================
@@ -1366,6 +1387,11 @@ module risc_p (
                 $display($time, " CORE: Cycles:                 %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
                 $display($time, " CORE: Instructions:           %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
 `endif // ENABLE_HPM_COUNTERS
+
+`ifdef D_STATS_FILE
+                $fclose(fd);
+`endif
+
 `endif //TEST_MODE
                 // Finish the simulation
                 $finish(0);

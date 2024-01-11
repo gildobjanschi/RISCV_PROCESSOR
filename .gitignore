@@ -4,6 +4,7 @@
 /hdl/out.json
 /hdl/out.sim
 /hdl/out.txt
+/hdl/out.csv
 /hdl/*.kate-swp
 
 /apps/Console/Release/*.bin
