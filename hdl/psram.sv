@@ -95,16 +95,19 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     assign ack_o = sync_ack_o & stb_i;
 
     /* The duration of the read and/or write cycle */
-    localparam [3:0] TWRC_CLKS = (70 / CLK_PERIOD_NS) + 1;
+    localparam [3:0] TAA_CLKS = (70 / CLK_PERIOD_NS) + 1;
 
     // The state machines
     localparam [1:0] STATE_IDLE     = 2'b00;
-    localparam [1:0] STATE_READ     = 2'b01;
-    localparam [1:0] STATE_WRITE    = 2'b10;
+    localparam [1:0] STATE_RW       = 2'b01;
     logic [1:0] state_m;
 
     logic [3:0] wait_clock_cycles;
     logic next_word;
+    logic [31:0] next_addr;
+    always_comb begin
+        next_addr = addr_i + 1;
+    end
 
     //==================================================================================================================
     // PSRAM controller
@@ -135,66 +138,36 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                     if (stb_i & cyc_i & ~sync_ack_o) begin
                         {psram_ubn, psram_lbn} <= ~sel_i;
 
-                        if (we_i) begin
-                            if (sel_i[3]) begin
-                                psram_d_o <= next_word ? data_i[31:16] : data_i[15:0];
-                                psram_a <= next_word ? addr_i + 1 : addr_i;
-                            end else begin
-                                psram_d_o <= data_i[15:0];
-                                psram_a <= addr_i;
-                            end
+                        psram_a <= next_word ? next_addr : addr_i;
+                        if (we_i) psram_d_o <= next_word ? data_i[31:16] : data_i[15:0];
 
-                            psram_cmd <= PSRAM_CMD_WRITE;
-                            state_m <= STATE_WRITE;
-                        end else begin
-                            if (sel_i[3]) begin
-                                psram_a <= next_word ? addr_i + 1 : addr_i;
-                            end else begin
-                                psram_a <= addr_i;
-                            end
-
-                            psram_cmd <= PSRAM_CMD_READ;
-                            state_m <= STATE_READ;
-                        end
-
-                        wait_clock_cycles <= TWRC_CLKS;
+                        wait_clock_cycles <= TAA_CLKS;
+                        psram_cmd <= we_i ? PSRAM_CMD_WRITE : PSRAM_CMD_READ;
+                        state_m <= STATE_RW;
                     end
                 end
 
-                STATE_READ: begin
-                    wait_clock_cycles <= wait_clock_cycles - 4'h1;
+                STATE_RW: begin
                     if (wait_clock_cycles == 4'h1) begin
                         if (sel_i[3]) begin
                             if (next_word) begin
-                                data_o[31:16] <= psram_d_i;
+                                if (~we_i) data_o[31:16] <= psram_d_i;
                                 sync_ack_o <= 1'b1;
                             end else begin
-                                data_o[15:0] <= psram_d_i;
+                                if (~we_i) data_o[15:0] <= psram_d_i;
                             end
 
                             next_word <= ~next_word;
                         end else begin
-                            data_o[15:0] <= psram_d_i;
+                            if (~we_i) data_o[15:0] <= psram_d_i;
                             sync_ack_o <= 1'b1;
                         end
 
+                        {psram_ubn, psram_lbn} <= 2'b11;
                         psram_cmd <= PSRAM_CMD_STANDBY;
                         state_m <= STATE_IDLE;
-                    end
-                end
-
-                STATE_WRITE: begin
-                    wait_clock_cycles <= wait_clock_cycles - 4'h1;
-                    if (wait_clock_cycles == 4'h1) begin
-                        if (sel_i[3]) begin
-                            if (next_word) sync_ack_o <= 1'b1;
-                            next_word <= ~next_word;
-                        end else begin
-                            sync_ack_o <= 1'b1;
-                        end
-
-                        psram_cmd <= PSRAM_CMD_STANDBY;
-                        state_m <= STATE_IDLE;
+                    end else begin
+                        wait_clock_cycles <= wait_clock_cycles - 4'h1;
                     end
                 end
 

@@ -74,18 +74,20 @@ module sim_psram #(
     // RAM memory
     logic [15:0] ram[0:(RAM_PHYSICAL_SIZE/2)-1];
 
+    logic [21:0] prev_psram_a = 0;
     //==================================================================================================================
     // PSRAM controller
     //==================================================================================================================
     always @(negedge psram_cen) begin
-        // Simulate the delay of 70ns
-        #70
         case (psram_cmd)
             PSRAM_CMD_STANDBY: begin
                 // NOP
             end
 
             PSRAM_CMD_WRITE: begin
+                // Simulate the delays
+                #70 prev_psram_a <= psram_a;
+
                 (* parallel_case, full_case *)
                 case ({psram_ubn, psram_lbn})
                     2'b00: begin
@@ -118,6 +120,13 @@ module sim_psram #(
             end
 
             PSRAM_CMD_READ: begin
+                // Simulate the delays
+                if (prev_psram_a[21:4] == psram_a[21:4]) begin
+                    #25 prev_psram_a <= psram_a;
+                end else begin
+                    #70 prev_psram_a <= psram_a;
+                end
+
                 (* parallel_case, full_case *)
                 case ({psram_ubn, psram_lbn})
                     2'b00: begin
