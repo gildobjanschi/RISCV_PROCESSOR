@@ -112,7 +112,7 @@ module sim_sdram #(
     TRELLIS_IO #(.DIR("BIDIR")) sdram_d_io[15:0] (.B (sdram_d), .I (sdram_d_o), .T (sdram_cmd == SDRAM_CMD_WRITE),
                                                     .O (sdram_d_i));
 
-    logic [14:0] activated_row_bank = 0;
+    logic [12:0] activated_bank_rows[0:3];
     logic [23:0] address;
 
     // RAM memory
@@ -129,6 +129,17 @@ module sim_sdram #(
                 // NOP
             end
 
+            SDRAM_CMD_PRECHARGE: begin
+                if (sdram_a[10]) begin
+                    activated_bank_rows[2'h0] <= 0;
+                    activated_bank_rows[2'h1] <= 0;
+                    activated_bank_rows[2'h2] <= 0;
+                    activated_bank_rows[2'h3] <= 0;
+                end else begin
+                    activated_bank_rows[sdram_ba] <= 0;
+                end
+            end
+
             SDRAM_CMD_ACTIVE: begin
                 /*
                  * The address bits registered coincident with the ACTIVE command are used to select
@@ -136,15 +147,14 @@ module sim_sdram #(
                  * The row remains active for accesses until a PRECHARGE command is issued to that bank.
                  * A PRECHARGE command must be issued before opening a different row in the same bank.
                  */
-                activated_row_bank[14:13] = sdram_ba;
-                activated_row_bank[12:0] = sdram_a;
+                activated_bank_rows[sdram_ba] <= sdram_a;
 `ifdef D_SIM_SDRAM
-                $display($time, " SIM_SDRAM: Active %h", activated_row_bank);
+                $display($time, " SIM_SDRAM: Active row: %h in bank: %h", sdram_a, sdram_ba);
 `endif
             end
 
             SDRAM_CMD_READ: begin
-                address = {activated_row_bank, sdram_a[8:0]};
+                address = {sdram_ba, activated_bank_rows[sdram_ba], sdram_a[8:0]};
                 (* parallel_case, full_case *)
                 case (sdram_dqm)
                     2'b00: begin
@@ -177,7 +187,7 @@ module sim_sdram #(
             end
 
             SDRAM_CMD_WRITE: begin
-                address = {activated_row_bank, sdram_a[8:0]};
+                address = {sdram_ba, activated_bank_rows[sdram_ba], sdram_a[8:0]};
                 (* parallel_case, full_case *)
                 case (sdram_dqm)
                     2'b00: begin

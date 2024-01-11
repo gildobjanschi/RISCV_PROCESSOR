@@ -58,10 +58,12 @@ To test the memory space (RAM, flash, IO, CSR and interrupts):
 > ./sim.sh -m
 ```
 
-To run the processor either in the simmulator or on the FPGA you need to build the RISC-V sample apps first. To build each one of the Console, TestC and the Dhrystone applications:
+To run the processor either in the simulator or on the FPGA you need to build the RISC-V sample apps first. 
+Ensure that the [GNU toolchain for RISC-V xPack](https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases) is installed. 
+Add the /bin folder of the xPack to your path and then build each one of the Console, TestC and the Dhrystone applications:
 
 ```
-> cd <blue_whale_repository>/apps/<name_of_the_app>/Release
+> cd apps/<name_of_the_app>/Release
 > make -f makefile_ulx3s clean
 > make -f makefile_ulx3s all
 ```
@@ -101,26 +103,42 @@ Run the TestC.bin application on the pipelined processor, view executing instruc
 ```
 
 ### FPGA
-Memory space test:
+Run the memory space test:
 ```
 > ./fpga.sh -m -D CLK_PERIOD_NS=16
 ```
+> [!Note]
+> If the memory test succeeds the last LED (blue) will remain off. If the test fails the same LED will flash. 
 
-Sequential RISC-V processor:
+TestC application running on the sequential RISC-V processor:
 ```
 > ./fpga.sh -s -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
 ```
 
-Pipelined RISC-V processor:
+TestC application running on the pipelined RISC-V processor:
 ```
 > ./fpga.sh -p -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
+```
+
+Dhrystone application running in the pipelined processor:
+```
+> ./fpga.sh -p -D CLK_PERIOD_NS=20 -b ../apps/Dhrystone/Release/Dhrystone.bin
+```
+
+To view the printf output for any of the above applications use a serial communication application on the host machine.
+After the serial application is running press the reset button on the board to view the output of printf. For example the Dhrsytone application will output:
+```
+Microseconds for one run through Dhrystone: 164
+Dhrystones per Second:                      6075
+mcycle = 82545
+minstret = 5448
 ```
 
 ## Performance
 Running Dhrystone in the simulator yields the following output.
 
 ```
-> ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
+> ./sim.sh -u -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
 Running on ULX3S.
 Running pipeline version.
                    0 INITIAL: Loading .bin file: ../apps/Dhrystone/Release/Dhrystone.bin...
@@ -130,33 +148,33 @@ Running pipeline version.
                   10 CORE: Reset start.
                  810 CORE: Reset complete.
               200010 CORE: Starting execution @[00600000]...
-Microseconds for one run through Dhrystone: 166
-Dhrystones per Second:                      6009
-mcycle = 83450
+Microseconds for one run through Dhrystone: 164
+Dhrystones per Second:                      6075
+mcycle = 82545
 minstret = 5448
-             7787110 CORE: ------------- Halt: looping instruction @[800010c8]. -------------
-             7787110 CORE: Cycles:                 389314
-             7787110 CORE: Instructions retired:   34271
-             7787110 CORE: Instructions from ROM:  28
-             7787110 CORE: Instructions from RAM:  5953
-             7787110 CORE: I-Cache hits:           40558
-             7787110 CORE: Load from ROM:          2386
-             7787110 CORE: Load from RAM:          1693
-             7787110 CORE: Store to RAM:           6439
-             7787110 CORE: IO load:                0
-             7787110 CORE: IO store:               128
-             7787110 CORE: CSR load:               9
-             7787110 CORE: CSR store:              2
-             7787110 CORE: Timer interrupts:       0
-             7787110 CORE: External interrupts:    0
+             7760210 CORE: ------------- Halt: looping instruction @[800010c8]. -------------
+             7760210 CORE: Cycles:                 387969
+             7760210 CORE: Instructions retired:   34271
+             7760210 CORE: Instructions from ROM:  28
+             7760210 CORE: Instructions from RAM:  5953
+             7760210 CORE: I-Cache hits:           40558
+             7760210 CORE: Load from ROM:          2386
+             7760210 CORE: Load from RAM:          1693
+             7760210 CORE: Store to RAM:           6439
+             7760210 CORE: IO load:                0
+             7760210 CORE: IO store:               128
+             7760210 CORE: CSR load:               9
+             7760210 CORE: CSR store:              2
+             7760210 CORE: Timer interrupts:       0
+             7760210 CORE: External interrupts:    0
 ```
-The numbers above yield a DMIPS of 5491 / 1757 = 3.42
+The numbers above yield a DMIPS of 6075 / 1757 = 3.45
 
-DMIPS/MHz = 3.1 / 50 = 0.0684
+DMIPS/MHz = 3.1 / 50 = 0.0691
 
-CPI = 91339 / 5448 = 15.3
+CPI = 82545 / 5448 = 15.15
 
-I ran the Dhrystone application on the FPGA and the output in the serial communication program was the same as the one in the simulator.
+The Dhrystone application on the FPGA and the simulator yield the same performace numbers.
 
 ## FPGA implementation
 With all the options enabled (see OPTIONS in fpga.sh) the maximum frequency is 63MHz and the number of cells is 25,121.
