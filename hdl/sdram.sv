@@ -211,6 +211,9 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     logic next_word;
     logic [23:0] next_addr, active_addr;
     assign active_addr = next_word ? next_addr : addr_i;
+    always_comb begin
+        next_addr = addr_i + 1;
+    end
 
     //==================================================================================================================
     // Precharge all banks task
@@ -546,7 +549,6 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                                         sync_ack_o <= 1'b1;
                                     end else begin
                                         sdram_d_o <= data_i[15:0];
-                                        next_addr <= active_addr + 1;
                                         transaction_start_q <= 1'b1;
                                     end
                                     next_word <= ~next_word;
@@ -608,7 +610,6 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                                 sync_ack_o <= 1'b1;
                             end else begin
                                 data_o[15:0] <= sdram_d_i;
-                                next_addr <= active_addr + 1;
                                 transaction_start_q <= 1'b1;
                             end
                             next_word <= ~next_word;
