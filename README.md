@@ -1,4 +1,4 @@
-# Blue Whale - A 32-bit RISC-V Processor
+#RISC-V_micro - A 32-bit RISC-V Microcontroller
 
 Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
