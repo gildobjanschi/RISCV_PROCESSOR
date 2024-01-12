@@ -229,10 +229,10 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
         sdram_dqm <= 2'b11;
 
         // The row in each bank will be deactivated.
-        activated_bank_rows[2'h0] = 13'h0;
-        activated_bank_rows[2'h1] = 13'h0;
-        activated_bank_rows[2'h2] = 13'h0;
-        activated_bank_rows[2'h3] = 13'h0;
+        activated_bank_rows[2'h0] = 13'h1fff;
+        activated_bank_rows[2'h1] = 13'h1fff;
+        activated_bank_rows[2'h2] = 13'h1fff;
+        activated_bank_rows[2'h3] = 13'h1fff;
     endtask
 
     //==================================================================================================================
@@ -245,7 +245,7 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
         sdram_a <= 13'b0_0000_0000_0000;
         sdram_dqm <= 2'b11;
         // The bank row will be deactivated
-        activated_bank_rows[bank] = 13'h0;
+        activated_bank_rows[bank] = 13'h1fff;
     endtask
 
     //==================================================================================================================
@@ -571,10 +571,18 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                                 sdram_cmd <= SDRAM_CMD_WRITE;
                                 if (sel_i[3]) begin
                                     if (next_word) begin
+`ifdef D_SDRAM
+                                        $display($time, " SDRAM: STATE_ACTIVATED: Write %h @[%h] (next_word 1)",
+                                                    data_i[31:16], active_addr);
+`endif
                                         sdram_d_o <= data_i[31:16];
                                         // The transaction is complete
                                         sync_ack_o <= 1'b1;
                                     end else begin
+`ifdef D_SDRAM
+                                        $display($time, " SDRAM: STATE_ACTIVATED: Write %h @[%h] (next_word 0)",
+                                                    data_i[15:0], active_addr);
+`endif
                                         sdram_d_o <= data_i[15:0];
                                         transaction_start_q <= 1'b1;
                                     end
@@ -583,6 +591,10 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                                     sdram_d_o <= data_i[15:0];
                                     // The transaction is complete
                                     sync_ack_o <= 1'b1;
+`ifdef D_SDRAM
+                                    $display($time, " SDRAM: STATE_ACTIVATED: Write %h @[%h]", data_i[15:0],
+                                                active_addr);
+`endif
                                 end
                             end else begin
 `ifdef D_SDRAM
