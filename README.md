@@ -108,7 +108,7 @@ Run the memory space test:
 > ./fpga.sh -m -D CLK_PERIOD_NS=16
 ```
 > [!Note]
-> If the memory test succeeds the last LED (blue) will remain off. If the test fails the same LED will flash. 
+> The test runs continuously. When the test works the first 7 out of 8 LEDs will light up and the last LED will remain off. If a failure is detected the last LED will blink.
 
 TestC application running on the sequential RISC-V processor:
 ```
