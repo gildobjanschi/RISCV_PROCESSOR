@@ -1,6 +1,6 @@
 # RISC-V_micro - A 32-bit RISC-V Microcontroller
 
-Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
+Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S ECP5 85F](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
 The Blue Whale project includes a simulator that can execute RISC-V application code on the actual SystemVerilog design.
 
@@ -270,14 +270,7 @@ The diagram below will help you understand the architecture of the processor and
 
 ![Block Diagram](block_diagram.png)
 
-## Programming the FPGA
-The fpga.sh script can write the RISC-V application to flash (option -b) and the FPGA bitstream to the FPGA SRAM. 
-Should you want to write the FPGA bitstream to flash, so that on the next power up it will be loaded from from flash, you can use the following command:
-```
-> openFPGALoader -b ulx3s --unprotect-flash -f out.bit
-```
-
-You need to be aware of the fact that if the bitstream from flash is switching the mode of the flash from SPI to quad SPI (QSPI) writting to the flash next time will fail. The error could happen when you are trying to write an application or a FPGA bitstream to flash. The reason for the error is the fact the FPGA writes to the flash in SPI mode and if the bitstream switches to QSPI there is no facility to switch it back to SPI mode. This is a [known issue](https://github.com/trabucayre/openFPGALoader/issues/124) and as it is suggested in one of the comments it has a 'hardware' solution until a potential workaround is found in openFPGALoader. The solution, which I verified, is to short two adjacent flash pins (CS, MISO) while the USB cable is being inserted. This will cause the FPGA to fail read of the configuration from flash and therefore the flash will remain in SPI mode.
+Please see more detail on the project [wiki pages](https://github.com/gildobjanschi/RISC-V_micro/wiki/Welcome-to-the-RISC%E2%80%90V_micro-wiki!).
 
 ## More work needed
 I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
@@ -287,3 +280,4 @@ I appreciate feedback for bug fixes and improvements. There are a few area where
 
 ## Blue Whale Hardware
 If you look at the project sources you will notice that in the Verilog source code, in the script files as well as the application makefiles there is mention of the Blue Whale hardware. This hardware is fully functional and it is a small board based on ECP5 that features a 8MB PSRAM. I mentioned this here so you can make sense of the various flags and makefiles that reference the Blue Whale hardware. The Kicad project for this board will be published soon.
+
