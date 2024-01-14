@@ -4,6 +4,7 @@
 # Use -D SIMULATION to enable simulation.
 # Use -D TEST_MODE only for instruction testing (tests.sh)
 # Use -D BIN_FILE_NAME in the command line to specify the application (RISC V code) bin file name
+# Use -D D_STATS_FILE to generate a CSV file with execution timing data.
 # Use -D D_CORE, D_CORE_FINE for core and trap debug messages
 # Use -D D_MEM_SPACE for mem_space.sv messages
 # Use -D D_SDRAM for SDRAM extra debugging
