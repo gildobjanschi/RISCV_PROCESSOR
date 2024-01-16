@@ -140,4 +140,19 @@ doFunction "divu-01.bin";
 doFunction "rem-01.bin";
 doFunction "remu-01.bin";
 
+doFunction "misalign2-jalr-01.bin";
+doFunction "misalign-beq-01.bin";
+doFunction "misalign-bge-01.bin";
+doFunction "misalign-bgeu-01.bin";
+doFunction "misalign-blt-01.bin";
+doFunction "misalign-bltu-01.bin";
+doFunction "misalign-bne-01.bin";
+doFunction "misalign-jal-01.bin";
+doFunction "misalign-lh-01.bin";
+doFunction "misalign-lhu-01.bin";
+doFunction "misalign-lw-01.bin";
+doFunction "misalign-sh-01.bin";
+doFunction "misalign-sw-01.bin";
+
+doFunction "fence-01.bin";
 doFunction "csr-01.bin";
