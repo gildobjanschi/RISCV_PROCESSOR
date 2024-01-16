@@ -40,11 +40,11 @@ The source code for the TestC, Console and Dhrystone RISC-V C code applications 
 * Dhrystone.bin: processor performance evaluation application that enables you to view printf output of this application with a serial communication program.
 
 ### Simulation
-Before running the instructions test script you need to build the test binaries (over 60 .bin files):
+Before running the instructions test script you need to build the test binaries (over 80 .bin files):
 
 ```
 > cd apps/TestCompliance/Release
-> ./build_ulx3s.sh
+> ./build.sh
 ```
 
 Run all the instruction tests in the pipelined processor:

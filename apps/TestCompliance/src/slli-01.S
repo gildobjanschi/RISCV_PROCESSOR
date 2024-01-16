@@ -15,9 +15,6 @@
 //
 // This assembly file tests the slli instruction of the RISC-V I extension for the slli covergroup.
 // 
-#define XLEN 32
-#define TEST_CASE_1
-
 #include "model_test.h"
 #include "arch_test.h"
 RVTEST_ISA("RV32I")

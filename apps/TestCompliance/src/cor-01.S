@@ -15,9 +15,6 @@
 //
 // This assembly file tests the c.or instruction of the RISC-V C extension for the cor covergroup.
 // 
-#define XLEN 32
-#define TEST_CASE_1
-
 #include "model_test.h"
 #include "arch_test.h"
 RVTEST_ISA("RV32IC")
