@@ -279,5 +279,5 @@ I appreciate feedback for bug fixes and improvements. There are a few area where
 * Increase the maximum frequency for the overall design with optimizations.
 
 ## Blue Whale Hardware
-If you look at the project sources you will notice that in the Verilog source code, in the script files as well as the application makefiles there is mention of the Blue Whale hardware. This hardware is fully functional and it is a small board based on ECP5 that features a 8MB PSRAM. I mentioned this here so you can make sense of the various flags and makefiles that reference the Blue Whale hardware. The Kicad project for this board will be published soon.
+If you look at the project sources you will notice that in the Verilog source code, in the script files as well as the application makefiles there is mention of the [Blue Whale hardware](https://github.com/gildobjanschi/blue_whale_hw). This hardware is a small board based on ECP5 that features 8MB PSRAM. I mentioned this here so you can make sense of the various flags and makefiles that reference the Blue Whale hardware.
 
