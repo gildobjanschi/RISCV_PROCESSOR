@@ -1352,7 +1352,8 @@ module risc_p (
                         $display($time, " CORE: !!!! Fail detected by test !!!!");
                     end else begin
                         // Test ended in a trap
-                        $display($time, " CORE: !!!! Fail: Exception: %h !!!!", pipeline_trap_mcause);
+                        $display($time, " CORE: !!!! Fail: Exception: %s !!!!",
+                                    to_mcause_bits_string(pipeline_trap_mcause));
                     end
 `else
                     if (looping_instruction) begin
@@ -1362,7 +1363,7 @@ module risc_p (
                         $display($time, " CORE: --------------------- Halt at breakpoint ----------------------");
                     end else begin
                         $display($time, " CORE: ---------------- Halt due to exception: %s --------------------",
-                                to_mcause_bits_string(pipeline_trap_mcause));
+                                    to_mcause_bits_string(pipeline_trap_mcause));
                     end
 `endif
                 end

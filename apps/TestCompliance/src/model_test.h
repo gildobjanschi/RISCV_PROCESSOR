@@ -29,6 +29,30 @@
   self_loop:  j self_loop;
 
 #define RVMODEL_BOOT
+	/* Copy RAM data if any */
+	lui t0, %hi(_ram_data_begin)              ;\
+	addi t0, t0, %lo(_ram_data_begin)         ;\
+	lui t3, %hi(_ram_data_end)                ;\
+	addi t3, t3, %lo(_ram_data_end)           ;\
+	/* Calculate the number of bytes to copy */
+	sub t1, t3, t0                            ;\
+	/* Calculate the number of half words */
+	srli t5, t1, 1                            ;\
+	/* The address in ROM where RAM data is located. */
+	lui t2, %hi(_rom_copy_to_ram_begin)       ;\
+	addi t2, t2, %lo(_rom_copy_to_ram_begin)  ;\
+copy_rom_to_ram_h_words:                    ;\
+	beq t5, zero, copy_rom_done               ;\
+	/* Load half word from ROM */
+	lh t4, 0(t2)                              ;\
+	addi t2, t2, 2                            ;\
+	/* Store half word in RAM */
+	sh t4, 0(t0)                              ;\
+	addi t0, t0, 2                            ;\
+	/* Decrement the number of half words */
+	addi t5, t5, -1                           ;\
+	j copy_rom_to_ram_h_words                 ;\
+copy_rom_done:                              ;\
 
 //RV_COMPLIANCE_DATA_BEGIN
 #define RVMODEL_DATA_BEGIN                                              \
@@ -53,19 +77,19 @@
 #define RVMODEL_IO_ASSERT_DFPR_EQ(_D, _R, _I)
 
 #ifndef RVMODEL_MCLINTBASE
-        #define RVMODEL_MCLINTBASE 0x02000000
+        #define RVMODEL_MCLINTBASE 0x00000000
 #endif
 
 #ifndef RVMODEL_MSIP_OFFSET
-        #define RVMODEL_MSIP_OFFSET 0x0
+        #define RVMODEL_MSIP_OFFSET 0x40000344
 #endif
 
 #ifndef RVMODEL_MTIMECMP_OFFSET
-        #define RVMODEL_MTIMECMP_OFFSET 0x4000
+        #define RVMODEL_MTIMECMP_OFFSET 0xC0004000
 #endif
 
 #ifndef RVMODEL_MTIMECMPH_OFFSET
-        #define RVMODEL_MTIMECMPH_OFFSET 0x4004
+        #define RVMODEL_MTIMECMPH_OFFSET 0xC0004004
 #endif
 
 #define RVMODEL_SET_MSW_INT                                                           \

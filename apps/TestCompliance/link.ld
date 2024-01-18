@@ -1,17 +1,27 @@
 OUTPUT_ARCH( "riscv" )
 ENTRY(rvtest_entry_point)
 
+MEMORY
+{
+    ROM (rx) :   ORIGIN = 0x00600000, LENGTH = 0x00a00000
+    RAM (wx!r) : ORIGIN = 0x80000000, LENGTH = 0x02000000
+}
+
 SECTIONS
 {
-  . = 0x00600000;
-  .text.init : { *(.text.init) }
-  . = ALIGN(0x1000);
-  .tohost : { *(.tohost) }
-  . = ALIGN(0x1000);
-  .text : { *(.text) }
-  . = ALIGN(0x1000);
-  .data : { *(.data) }
-  .data.string : { *(.data.string)}
-  .bss : { *(.bss) }
-  _end = .;
+	PROVIDE( _ram_data_begin = ORIGIN(RAM));
+	.text.init : { *(.text.init) } > ROM
+	. = ALIGN(0x1000);
+
+	/* ROM address where RAM data begins */
+	PROVIDE( _rom_copy_to_ram_begin = .);
+
+	PROVIDE( _ram_data_begin = ORIGIN(RAM));
+	.data : { *(.data) } > RAM AT > ROM
+	PROVIDE( _ram_data_end = .);
+	/* ---- ROM address where RAM data end ----- */
+	.tohost : { *(.tohost) } > RAM
+	. = ALIGN(0x1000);
+	.bss : { *(.bss) } > RAM
+	_end = .;
 }
