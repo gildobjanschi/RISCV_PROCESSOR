@@ -382,17 +382,28 @@ module mem_space #(
                 // Flash (32'h0060_0000 to 32'h0100_0000)
                 12'h006, 12'h007, 12'h008, 12'h009, 12'h00a, 12'h00b, 12'h00c, 12'h00d, 12'h00e, 12'h00f: begin
                     if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
+                        if (data_we_i) begin
 `ifdef D_MEM_SPACE
-                        $display($time, " MEM_SPACE: Reading flash data @[%h]", data_addr_i);
+                            $display($time, " MEM_SPACE:   --- Invalid data address. Flash is read only [%h]. ---",
+                                        data_addr_i);
 `endif
-                        flash_addr_o <= data_addr_i[23:0];
-                        flash_sel_o <= data_sel_i;
-                        {flash_stb_o, flash_cyc_o} <= 2'b11;
+                            data_new_transaction_q <= 1'b0;
+                            // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and
+                            // EX_STORE_ACCESS_FAULT for writes.
+                            {data_sync_ack_o, data_sync_err_o} <= 2'b01;
+                        end else begin
+`ifdef D_MEM_SPACE
+                            $display($time, " MEM_SPACE: Reading flash data @[%h]", data_addr_i);
+`endif
+                            flash_addr_o <= data_addr_i[23:0];
+                            flash_sel_o <= data_sel_i;
+                            {flash_stb_o, flash_cyc_o} <= 2'b11;
 
-                        data_new_transaction_q <= 1'b0;
-                        data_access <= ACCESS_FLASH;
+                            data_new_transaction_q <= 1'b0;
+                            data_access <= ACCESS_FLASH;
 
-                        `ifdef BOARD_BLUE_WHALE led[9] <= 1'b1;`endif
+                            `ifdef BOARD_BLUE_WHALE led[9] <= 1'b1;`endif
+                        end
                     end else begin
                         data_new_transaction_q <= 1'b1;
                     end
