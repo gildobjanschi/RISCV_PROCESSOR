@@ -9,13 +9,13 @@ SIM_RAM_FILE=""
 # SIMULATION:          Use simulation mode
 # CLK_PERIOD_NS        The main clock period in nano seconds.
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
-# ENABLE_ZISCR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
+# ENABLE_ZICSR_EXT     Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
 # ENABLE_HPM_COUNTERS: Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZISCR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
+OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
 while getopts "uwpsh" flag; do
 	case "${flag}" in
