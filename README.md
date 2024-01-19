@@ -1,6 +1,6 @@
 # RISC-V_micro - A 32-bit RISC-V Microcontroller
 
-Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S ECP5 85F](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
+Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S ECP5 85F](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division, atomic and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
 The Blue Whale project includes a simulator that can execute RISC-V application code on the actual SystemVerilog design.
 
@@ -40,7 +40,7 @@ The source code for the TestC, Console and Dhrystone RISC-V C code applications 
 * Dhrystone.bin: processor performance evaluation application that enables you to view printf output of this application with a serial communication program.
 
 ### Simulation
-Before running the instructions test script you need to build the test binaries (over 80 .bin files):
+Before running the instructions test script you need to build the test binaries (over 95 .bin files):
 
 ```
 > cd apps/TestCompliance/Release
