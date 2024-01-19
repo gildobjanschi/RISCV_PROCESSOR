@@ -37,6 +37,69 @@ make all
 mv TestCompliance.bin addi-01.bin
 
 make clean
+build_subdirmk "amoadd.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amoadd.w-01.bin
+
+
+make clean
+build_subdirmk "amoand.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amoand.w-01.bin
+
+
+make clean
+build_subdirmk "amomax.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amomax.w-01.bin
+
+
+make clean
+build_subdirmk "amomaxu.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amomaxu.w-01.bin
+
+
+make clean
+build_subdirmk "amomin.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amomin.w-01.bin
+
+
+make clean
+build_subdirmk "amominu.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amominu.w-01.bin
+
+
+make clean
+build_subdirmk "amoor.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amoor.w-01.bin
+
+
+make clean
+build_subdirmk "amoswap.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amoswap.w-01.bin
+
+
+make clean
+build_subdirmk "amoxor.w-01";
+echo "================================================================================================================="
+make all
+mv TestCompliance.bin amoxor.w-01.bin
+
+
+make clean
 build_subdirmk "and-01";
 echo "================================================================================================================="
 make all

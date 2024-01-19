@@ -123,6 +123,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `endif
     logic [31:0] csr_store;
 
+`ifdef ENABLE_RV32A_EXT
+    logic [31:0] atomic_rs;
+`endif
     //==================================================================================================================
     // The first stage of the execution
     //==================================================================================================================
@@ -1140,6 +1143,132 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 load(addr, 4'b1111);
             end
 `endif // ENABLE_ZISCR_EXT
+
+`ifdef ENABLE_RV32A_EXT
+            `INSTR_TYPE_LR_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h lr.w rdx%0d rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_SC_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h sc.w rdx%0d rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; store %h @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, rs2_i,
+                            rs1_i);
+`endif
+                /*
+                 * The SC.W succeeds only if the reservation is still valid and the reservation set contains the bytes
+                 * being written.
+                 */
+                // Check if the reservation is still valid.
+                if (atomic_rs == rs1_i) begin
+                    /*
+                     * If the SC.W succeeds, the instruction writes the word in rs2 to memory, and it writes zero to rd.
+                     */
+                    store(rs1_i, rs2_i, 4'b1111);
+                    rd_o <= 0;
+                end else begin
+                    /*
+                     * The failure code with value 1 is reserved to encode an unspecified failure.  Other failure codes
+                     * are reserved at this time, and portable software should only assume the failure code will be
+                     * non-zero.
+                     */
+                    rd_o <= 1;
+                    {sync_ack_o, sync_err_o} <= 2'b10;
+                end
+
+                /*
+                 * Regardless of success or failure, executing an SC.W instruction invalidates any reservation held by
+                 * this hart.
+                 */
+                atomic_rs <= -1;
+            end
+
+            `INSTR_TYPE_AMOSWAP_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amoswap.w rdx%0d, rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOADD_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amoadd.w rdx%0d rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOXOR_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amoxor.w rdx%0d rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOAND_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amoand.w rdx%0d rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOOR_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amoor.w rdx%0d, rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOMIN_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amomin.w rdx%0d, rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOMAX_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amomax.w rdx%0d, rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOMINU_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amominu.w rdx%0d, rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOMAXU_W: begin
+`ifdef D_EXEC
+                $display($time, " [%h]: %h amomaxu.w rdx%0d, rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
+`endif
+                load(rs1_i, 4'b1111);
+            end
+`endif // ENABLE_RV32A_EXT
+
         endcase
     endtask
 
@@ -1361,6 +1490,210 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 `endif // ENABLE_ZISCR_EXT
 
+`ifdef ENABLE_RV32A_EXT
+            `INSTR_TYPE_LR_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : {{16{data_data_i[15]}}, data_data_i[15:0]};
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]", data_addr_o, data_data_i,
+                                instr_op_rd_i, rd_o, instr_addr_i + 4);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : {{16{data_data_i[15]}}, data_data_i[15:0]};
+`endif
+                // Register a reservation set — a set of bytes that subsumes the bytes in the addressed word.
+                atomic_rs <= rs1_i;
+
+                next_addr_o <= instr_addr_i + 4;
+                state_m <= STATE_EXEC;
+                {sync_ack_o, sync_err_o} <= 2'b10;
+            end
+
+            `INSTR_TYPE_AMOSWAP_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
+                                data_data_i, instr_op_rd_i, rd_o, rs2_i, addr);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                store(rs1_i, rs2_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOADD_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
+                                data_data_i, instr_op_rd_i, rd_o, data_data_i + rs2_i, addr);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                store(rs1_i, data_data_i + rs2_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOXOR_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
+                                data_data_i, instr_op_rd_i, rd_o, data_data_i ^ rs2_i, addr);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                store(rs1_i, data_data_i ^ rs2_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOAND_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
+                                data_data_i, instr_op_rd_i, rd_o, data_data_i & rs2_i, addr);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                store(rs1_i, data_data_i & rs2_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOOR_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
+                                data_data_i, instr_op_rd_i, rd_o, data_data_i | rs2_i, addr);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                store(rs1_i, data_data_i | rs2_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOMIN_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                (* parallel_case, full_case *)
+                case ({data_data_i[31], rs2_i[31]})
+                    2'b11: begin // Both are negative
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                    data_addr_o, data_data_i, instr_op_rd_i, rd_o,
+                                    data_data_i[30:0] < rs2_i[30:0] ? data_data_i : rs2_i, addr);
+                    end
+
+                    2'b10: begin
+                        // data_data_i is negative, rs2_i is positive
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                    data_addr_o, data_data_i, instr_op_rd_i, rd_o, data_data_i, addr);
+                    end
+
+                    2'b01: begin
+                        // data_data_i is positive, rs2_i is negative
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                    data_addr_o, data_data_i, instr_op_rd_i, rd_o, rs2_i, addr);
+                    end
+
+                    2'b00: begin // Both are positive
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                    data_addr_o, data_data_i, instr_op_rd_i, rd_o,
+                                    data_data_i < rs2_i ? data_data_i : rs2_i, addr);
+                    end
+                endcase
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                (* parallel_case, full_case *)
+                case ({data_data_i[31], rs2_i[31]})
+                    2'b11: begin // Both are negative
+                        store(rs1_i, data_data_i[30:0] < rs2_i[30:0] ? data_data_i : rs2_i, 4'b1111);
+                    end
+
+                    2'b10: begin
+                        // data_data_i is negative, rs2_i is positive
+                        store(rs1_i, data_data_i, 4'b1111);
+                    end
+
+                    2'b01: begin
+                        // data_data_i is positive, rs2_i is negative
+                        store(rs1_i, rs2_i, 4'b1111);
+                    end
+
+                    2'b00: begin // Both are positive
+                        store(rs1_i, data_data_i < rs2_i ? data_data_i : rs2_i, 4'b1111);
+                    end
+                endcase
+            end
+
+            `INSTR_TYPE_AMOMAX_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+
+                (* parallel_case, full_case *)
+                case ({data_data_i[31], rs2_i[31]})
+                    2'b11: begin // Both are negative
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                        data_addr_o, data_data_i, instr_op_rd_i, rd_o,
+                                        data_data_i[30:0] > rs2_i[30:0] ? data_data_i : rs2_i, addr);
+                    end
+
+                    2'b10: begin
+                        // data_data_i is negative, rs2_i is positive
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                        data_addr_o, data_data_i, instr_op_rd_i, rd_o, rs2_i, addr);
+                    end
+
+                    2'b01: begin
+                        // data_data_i is positive, rs2_i is negative
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                        data_addr_o, data_data_i, instr_op_rd_i, rd_o, data_data_i, addr);
+                    end
+
+                    2'b00: begin // Both are positive
+                        $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
+                                        data_addr_o, data_data_i, instr_op_rd_i, rd_o,
+                                        data_data_i > rs2_i ? data_data_i : rs2_i, addr);
+                    end
+                endcase
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                (* parallel_case, full_case *)
+                case ({data_data_i[31], rs2_i[31]})
+                    2'b11: begin // Both are negative
+                        store(rs1_i, data_data_i[30:0] > rs2_i[30:0] ? data_data_i : rs2_i, 4'b1111);
+                    end
+
+                    2'b10: begin
+                        // data_data_i is negative, rs2_i is positive
+                        store(rs1_i, rs2_i, 4'b1111);
+                    end
+
+                    2'b01: begin
+                        // data_data_i is positive, rs2_i is negative
+                        store(rs1_i, data_data_i, 4'b1111);
+                    end
+
+                    2'b00: begin // Both are positive
+                        store(rs1_i, data_data_i > rs2_i ? data_data_i : rs2_i, 4'b1111);
+                    end
+                endcase
+            end
+
+            `INSTR_TYPE_AMOMINU_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
+                                data_data_i, instr_op_rd_i, rd_o, data_data_i < rs2_i ? data_data_i : rs2_i, addr);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                store(rs1_i, data_data_i < rs2_i ? data_data_i : rs2_i, 4'b1111);
+            end
+
+            `INSTR_TYPE_AMOMAXU_W: begin
+`ifdef D_EXEC
+                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
+                                data_data_i, instr_op_rd_i, rd_o, data_data_i > rs2_i ? data_data_i : rs2_i, addr);
+`else
+                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+`endif
+                store(rs1_i, data_data_i > rs2_i ? data_data_i : rs2_i, 4'b1111);
+            end
+`endif // ENABLE_RV32A_EXT
+
             default: begin
 `ifdef D_EXEC
                 $display($time, " EXEC: data_read_complete_task instruction not handled %h ", instr_op_type_i);
@@ -1378,11 +1711,23 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     task data_read_error_task;
         (* parallel_case, full_case *)
         case (instr_op_type_i)
+/*
+            // Handled by default case
             `INSTR_TYPE_LB, `INSTR_TYPE_LH, `INSTR_TYPE_LW, `INSTR_TYPE_LBU, `INSTR_TYPE_LHU: begin
                 trap_mcause_o[`EX_CODE_LOAD_ACCESS_FAULT] <= 1'b1;
                 trap_mtval_o <= data_addr_o;
             end
 
+`ifdef ENABLE_RV32A_EXT
+            // Handled by default case
+            `INSTR_TYPE_LR_W, `INSTR_TYPE_SC_W, `INSTR_TYPE_AMOSWAP_W, `INSTR_TYPE_AMOADD_W, `INSTR_TYPE_AMOXOR_W,
+            `INSTR_TYPE_AMOAND_W, `INSTR_TYPE_AMOOR_W, `INSTR_TYPE_AMOMIN_W, `INSTR_TYPE_AMOMAX_W,
+            `INSTR_TYPE_AMOMINU_W, `INSTR_TYPE_AMOMAXU_W: begin
+                trap_mcause_o[`EX_CODE_LOAD_ACCESS_FAULT] <= 1'b1;
+                trap_mtval_o <= data_addr_o;
+            end
+`endif // ENABLE_RV32A_EXT
+*/
 `ifdef ENABLE_ZISCR_EXT
             `INSTR_TYPE_CSRRW, `INSTR_TYPE_CSRRS, `INSTR_TYPE_CSRRC, `INSTR_TYPE_CSRRWI, `INSTR_TYPE_CSRRSI,
                     `INSTR_TYPE_CSRRCI, `INSTR_TYPE_MRET: begin
@@ -1446,6 +1791,19 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 `endif // ENABLE_ZISCR_EXT
 
+`ifdef ENABLE_RV32A_EXT
+            `INSTR_TYPE_SC_W, `INSTR_TYPE_AMOSWAP_W, `INSTR_TYPE_AMOADD_W, `INSTR_TYPE_AMOXOR_W,
+            `INSTR_TYPE_AMOAND_W, `INSTR_TYPE_AMOOR_W, `INSTR_TYPE_AMOMIN_W, `INSTR_TYPE_AMOMAX_W,
+            `INSTR_TYPE_AMOMINU_W, `INSTR_TYPE_AMOMAXU_W: begin
+`ifdef D_EXEC
+                next_addr_o = instr_addr_i + 4;
+                $display($time, "           :          %8h -> @[%h]; PC: [%h]", data_data_o, data_addr_o, next_addr_o);
+`else
+                next_addr_o <= instr_addr_i + 4;
+`endif
+            end
+`endif // ENABLE_RV32A_EXT
+
             default: begin
 `ifdef D_EXEC
                 $display($time, " EXEC: data_write_complete_task instruction not handled %h ", instr_op_type_i);
@@ -1464,10 +1822,23 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     task data_write_error_task;
         (* parallel_case, full_case *)
         case (instr_op_type_i)
+/*
+            // Handled by default case
             `INSTR_TYPE_SB, `INSTR_TYPE_SH, `INSTR_TYPE_SW: begin
                 trap_mcause_o[`EX_CODE_STORE_ACCESS_FAULT] <= 1'b1;
                 trap_mtval_o <= data_addr_o;
             end
+
+`ifdef ENABLE_RV32A_EXT
+            // Handled by default case
+            `INSTR_TYPE_LR_W, `INSTR_TYPE_SC_W, `INSTR_TYPE_AMOSWAP_W, `INSTR_TYPE_AMOADD_W, `INSTR_TYPE_AMOXOR_W,
+            `INSTR_TYPE_AMOAND_W, `INSTR_TYPE_AMOOR_W, `INSTR_TYPE_AMOMIN_W, `INSTR_TYPE_AMOMAX_W,
+            `INSTR_TYPE_AMOMINU_W, `INSTR_TYPE_AMOMAXU_W: begin
+                trap_mcause_o[`EX_CODE_STORE_ACCESS_FAULT] <= 1'b1;
+                trap_mtval_o <= data_addr_o;
+            end
+`endif // ENABLE_RV32A_EXT
+*/
 
 `ifdef ENABLE_ZISCR_EXT
             `INSTR_TYPE_CSRRW, `INSTR_TYPE_CSRRS, `INSTR_TYPE_CSRRC,

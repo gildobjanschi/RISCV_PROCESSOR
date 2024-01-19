@@ -16,17 +16,18 @@
  **********************************************************************************************************************/
 
 /***********************************************************************************************************************
- *  The RISC V instr_i decoder supports the following types of instr_is:
- *      1. RV32I 2.1 specification base instr_i set
+ *  The RISC V instruction decoder supports the following types of instructions:
+ *      1. RV32I 2.1 specification base instruction set
  *      2. RV32M 2.0 The M (multiply/divide) extension
  *      3. RV32C 2.0 The C (compression) extension
- *      3. Zicsr 2.0 extension
+ *      4. RV32A 2.1 The A (atomic) extension
+ *      5. Zicsr 2.0 extension
  *
  * clk_i                -- The clock signal.
  * rst_i                -- Reset active high.
  * stb_i                -- The transaction starts on the posedge of this signal.
  * cyc_i                -- This signal is asserted for the duration of a cycle (same as stb_i).
- * instr_i              -- The 16/32 bit instr_i to be decoded.
+ * instr_i              -- The 16/32 bit instruction to be decoded.
  * instr_op_type_o      -- The decoded instruction type.
  * instr_op_rd_o        -- Destination register for applicable instructions.
  * instr_op_rs1_o       -- Source register 1 for applicable instructions.
@@ -86,7 +87,7 @@ module decoder (
     end
 
     //==================================================================================================================
-    // Decode uncompressed instr_is
+    // Decode uncompressed instructions.
     //==================================================================================================================
     task decode_uncompressed_task;
         (* parallel_case, full_case *)
@@ -400,16 +401,47 @@ module decoder (
                 instr_load_rs1_rs2_o <= 1'b1;
             end
 
+`ifdef ENABLE_RV32A_EXT
+            7'b0101111: begin
+                if (instr_i[14:12] == 3'b010) begin
+                    (* parallel_case, full_case *)
+                    case (instr_i[31:27])
+                        5'b00010: instr_op_type_o <= `INSTR_TYPE_LR_W;
+                        5'b00011: instr_op_type_o <= `INSTR_TYPE_SC_W;
+                        5'b00001: instr_op_type_o <= `INSTR_TYPE_AMOSWAP_W;
+                        5'b00000: instr_op_type_o <= `INSTR_TYPE_AMOADD_W;
+                        5'b00100: instr_op_type_o <= `INSTR_TYPE_AMOXOR_W;
+                        5'b01100: instr_op_type_o <= `INSTR_TYPE_AMOAND_W;
+                        5'b01000: instr_op_type_o <= `INSTR_TYPE_AMOOR_W;
+                        5'b10000: instr_op_type_o <= `INSTR_TYPE_AMOMIN_W;
+                        5'b10100: instr_op_type_o <= `INSTR_TYPE_AMOMAX_W;
+                        5'b11000: instr_op_type_o <= `INSTR_TYPE_AMOMINU_W;
+                        5'b11100: instr_op_type_o <= `INSTR_TYPE_AMOMAXU_W;
+                        default: {sync_ack_o, sync_err_o} <= 2'b01;
+                    endcase
+
+                    instr_op_rd_o <= instr_i[11:7];
+                    instr_op_rs1_o <= instr_i[19:15];
+                    instr_op_rs2_o <= instr_i[24:20];
+                    // instr_op_imm_o[0]= release; instr_op_imm_o[1] = acquire;
+                    instr_op_imm_o <= instr_i[26:25];
+                    instr_load_rs1_rs2_o <= 1'b1;
+                end else begin
+                    {sync_ack_o, sync_err_o} <= 2'b01;
+                end
+            end
+`endif
+
             default: begin
                 {sync_ack_o, sync_err_o} <= 2'b01;
             end
         endcase
 
     endtask
-`ifdef ENABLE_RV32C_EXT
 
+`ifdef ENABLE_RV32C_EXT
     //==================================================================================================================
-    // Decode compressed instr_is
+    // Decode compressed instructions.
     //==================================================================================================================
     task decode_compressed_task;
 
@@ -679,7 +711,7 @@ module decoder (
                 endcase
             end
 
-            default: begin // Quadrant 3 (uncompressed instr_is)
+            default: begin // Quadrant 3 (uncompressed instructions)
                 decode_uncompressed_task;
             end
         endcase

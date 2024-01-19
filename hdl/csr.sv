@@ -498,6 +498,10 @@ module csr (
              * At reset, the Extensions field shall contain the maximal set of supported extensions,
              * and I shall be selected over E if both are available.
              */
+`ifdef ENABLE_RV32A_EXT
+            /* Atomic extension */
+            misa[0] <= 1'b1;
+`endif  // ENABLE_RV32A_EXT
 `ifdef ENABLE_RV32C_EXT
             /* The Compression extension */
             misa[2] <= 1'b1;

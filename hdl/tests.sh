@@ -12,9 +12,10 @@ SIM_RAM_FILE=""
 # ENABLE_ZISCR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
+# ENABLE_RV32A_EXT:    Atomic instructions support.
 # ENABLE_HPM_COUNTERS: Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZISCR_EXT -D ENABLE_RV32C_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
+OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZISCR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
 while getopts "uwpsh" flag; do
 	case "${flag}" in
@@ -66,6 +67,7 @@ doFunction()
 	fi
 }
 
+# RV32I instructions
 doFunction "add-01.bin";
 doFunction "addi-01.bin";
 doFunction "and-01.bin";
@@ -77,6 +79,7 @@ doFunction "bgeu-01.bin";
 doFunction "blt-01.bin";
 doFunction "bltu-01.bin";
 doFunction "bne-01.bin";
+doFunction "fence-01.bin";
 doFunction "jal-01.bin";
 doFunction "jalr-01.bin";
 doFunction "misalign1-jalr-01.bin";
@@ -105,6 +108,22 @@ doFunction "sw-align-01.bin";
 doFunction "xor-01.bin";
 doFunction "xori-01.bin";
 
+# Priviledged tests
+doFunction "misalign2-jalr-01.bin";
+doFunction "misalign-beq-01.bin";
+doFunction "misalign-bge-01.bin";
+doFunction "misalign-bgeu-01.bin";
+doFunction "misalign-blt-01.bin";
+doFunction "misalign-bltu-01.bin";
+doFunction "misalign-bne-01.bin";
+doFunction "misalign-jal-01.bin";
+doFunction "misalign-lh-01.bin";
+doFunction "misalign-lhu-01.bin";
+doFunction "misalign-lw-01.bin";
+doFunction "misalign-sh-01.bin";
+doFunction "misalign-sw-01.bin";
+
+# Compressed instructions
 doFunction "cadd-01.bin";
 doFunction "caddi-01.bin";
 doFunction "caddi16sp-01.bin";
@@ -131,6 +150,7 @@ doFunction "csw-01.bin";
 doFunction "cswsp-01.bin";
 doFunction "cxor-01.bin";
 
+# Multiply/Divide instructions
 doFunction "mul-01.bin";
 doFunction "mulh-01.bin";
 doFunction "mulhsu-01.bin";
@@ -140,19 +160,16 @@ doFunction "divu-01.bin";
 doFunction "rem-01.bin";
 doFunction "remu-01.bin";
 
-doFunction "misalign2-jalr-01.bin";
-doFunction "misalign-beq-01.bin";
-doFunction "misalign-bge-01.bin";
-doFunction "misalign-bgeu-01.bin";
-doFunction "misalign-blt-01.bin";
-doFunction "misalign-bltu-01.bin";
-doFunction "misalign-bne-01.bin";
-doFunction "misalign-jal-01.bin";
-doFunction "misalign-lh-01.bin";
-doFunction "misalign-lhu-01.bin";
-doFunction "misalign-lw-01.bin";
-doFunction "misalign-sh-01.bin";
-doFunction "misalign-sw-01.bin";
-
-doFunction "fence-01.bin";
+# CSR instructions
 doFunction "csr-01.bin";
+
+# Atomic instructions
+doFunction "amoadd.w-01.bin";
+doFunction "amoand.w-01.bin";
+doFunction "amomax.w-01.bin";
+doFunction "amomaxu.w-01.bin";
+doFunction "amomin.w-01.bin";
+doFunction "amominu.w-01.bin";
+doFunction "amoor.w-01.bin";
+doFunction "amoswap.w-01.bin";
+doFunction "amoxor.w-01.bin";

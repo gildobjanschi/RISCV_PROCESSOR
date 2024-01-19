@@ -16,9 +16,15 @@
  **********************************************************************************************************************/
 
 /***********************************************************************************************************************
- * Supported instructions
+ * The supported instructions are listed herein. The optional extension enable flags are set in sim.sh and fpga.sh:
+ *
+ * # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
+ * # ENABLE_ZISCR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
+ * #                          implementation useless.
+ * # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
+ * # ENABLE_RV32A_EXT:    Atomic instructions support.
  **********************************************************************************************************************/
-// The base ISA set
+// RV32I instructions
 `define INSTR_TYPE_LUI      7'd1
 `define INSTR_TYPE_AUIPC    7'd2
 `define INSTR_TYPE_JAL      7'd3
@@ -62,7 +68,7 @@
 `define INSTR_TYPE_MRET     7'd41
 `define INSTR_TYPE_WFI      7'd42
 
-// The RV32M extension
+// RV32M instructions
 `ifdef ENABLE_RV32M_EXT
 `define INSTR_TYPE_MUL      7'd50
 `define INSTR_TYPE_MULH     7'd51
@@ -74,7 +80,7 @@
 `define INSTR_TYPE_REMU     7'd57
 `endif
 
-// The Zicsr extension
+// Zicsr instructions
 `ifdef ENABLE_ZISCR_EXT
 `define INSTR_TYPE_CSRRW    7'd58
 `define INSTR_TYPE_CSRRS    7'd59
@@ -82,4 +88,19 @@
 `define INSTR_TYPE_CSRRWI   7'd61
 `define INSTR_TYPE_CSRRSI   7'd62
 `define INSTR_TYPE_CSRRCI   7'd63
+`endif
+
+// RV32A instructions
+`ifdef ENABLE_RV32A_EXT
+`define INSTR_TYPE_LR_W         7'd64
+`define INSTR_TYPE_SC_W         7'd65
+`define INSTR_TYPE_AMOSWAP_W    7'd66
+`define INSTR_TYPE_AMOADD_W     7'd67
+`define INSTR_TYPE_AMOXOR_W     7'd68
+`define INSTR_TYPE_AMOAND_W     7'd69
+`define INSTR_TYPE_AMOOR_W      7'd70
+`define INSTR_TYPE_AMOMIN_W     7'd71
+`define INSTR_TYPE_AMOMAX_W     7'd72
+`define INSTR_TYPE_AMOMINU_W    7'd73
+`define INSTR_TYPE_AMOMAXU_W    7'd74
 `endif
