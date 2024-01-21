@@ -1516,7 +1516,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
-                store_task (rs1_i, rs2_i, 4'b1111);
+                addr <= rs1_i;
+                store_value <= rs2_i;
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOADD_W: begin
@@ -1527,7 +1529,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
-                store_task (rs1_i, data_data_i + rs2_i, 4'b1111);
+                addr <= rs1_i;
+                store_value <= data_data_i + rs2_i;
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOXOR_W: begin
@@ -1538,7 +1542,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
-                store_task (rs1_i, data_data_i ^ rs2_i, 4'b1111);
+                addr <= rs1_i;
+                store_value <= data_data_i ^ rs2_i;
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOAND_W: begin
@@ -1549,7 +1555,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
-                store_task (rs1_i, data_data_i & rs2_i, 4'b1111);
+                addr <= rs1_i;
+                store_value <= data_data_i & rs2_i;
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOOR_W: begin
@@ -1560,7 +1568,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
-                store_task (rs1_i, data_data_i | rs2_i, 4'b1111);
+                addr <= rs1_i;
+                store_value <= data_data_i | rs2_i;
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOMIN_W: begin
@@ -1595,26 +1605,30 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
+                addr <= rs1_i;
+
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        store_task (rs1_i, data_data_i[30:0] < rs2_i[30:0] ? data_data_i : rs2_i, 4'b1111);
+                        store_value <= data_data_i[30:0] < rs2_i[30:0] ? data_data_i : rs2_i;
                     end
 
                     2'b10: begin
                         // data_data_i is negative, rs2_i is positive
-                        store_task (rs1_i, data_data_i, 4'b1111);
+                        store_value <= data_data_i;
                     end
 
                     2'b01: begin
                         // data_data_i is positive, rs2_i is negative
-                        store_task (rs1_i, rs2_i, 4'b1111);
+                        store_value <= rs2_i;
                     end
 
                     2'b00: begin // Both are positive
-                        store_task (rs1_i, data_data_i < rs2_i ? data_data_i : rs2_i, 4'b1111);
+                        store_value <= data_data_i < rs2_i ? data_data_i : rs2_i;
                     end
                 endcase
+
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOMAX_W: begin
@@ -1650,26 +1664,30 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
+                addr <= rs1_i;
+
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        store_task (rs1_i, data_data_i[30:0] > rs2_i[30:0] ? data_data_i : rs2_i, 4'b1111);
+                        store_value <= data_data_i[30:0] > rs2_i[30:0] ? data_data_i : rs2_i;
                     end
 
                     2'b10: begin
                         // data_data_i is negative, rs2_i is positive
-                        store_task (rs1_i, rs2_i, 4'b1111);
+                        store_value <= rs2_i;
                     end
 
                     2'b01: begin
                         // data_data_i is positive, rs2_i is negative
-                        store_task (rs1_i, data_data_i, 4'b1111);
+                        store_value <= data_data_i;
                     end
 
                     2'b00: begin // Both are positive
-                        store_task (rs1_i, data_data_i > rs2_i ? data_data_i : rs2_i, 4'b1111);
+                        store_value <= data_data_i > rs2_i ? data_data_i : rs2_i;
                     end
                 endcase
+
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOMINU_W: begin
@@ -1680,7 +1698,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
-                store_task (rs1_i, data_data_i < rs2_i ? data_data_i : rs2_i, 4'b1111);
+                addr <= rs1_i;
+                store_value <= data_data_i < rs2_i ? data_data_i : rs2_i;
+                state_m <= STATE_STORE;
             end
 
             `INSTR_TYPE_AMOMAXU_W: begin
@@ -1691,7 +1711,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
 `endif
-                store_task (rs1_i, data_data_i > rs2_i ? data_data_i : rs2_i, 4'b1111);
+                addr <= rs1_i;
+                store_value <= data_data_i > rs2_i ? data_data_i : rs2_i;
+                state_m <= STATE_STORE;
             end
 `endif // ENABLE_RV32A_EXT
 
