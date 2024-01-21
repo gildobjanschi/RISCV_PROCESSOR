@@ -804,7 +804,7 @@ module mem_space #(
             case (state_m)
                 STATE_RESET: begin
                     // The cache is reset location-by-location so we can use block RAM for this cache
-                    i_cache_addr[i_cache_index] <= `INVALID_INSTR_ADDR;
+                    i_cache_addr[i_cache_index] <= `INVALID_ADDR;
                     if (~|i_cache_index) begin
                         state_m <= STATE_IDLE;
                     end else begin

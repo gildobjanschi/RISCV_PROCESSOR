@@ -45,4 +45,4 @@
 `define IO_SIZE         32'h0001_0000
 
 /* Define a value that represens an invalid address within the memory map */
-`define INVALID_INSTR_ADDR  32'h1000_0000
+`define INVALID_ADDR  32'h1000_0000
