@@ -21,7 +21,7 @@
  * The ROM size is 16MB (1000000h). The user size is: 1000000h - 600000h = a00000h
  *
  * RAM
- *  * ULX3S board: SDRAM is 16MB x 16 = 32MB. Size is 2000000h.
+ * ULX3S board: SDRAM is 16MB x 16 = 32MB. Size is 2000000h.
  * Blue Whale board: PSRAM is 4MB x 16 = 8MB
  **********************************************************************************************************************/
 // This is the offset within the flash where app data can be stored
@@ -45,4 +45,4 @@
 `define IO_SIZE         32'h0001_0000
 
 /* Define a value that represens an invalid address within the memory map */
-`define INVALID_ADDR  32'h1000_0000
+`define INVALID_ADDR    32'h1000_0000
