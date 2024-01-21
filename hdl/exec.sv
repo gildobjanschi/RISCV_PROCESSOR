@@ -104,12 +104,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     localparam STATE_MUL_PENDING    = 3'b011;
     localparam STATE_DIV_PENDING    = 3'b100;
 `endif
-`ifdef ENABLE_ZICSR_EXT
-    localparam STATE_CSR_STORE      = 3'b101;
-    localparam STATE_CSR_STORE_ACK  = 3'b110;
-`endif
+    localparam STATE_STORE          = 3'b101;
     logic [2:0] state_m;
-    logic [31:0] addr;
 
     // Negate the ack_o as soon as the stb_i is deactivated.
     logic sync_ack_o = 1'b0;
@@ -125,9 +121,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     logic div_stb_o, div_cyc_o, div_is_signed_o, div_ack_i;
     logic [31:0] divident_o, divisor_o, div_result_i, rem_result_i;
 `endif
-`ifdef ENABLE_ZICSR_EXT
-    logic [31:0] csr_store;
-`endif
+    logic [31:0] addr;
+    logic [31:0] store_value;
+
 `ifdef ENABLE_RV32A_EXT
     logic [31:0] atomic_rs;
 `endif
@@ -1370,8 +1366,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `ifdef ENABLE_ZICSR_EXT
             `INSTR_TYPE_CSRRW: begin
                 if (instr_op_imm_i[11:10] != 2'b11) begin
-                    csr_store <= rs1_i;
-                    state_m <= STATE_CSR_STORE;
+                    store_value <= rs1_i;
+                    state_m <= STATE_STORE;
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, rs1_i, addr);
@@ -1391,8 +1387,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRS: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    csr_store <= data_data_i | rs1_i;
-                    state_m <= STATE_CSR_STORE;
+                    store_value <= data_data_i | rs1_i;
+                    state_m <= STATE_STORE;
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, data_data_i | rs1_i, addr);
@@ -1412,8 +1408,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRC: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    csr_store <= data_data_i & ~rs1_i;
-                    state_m <= STATE_CSR_STORE;
+                    store_value <= data_data_i & ~rs1_i;
+                    state_m <= STATE_STORE;
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, data_data_i & ~rs1_i, addr);
@@ -1433,8 +1429,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRWI: begin
                 if (instr_op_imm_i[11:10] != 2'b11) begin
-                    csr_store <= instr_op_rs1_i;
-                    state_m <= STATE_CSR_STORE;
+                    store_value <= instr_op_rs1_i;
+                    state_m <= STATE_STORE;
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_op_rs1_i, addr);
@@ -1454,8 +1450,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRSI: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    csr_store <= data_data_i | instr_op_rs1_i;
-                    state_m <= STATE_CSR_STORE;
+                    store_value <= data_data_i | instr_op_rs1_i;
+                    state_m <= STATE_STORE;
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, data_data_i, data_data_i | instr_op_rs1_i, addr);
@@ -1475,8 +1471,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRCI: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    csr_store <= data_data_i & ~instr_op_rs1_i;
-                    state_m <= STATE_CSR_STORE;
+                    store_value <= data_data_i & ~instr_op_rs1_i;
+                    state_m <= STATE_STORE;
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, data_data_i, data_data_i & ~instr_op_rs1_i, addr);
@@ -1938,24 +1934,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
                 end
 
-`ifdef ENABLE_ZICSR_EXT
-                STATE_CSR_STORE: begin
-                    store (addr, csr_store, 4'b1111);
-                    state_m <= STATE_CSR_STORE_ACK;
+                STATE_STORE: begin
+                    store_task (addr, store_value, 4'b1111);
                 end
-
-                STATE_CSR_STORE_ACK: begin
-                    if (data_stb_o & data_cyc_o & data_ack_i) begin
-                        {data_stb_o, data_cyc_o} <= 2'b00;
-                        {sync_ack_o, sync_err_o} <= 2'b10;
-                        state_m <= STATE_EXEC;
-                    end else if (data_stb_o & data_cyc_o & data_err_i) begin
-                        {data_stb_o, data_cyc_o} <= 2'b00;
-                        {sync_ack_o, sync_err_o} <= 2'b01;
-                        state_m <= STATE_EXEC;
-                    end
-                end
-`endif
 
 `ifdef ENABLE_RV32M_EXT
                 STATE_MUL_PENDING: begin
