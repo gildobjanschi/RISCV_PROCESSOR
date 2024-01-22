@@ -48,10 +48,12 @@
  * data_sel_i           -- The number of bytes to r/w (1 -> 4'b0001, 2 -> 4'b0011, 3 -> 4'b0111 or 4 bytes -> 4'b1111).
  * data_we_i            -- 1'b1 to write data, 0 to read.
  * data_addr_i          -- The address from where data is read/written.
+ * data_addr_tag_i      -- The address tag.
  * data_data_i          -- The input data to write.
  * data_ack_o           -- The data transaction completes successfully on the posedge of this signal.
  * data_err_o           -- The data transaction completes with an error on the posedge of this signal.
  * data_data_o          -- The data that was read.
+ * data_data_tag_o      -- The data output tag
  * RAM wires            -- RAM wires.
  * flash_master_clk_i   -- The flash master clock.
  * flash_device_clk_i   -- Flash clock from the PLL.
@@ -89,10 +91,12 @@ module mem_space #(
     input logic [3:0] data_sel_i,
     input logic data_we_i,
     input logic [31:0] data_addr_i,
+    input logic [2:0] data_addr_tag_i,
     input logic [31:0] data_data_i,
     output logic data_ack_o,
     output logic data_err_o,
     output logic [31:0] data_data_o,
+    output logic data_data_tag_o,
 `ifdef BOARD_ULX3S
     input logic sdram_device_clk_i,
     // SDRAM wires
@@ -179,6 +183,7 @@ module mem_space #(
     logic sync_flash_ack_i, sync_flash_ack_i_pulse;
     DFF_META dff_meta_flash_ack (.reset(rst_i), .D(flash_ack_i), .clk(clk_i), .Q(sync_flash_ack_i),
                             .Q_pulse(sync_flash_ack_i_pulse));
+
     //==================================================================================================================
     // Instantiate the modules
     //==================================================================================================================
@@ -419,9 +424,10 @@ module mem_space #(
                     if (~ram_stb_o & ~ram_cyc_o & ~ram_ack_i) begin
 `ifdef D_MEM_SPACE
                         if (~data_we_i) begin
-                            $display($time, " MEM_SPACE: Reading RAM @[%h]", data_addr_i);
+                            $display($time, " MEM_SPACE: Reading RAM @[%h]; tag: %h", data_addr_i, data_addr_tag_i);
                         end else begin
-                            $display($time, " MEM_SPACE: Writing %h to RAM @[%h]", data_data_i, data_addr_i);
+                            $display($time, " MEM_SPACE: Writing %h to RAM @[%h]; tag: %h", data_data_i, data_addr_i,
+                                        data_addr_tag_i);
                         end
 `endif
                         start_ram_transaction_task(data_we_i, data_addr_i[23:0], data_sel_i, data_data_i);
