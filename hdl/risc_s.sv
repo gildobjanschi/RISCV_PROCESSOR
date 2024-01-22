@@ -203,7 +203,8 @@ module risc_s (
     // Exec ports (we use the wire type to make it clear that this module is not using these signals)
     wire [31:0] data_addr_w, data_data_i_w, data_data_o_w;
     wire [3:0] data_sel_w;
-    wire data_we_w, data_stb_w, data_cyc_w, data_ack_w, data_err_w;
+    wire data_we_w, data_stb_w, data_cyc_w, data_ack_w, data_err_w, data_data_tag_w;
+    wire [2:0] data_addr_tag_w;
     // Event counters
     logic [31:0] incr_event_counters_o;
     // IO interrupt
@@ -244,6 +245,7 @@ module risc_s (
         .core_data_o        (core_data_i),
         // Wishbone interface for reading and writing data
         .data_addr_i        (data_addr_w),
+        .data_addr_tag_i    (data_addr_tag_w),
         .data_data_i        (data_data_i_w),
         .data_stb_i         (data_stb_w),
         .data_cyc_i         (data_cyc_w),
@@ -252,6 +254,7 @@ module risc_s (
         .data_ack_o         (data_ack_w),
         .data_err_o         (data_err_w),
         .data_data_o        (data_data_o_w),
+        .data_data_tag_o    (data_data_tag_w),
 `ifdef BOARD_ULX3S
         .sdram_device_clk_i (sdram_device_clk),
         // SDRAM wires
@@ -355,6 +358,7 @@ module risc_s (
         .trap_mtval_o       (exec_trap_mtval_i),
         // Read/write RAM/ROM/IO data for l(b/h/w) s(b/h/w) instructions
         .data_addr_o        (data_addr_w),
+        .data_addr_tag_o    (data_addr_tag_w),
         .data_data_o        (data_data_i_w),
         .data_stb_o         (data_stb_w),
         .data_cyc_o         (data_cyc_w),
@@ -362,7 +366,8 @@ module risc_s (
         .data_we_o          (data_we_w),
         .data_ack_i         (data_ack_w),
         .data_err_i         (data_err_w),
-        .data_data_i        (data_data_o_w));
+        .data_data_i        (data_data_o_w),
+        .data_tag_i         (data_data_tag_w));
 
     //==================================================================================================================
     // Definitions
