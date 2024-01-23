@@ -121,7 +121,7 @@ module io_bus #(
 `endif
                             // Register the reservation for lr.w
                             reservation_addr <= addr_i;
-                        end else if (we_i && (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
+                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
                             /*
                              * Validate the reservation for sc.w. io_cyc_o and io_stb_o stay low and sync_ack
                              * is set above.
@@ -148,7 +148,7 @@ module io_bus #(
                             end else begin
                                 // Wait until the address is unlocked.
                             end
-                        end else if (we_i && (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
+                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
 `ifdef D_IO_BUS
                             $display($time, " IO_BUS:    >>>> AMO unlock @[%h]", addr_i);
 `endif
