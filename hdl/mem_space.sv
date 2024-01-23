@@ -345,7 +345,7 @@ module mem_space #(
                     if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
                         if (data_we_i) begin
 `ifdef D_MEM_SPACE
-                            $display($time, " MEM_SPACE:   --- Invalid data address. Flash is read only [%h]. ---",
+                            $display ($time, " MEM_SPACE:   --- Invalid data address. Flash is read only [%h]. ---",
                                         data_addr_i);
 `endif
                             data_new_transaction_q <= 1'b0;
@@ -354,7 +354,7 @@ module mem_space #(
                             {data_sync_ack_o, data_sync_err_o} <= 2'b01;
                         end else begin
 `ifdef D_MEM_SPACE
-                            $display($time, " MEM_SPACE: Reading flash data @[%h]", data_addr_i);
+                            $display ($time, " MEM_SPACE: Reading flash data @[%h]", data_addr_i);
 `endif
                             flash_addr_o <= data_addr_i[23:0];
                             flash_sel_o <= data_sel_i;
@@ -380,9 +380,9 @@ module mem_space #(
                     if (~ram_stb_o & ~ram_cyc_o & ~ram_ack_i) begin
 `ifdef D_MEM_SPACE
                         if (~data_we_i) begin
-                            $display($time, " MEM_SPACE: Reading RAM @[%h]; tag: %h", data_addr_i, data_addr_tag_i);
+                            $display ($time, " MEM_SPACE: Reading RAM @[%h]; tag: %h", data_addr_i, data_addr_tag_i);
                         end else begin
-                            $display($time, " MEM_SPACE: Writing %h to RAM @[%h]; tag: %h", data_data_i, data_addr_i,
+                            $display ($time, " MEM_SPACE: Writing %h to RAM @[%h]; tag: %h", data_data_i, data_addr_i,
                                         data_addr_tag_i);
                         end
 `endif
@@ -430,7 +430,7 @@ module mem_space #(
                     if (~csr_stb_o & ~csr_cyc_o & ~csr_ack_i & ~csr_err_i) begin
 `ifdef D_MEM_SPACE
                         if (data_we_i) begin
-                            $display($time, " MEM_SPACE: Data CSR write @[%h]: %h", data_addr_i[11:0], data_data_i);
+                            $display ($time, " MEM_SPACE: Data CSR write @[%h]: %h", data_addr_i[11:0], data_data_i);
                         end
 `endif
                         csr_addr_o <= data_addr_i[11:0];
@@ -450,7 +450,7 @@ module mem_space #(
 
                 default: begin
 `ifdef D_MEM_SPACE
-                    $display($time, " MEM_SPACE:   --- Invalid data address [%h]. ---", data_addr_i);
+                    $display ($time, " MEM_SPACE:   --- Invalid data address [%h]. ---", data_addr_i);
 `endif
                     data_new_transaction_q <= 1'b0;
                     // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and EX_STORE_ACCESS_FAULT for
@@ -466,7 +466,7 @@ module mem_space #(
                 12'h006, 12'h007, 12'h008, 12'h009, 12'h00a, 12'h00b, 12'h00c, 12'h00d, 12'h00e, 12'h00f: begin
                     if (i_cache_addr[core_addr_i[5:1]] == core_addr_i) begin
 `ifdef D_MEM_SPACE
-                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, {core_addr_i[5:1]});
+                        $display ($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, {core_addr_i[5:1]});
 `endif
                         `ifdef BOARD_BLUE_WHALE led[0] <= 1'b1;`endif
                         core_new_transaction_q <= 1'b0;
@@ -482,7 +482,7 @@ module mem_space #(
 
                         if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
 `ifdef D_MEM_SPACE
-                            $display($time, " MEM_SPACE: Reading flash instruction @[%h]", core_addr_i);
+                            $display ($time, " MEM_SPACE: Reading flash instruction @[%h]", core_addr_i);
 `endif
                             // Read an instruction from flash
                             flash_addr_o <= core_addr_i[23:0];
@@ -508,7 +508,7 @@ module mem_space #(
 `endif
                     if (i_cache_addr[core_addr_i[5:1]] == core_addr_i) begin
 `ifdef D_MEM_SPACE
-                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, {core_addr_i[5:1]});
+                        $display ($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, {core_addr_i[5:1]});
 `endif
                         `ifdef BOARD_BLUE_WHALE led[0] <= 1'b1;`endif
                         core_new_transaction_q <= 1'b0;
@@ -524,7 +524,7 @@ module mem_space #(
 
                         if (~ram_stb_o & ~ram_cyc_o & ~ram_ack_i) begin
 `ifdef D_MEM_SPACE
-                            $display($time, " MEM_SPACE: Reading RAM instruction @[%h]", core_addr_i);
+                            $display ($time, " MEM_SPACE: Reading RAM instruction @[%h]", core_addr_i);
 `endif
                             /*
                              * Start the RAM transaction to read an instruction.
@@ -557,7 +557,7 @@ module mem_space #(
                         {io_stb_o, io_cyc_o} <= 2'b11;
 `ifdef D_MEM_SPACE
                         if (core_we_i) begin
-                            $display($time, " MEM_SPACE: Core IO write %0d @[%h]", core_data_i, core_addr_i[23:0]);
+                            $display ($time, " MEM_SPACE: Core IO write %0d @[%h]", core_data_i, core_addr_i[23:0]);
                         end
 `endif
                         core_new_transaction_q <= 1'b0;
@@ -575,7 +575,7 @@ module mem_space #(
                     if (~csr_stb_o & ~csr_cyc_o & ~csr_ack_i & ~csr_err_i) begin
 `ifdef D_MEM_SPACE
                         if (core_we_i) begin
-                            $display($time, " MEM_SPACE: Core CSR write @[%h]: %h", core_addr_i[11:0], core_data_i);
+                            $display ($time, " MEM_SPACE: Core CSR write @[%h]: %h", core_addr_i[11:0], core_data_i);
                         end
 `endif
                         csr_addr_o <= core_addr_i[11:0];
@@ -596,7 +596,7 @@ module mem_space #(
 
                 default: begin
 `ifdef D_MEM_SPACE
-                    $display($time, " MEM_SPACE:    --- Invalid instruction address [%h]. ---", core_addr_i);
+                    $display ($time, " MEM_SPACE:    --- Invalid instruction address [%h]. ---", core_addr_i);
 `endif
                     core_new_transaction_q <= 1'b0;
                     // The upstream module will infer an EX_INSTRUCTION_ACCESS_FAULT
@@ -610,7 +610,7 @@ module mem_space #(
             {flash_stb_o, flash_cyc_o} <= 2'b00;
 
 `ifdef D_MEM_SPACE
-            $display($time, " MEM_SPACE: Flash data @[%h]: %h", flash_addr_o, flash_data_i);
+            $display ($time, " MEM_SPACE: Flash data @[%h]: %h", flash_addr_o, flash_data_i);
 `endif
             if (core_access == ACCESS_FLASH) begin
                 core_data_o <= flash_data_i;
@@ -678,7 +678,7 @@ module mem_space #(
             end
 
 `ifdef D_MEM_SPACE
-            $display($time, " MEM_SPACE: RAM read @[%h]: %h", ram_addr_o, ram_data_i);
+            $display ($time, " MEM_SPACE: RAM read @[%h]: %h", ram_addr_o, ram_data_i);
 `endif
         end
 
@@ -688,7 +688,7 @@ module mem_space #(
 
 `ifdef D_MEM_SPACE
             if (~io_we_o) begin
-                $display($time, " MEM_SPACE: IO read @[%h]: %0d", io_addr_o, io_data_i);
+                $display ($time, " MEM_SPACE: IO read @[%h]: %0d", io_addr_o, io_data_i);
             end
 `endif
             if (core_access == ACCESS_IO) begin
@@ -725,7 +725,7 @@ module mem_space #(
 
 `ifdef D_MEM_SPACE
             if (~csr_we_o) begin
-                $display($time, " MEM_SPACE: CSR read @[%h]: %h", csr_addr_o, csr_data_i);
+                $display ($time, " MEM_SPACE: CSR read @[%h]: %h", csr_addr_o, csr_data_i);
             end
 `endif
             if (core_access == ACCESS_CSR) begin
