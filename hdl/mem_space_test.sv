@@ -208,6 +208,7 @@ module mem_space_test(
     logic [31:0] data_data_i, data_data_o;
     logic [3:0] data_sel_o;
     logic data_we_o, data_stb_o, data_cyc_o, data_ack_i, data_err_i;
+    logic [2:0] data_addr_tag_w;
     // Event counters
     logic [31:0] incr_event_counters_o;
     // IO interrupt
@@ -232,6 +233,7 @@ module mem_space_test(
     .data_sel_i         (data_sel_o),
     .data_we_i          (data_we_o),
     .data_addr_i        (data_addr_o),
+    .data_addr_tag_i    (data_addr_tag_w),
     .data_data_i        (data_data_o),
     .data_ack_o         (data_ack_i),
     .data_err_o         (data_err_i),
@@ -318,6 +320,7 @@ module mem_space_test(
             data_rd_address <= `RAM_BEGIN_ADDR + RAM_OFFSET;
             core_rd_address <= `ROM_BEGIN_ADDR;
 
+            data_addr_tag_w <= 0;
             (* parallel_case, full_case *)
             case (test_num)
                 0: begin
