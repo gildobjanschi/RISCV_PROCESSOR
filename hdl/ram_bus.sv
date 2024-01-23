@@ -147,22 +147,23 @@ module ram_bus #(
                             ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && (addr_i != reservation_addr));
 
             if (cyc_i & stb_i & (sync_ack | ram_ack_i)) begin
+                (* parallel_case, full_case *)
                 case (addr_tag_i[2:1])
                     `ADDR_TAG_MODE_NONE: begin
                         /*
                          * Invalidate the reservation if a regular store instruction writes to the reservation address.
                          */
-                        if (we_i && addr_i == reservation_addr) reservation_addr <= `INVALID_ADDR;
+                        if (we_i & addr_i == reservation_addr) reservation_addr <= `INVALID_ADDR;
                     end
 
                     `ADDR_TAG_MODE_LRSC: begin
-                        if (addr_tag_i[0] == `ADDR_TAG_LOCK) begin
+                        if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
 `ifdef D_RAM_BUS
                             $display($time, " RAM_BUS:    >>>> Register reservation @[%h]", addr_i);
 `endif
                             // Register the reservation for lr.w
                             reservation_addr <= addr_i;
-                        end else begin
+                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
                             /*
                              * Validate the reservation for sc.w. ram_cyc_o and ram_stb_o stay low and sync_ack
                              * is set above.
@@ -180,7 +181,7 @@ module ram_bus #(
                     end
 
                     `ADDR_TAG_MODE_AMO: begin
-                        if (addr_tag_i[0] == `ADDR_TAG_LOCK) begin
+                        if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
                             if (reservation_addr == `INVALID_ADDR) begin
 `ifdef D_RAM_BUS
                                 $display($time, " RAM_BUS:    >>>> AMO lock @[%h]", addr_i);
@@ -189,7 +190,7 @@ module ram_bus #(
                             end else begin
                                 // Wait until the address is unlocked.
                             end
-                        end else begin
+                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
 `ifdef D_RAM_BUS
                             $display($time, " RAM_BUS:    >>>> AMO unlock @[%h]", addr_i);
 `endif
