@@ -42,7 +42,7 @@
 `endif // BOARD_ULX3S
 
 `define IO_BEGIN_ADDR   32'hc000_0000
-`define IO_SIZE         32'h00f0_0000
+`define IO_SIZE         32'h0100_0000
 
 /* Define a value that represens an invalid address within the memory map */
 `define INVALID_ADDR    32'h1000_0000
