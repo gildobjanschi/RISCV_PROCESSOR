@@ -105,7 +105,6 @@ module io_bus #(
                             ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && (addr_i != reservation_addr));
 
             if (cyc_i & stb_i & (sync_ack | io_ack_i)) begin
-                $display($time, " IO_BUS: io_stb_o: %h; io_cyc_o: %h; sync_ack: %h; io_ack_i: %h; res: @[%h]", io_stb_o, io_cyc_o, sync_ack, io_ack_i, reservation_addr);
                 case (addr_tag_i[2:1])
                     `ADDR_TAG_MODE_NONE: begin
                         /*

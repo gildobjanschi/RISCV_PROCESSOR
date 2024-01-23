@@ -1003,7 +1003,7 @@ module risc_p (
 `endif
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
-            $fdisplay(fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
+            $fdisplay (fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
                         ($time - stats_start_execution_time)/CLK_PERIOD_NS,
                         (stats_start_execution_time - stats_prev_end_execution_time)/CLK_PERIOD_NS);
 `endif
@@ -1183,7 +1183,7 @@ module risc_p (
             pipeline_trap_mepc <= exec_instr_addr_o;
             pipeline_trap_mtval <= exec_trap_mtval_i;
             enter_trap_task;
-        end else if(~(exec_stb_o & exec_cyc_o) & (pipeline_entry_status[pipeline_rd_ptr] == PL_E_REGFILE_READ)) begin
+        end else if (~(exec_stb_o & exec_cyc_o) & (pipeline_entry_status[pipeline_rd_ptr] == PL_E_REGFILE_READ)) begin
             if (pipeline_trap[pipeline_rd_ptr]) begin
                 /*
                  * Handle the exception that occured earlier in the pipeline (EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED,
