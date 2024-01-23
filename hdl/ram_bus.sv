@@ -59,20 +59,21 @@ module ram_bus #(
 `endif // BOARD_ULX3S
 );
 
+    logic [31:0] ram_data_o;
     logic ram_ack_i;
 `ifdef BOARD_ULX3S
     sdram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) sdram_m (
         // Wishbone interface
         .clk_i          (clk_i),
         .rst_i          (rst_i),
-        .addr_i         (addr_i[23:0]),
-        .data_i         (data_i),
+        .addr_i         (addr_i[24:1]),
+        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
-        .sel_i          (sel_i),
+        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
         .ack_o          (ram_ack_i),
-        .data_o         (data_o),
+        .data_o         (ram_data_o),
         // SDRAM clock
         .device_clk_i   (sdram_device_clk_i),
         // SDRAM signals
@@ -91,14 +92,14 @@ module ram_bus #(
         // Wishbone interface
         .clk_i          (clk_i),
         .rst_i          (rst_i),
-        .addr_i         (addr_i[21:0]),
-        .data_i         (data_i),
+        .addr_i         (addr_i[22:1]),
+        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
-        .sel_i          (sel_i),
+        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
         .ack_o          (ram_ack_i),
-        .data_o         (data_o),
+        .data_o         (ram_data_o),
         // PSRAM signals
         .psram_cen      (psram_cen),
         .psram_wen      (psram_wen),
@@ -130,6 +131,8 @@ module ram_bus #(
                     (addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}));
 
     assign data_tag_o = (addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i != reservation_addr);
+
+    assign data_o = sel_i == 4'b0001 ? (addr_i[0] == 0 ? ram_data_o[7:0] : ram_data_o[15:8]) : ram_data_o;
 
     logic [31:0] reservation_addr;
     //==================================================================================================================

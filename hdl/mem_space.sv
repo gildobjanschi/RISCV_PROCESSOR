@@ -311,40 +311,6 @@ module mem_space #(
         .io_interrupts_o        (io_interrupts_o));
 
     //==================================================================================================================
-    // Start a rd/wr 16-bit RAM transaction.
-    //==================================================================================================================
-    task start_ram_transaction_task(input we, input [31:0] addr, input [2:0] addr_tag, input [3:0] sel,
-                                        input [31:0] wr_data);
-        ram_addr_o <= {1'b0, addr[31:1]};
-        ram_addr_tag_o <= addr_tag;
-        ram_we_o <= we;
-
-        case (1'b1)
-            sel[3]: begin
-                /*if (we)*/ ram_data_o <= wr_data;
-                ram_sel_o <= 4'b1111;
-            end
-
-            sel[1]: begin
-                /*if (we)*/ ram_data_o[15:0] <= wr_data[15:0];
-                ram_sel_o <= 4'b0011;
-            end
-
-            sel[0]: begin
-                if (addr[0] == 0) begin
-                    ram_sel_o <= 4'b0001;
-                    /*if (we)*/ram_data_o <= wr_data[7:0];
-                end else begin
-                    ram_sel_o <= 4'b0010;
-                    /*if (we)*/ ram_data_o[15:8] <= wr_data[7:0];
-                end
-            end
-        endcase
-
-        {ram_stb_o, ram_cyc_o} <= 2'b11;
-    endtask
-
-    //==================================================================================================================
     // The memory space processor.
     //==================================================================================================================
     task mem_space_task;
@@ -417,7 +383,15 @@ module mem_space #(
                                         data_addr_tag_i);
                         end
 `endif
-                        start_ram_transaction_task(data_we_i, data_addr_i, data_addr_tag_i, data_sel_i, data_data_i);
+                        /*
+                         * Start the RAM transaction.
+                         */
+                        ram_addr_o <= data_addr_i;
+                        ram_addr_tag_o <= data_addr_tag_i;
+                        ram_we_o <= data_we_i;
+                        ram_sel_o <= data_sel_i;
+                        ram_data_o <= data_data_i;
+                        {ram_stb_o, ram_cyc_o} <= 2'b11;
 
                         data_new_transaction_q <= 1'b0;
                         data_access <= ACCESS_RAM;
@@ -548,7 +522,14 @@ module mem_space #(
 `ifdef D_MEM_SPACE
                             $display($time, " MEM_SPACE: Reading RAM instruction @[%h]", core_addr_i);
 `endif
-                            start_ram_transaction_task(1'b0, core_addr_i, `ADDR_TAG_MODE_NONE, 4'b1111, 0);
+                            /*
+                             * Start the RAM transaction to read an instruction.
+                             */
+                            ram_addr_o <= core_addr_i;
+                            ram_addr_tag_o <= `ADDR_TAG_MODE_NONE;
+                            ram_we_o <= 1'b0;
+                            ram_sel_o <= 4'b1111;
+                            {ram_stb_o, ram_cyc_o} <= 2'b11;
 
                             core_new_transaction_q <= 1'b0;
                             core_access <= ACCESS_RAM;
@@ -670,13 +651,7 @@ module mem_space #(
                 `ifdef BOARD_BLUE_WHALE led[3] <= 1'b0;`endif
                 core_access <= ACCESS_NONE;
             end else begin
-                //if (~ram_we_o) begin
-                case (1'b1)
-                    data_sel_i[3]: data_data_o <= ram_data_i;
-                    data_sel_i[1]: data_data_o[15:0] <= ram_data_i[15:0];
-                    data_sel_i[0]: data_data_o[7:0] <= ram_sel_o[1:0] == 2'b01 ? ram_data_i[7:0] : ram_data_i[15:8];
-                endcase
-                //end
+                data_data_o <= ram_data_i;
                 data_data_tag_o <= ram_data_tag_i;
                 {data_sync_ack_o, data_sync_err_o} <= 2'b10;
 
