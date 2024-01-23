@@ -36,20 +36,20 @@
 	addi t3, t3, %lo(_ram_data_end)           ;\
 	/* Calculate the number of bytes to copy */
 	sub t1, t3, t0                            ;\
-	/* Calculate the number of half words */
-	srli t5, t1, 1                            ;\
+	/* Calculate the number of words */
+	srli t5, t1, 2                            ;\
 	/* The address in ROM where RAM data is located. */
 	lui t2, %hi(_rom_copy_to_ram_begin)       ;\
 	addi t2, t2, %lo(_rom_copy_to_ram_begin)  ;\
 copy_rom_to_ram_h_words:                    ;\
 	beq t5, zero, copy_rom_done               ;\
-	/* Load half word from ROM */
-	lh t4, 0(t2)                              ;\
-	addi t2, t2, 2                            ;\
-	/* Store half word in RAM */
-	sh t4, 0(t0)                              ;\
-	addi t0, t0, 2                            ;\
-	/* Decrement the number of half words */
+	/* Load word from ROM */
+	lw t4, 0(t2)                              ;\
+	addi t2, t2, 4                            ;\
+	/* Store word in RAM */
+	sw t4, 0(t0)                              ;\
+	addi t0, t0, 4                            ;\
+	/* Decrement the number of words */
 	addi t5, t5, -1                           ;\
 	j copy_rom_to_ram_h_words                 ;\
 copy_rom_done:                              ;\
