@@ -25,3 +25,4 @@
 `define IO_MTIMECMP     24'h00_4008
 `define IO_MTIMECMPH    24'h00_400c
 
+`define IO_SCRATCH      24'h10_0000

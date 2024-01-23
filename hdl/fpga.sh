@@ -85,7 +85,7 @@ fi
 
 if [ "$APP_NAME" = "mem_space_test" ] ; then
     openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash ../apps/TestBlob/TestBlob.bin
-    yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS uart_tx.sv uart_rx.sv utils.sv $RAM_FILE flash_master.sv io.sv timer.sv csr.sv ram_bus.sv mem_space.sv ecp5pll.sv mem_space_test.sv
+    yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS uart_tx.sv uart_rx.sv utils.sv $RAM_FILE flash_master.sv io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv mem_space_test.sv
     nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
     ecppack --db ../prjtrellis-db out.config out.bit
     openFPGALoader -b ulx3s out.bit
@@ -94,7 +94,7 @@ else if [ "$APP_NAME" = "risc_s" ] ; then
         echo "Flashing bin file: $BIN_FILE ..."
         openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash $BIN_FILE
     fi
-    yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS uart_tx.sv uart_rx.sv decoder.sv regfile.sv utils.sv exec.sv divider.sv multiplier.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_s.sv
+    yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS uart_tx.sv uart_rx.sv decoder.sv regfile.sv utils.sv exec.sv divider.sv multiplier.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_s.sv
     nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
     ecppack --db ../prjtrellis-db out.config out.bit
     openFPGALoader -b ulx3s out.bit
@@ -103,7 +103,7 @@ else if [ "$APP_NAME" = "risc_p" ] ; then
         echo "Flashing bin file: $BIN_FILE ..."
         openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash $BIN_FILE
     fi
-    yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS uart_tx.sv uart_rx.sv decoder.sv regfile.sv utils.sv exec.sv divider.sv multiplier.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv
+    yosys -p "synth_ecp5 -json out.json" -D $BOARD $OPTIONS uart_tx.sv uart_rx.sv decoder.sv regfile.sv utils.sv exec.sv divider.sv multiplier.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv
     nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
     ecppack --db ../prjtrellis-db out.config out.bit
     openFPGALoader -b ulx3s out.bit

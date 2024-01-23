@@ -89,19 +89,19 @@ fi
 
 if [ "$APP_NAME" = "mem_space_test" ] ; then
     echo "Memory space test."
-    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE uart_tx.sv uart_rx.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv ram_bus.sv mem_space.sv ecp5pll.sv mem_space_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_mem_space_test.sv
+    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE uart_tx.sv uart_rx.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv mem_space_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_mem_space_test.sv
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi
 else if [ "$APP_NAME" = "risc_s" ] ; then
     echo "Running sequential version."
-    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_s.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_s.sv
+    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_s.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_s.sv
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi
 else if [ "$APP_NAME" = "risc_p" ] ; then
     echo "Running pipeline version."
-    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
+    iverilog -g2005-sv -D $BOARD -D D_CORE $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi

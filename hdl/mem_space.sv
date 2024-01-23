@@ -201,10 +201,11 @@ module mem_space #(
     logic [31:0] flash_data_i;
 
     // IO ports
-    logic [23:0] io_addr_o;
+    logic [31:0] io_addr_o;
+    logic [2:0] io_addr_tag_o;
     logic [31:0] io_data_o, io_data_i;
-    logic io_stb_o, io_cyc_o, io_we_o, io_ack_i, io_err_i;
-    logic [ 3:0] io_sel_o;
+    logic io_stb_o, io_cyc_o, io_we_o, io_ack_i, io_err_i, io_data_tag_i;
+    logic [3:0] io_sel_o;
     logic [31:0] io_interrupts_i;
 
     // CSR ports
@@ -270,11 +271,12 @@ module mem_space #(
         .flash_wpn  (flash_wpn),
         .flash_holdn(flash_holdn));
 
-    io #(.CLK_PERIOD_NS(CLK_PERIOD_NS), .TIMER_PERIOD_NS(TIMER_PERIOD_NS)) io_m (
+    io_bus #(.CLK_PERIOD_NS(CLK_PERIOD_NS), .TIMER_PERIOD_NS(TIMER_PERIOD_NS)) io_bus_m (
         // Wishbone interface
         .clk_i      (clk_i),
         .rst_i      (rst_i),
         .addr_i     (io_addr_o),
+        .addr_tag_i (io_addr_tag_o),
         .data_i     (io_data_o),
         .stb_i      (io_stb_o),
         .cyc_i      (io_cyc_o),
@@ -283,6 +285,7 @@ module mem_space #(
         .ack_o      (io_ack_i),
         .err_o      (io_err_i),
         .data_o     (io_data_i),
+        .data_tag_o (io_data_tag_i),
         // IO clock
         .timer_clk_i    (timer_clk_i),
         // IO interrupts
@@ -403,10 +406,11 @@ module mem_space #(
                     end
                 end
 
-                // IO (32'hc000_0000 to 32'hc00f_ffff)
-                12'hc00: begin
+                // IO (32'hc000_0000 to 32'hc0ff_ffff)
+                12'hc0x: begin
                     if (~io_stb_o & ~io_cyc_o & ~io_ack_i & ~io_err_i) begin
-                        io_addr_o <= data_addr_i[23:0];
+                        io_addr_o <= data_addr_i;
+                        io_addr_tag_o <= data_addr_tag_i;
                         io_we_o <= data_we_i;
                         io_data_o <= data_data_i;
                         io_sel_o <= data_sel_i;
@@ -542,10 +546,11 @@ module mem_space #(
                     end
                 end
 
-                // IO (32'hc000_0000 to 32'hc00f_ffff)
-                12'hc00: begin
+                // IO (32'hc000_0000 to 32'hc0ff_ffff)
+                12'hc0x: begin
                     if (~io_stb_o & ~io_cyc_o & ~io_ack_i & ~io_err_i) begin
-                        io_addr_o <= core_addr_i[23:0];
+                        io_addr_o <= core_addr_i;
+                        io_addr_tag_o <= data_addr_tag_i;
                         io_we_o <= core_we_i;
                         io_data_o <= core_data_i;
                         io_sel_o <= core_sel_i;
@@ -613,12 +618,14 @@ module mem_space #(
                 // Write the instruction into the cache.
                 i_cache_addr[i_cache_index] <= core_addr_i;
                 i_cache_data[i_cache_index] <= flash_data_i;
+
                 core_access <= ACCESS_NONE;
 
                 `ifdef BOARD_BLUE_WHALE led[1] <= 1'b0;`endif
             end else begin
                 data_data_o <= flash_data_i;
                 {data_sync_ack_o, data_sync_err_o} <= 2'b10;
+
                 data_access <= ACCESS_NONE;
 
                 `ifdef BOARD_BLUE_WHALE led[9] <= 1'b0;`endif
@@ -644,16 +651,20 @@ module mem_space #(
                 // Write the instruction into the cache.
                 i_cache_addr[i_cache_index] <= core_addr_i;
                 i_cache_data[i_cache_index] <= ram_data_i;
+
+                core_access <= ACCESS_NONE;
+
 `ifdef ENABLE_HPM_COUNTERS
                 incr_internal_event_counters[`EVENT_INSTR_FROM_RAM] <= 1'b1;
 `endif
                 `ifdef BOARD_BLUE_WHALE led[2] <= 1'b0;`endif
                 `ifdef BOARD_BLUE_WHALE led[3] <= 1'b0;`endif
-                core_access <= ACCESS_NONE;
             end else begin
                 data_data_o <= ram_data_i;
                 data_data_tag_o <= ram_data_tag_i;
                 {data_sync_ack_o, data_sync_err_o} <= 2'b10;
+
+                data_access <= ACCESS_NONE;
 
 `ifdef ENABLE_HPM_COUNTERS
                 if (~ram_we_o) begin
@@ -664,7 +675,6 @@ module mem_space #(
 `endif
                 `ifdef BOARD_BLUE_WHALE led[10] <= 1'b0;`endif
                 `ifdef BOARD_BLUE_WHALE led[11] <= 1'b0;`endif
-                data_access <= ACCESS_NONE;
             end
 
 `ifdef D_MEM_SPACE
@@ -682,15 +692,18 @@ module mem_space #(
             end
 `endif
             if (core_access == ACCESS_IO) begin
-                /*if (~io_we_o)*/ core_data_o <= io_data_i;
+                core_data_o <= io_data_i;
                 {core_sync_ack_o, core_sync_err_o} <= {io_ack_i, io_err_i};
+
                 core_access <= ACCESS_NONE;
 
                 `ifdef BOARD_BLUE_WHALE led[6] <= 1'b0;`endif
                 `ifdef BOARD_BLUE_WHALE led[7] <= 1'b0;`endif
             end else begin
-                /*if (~io_we_o)*/ data_data_o <= io_data_i;
+                data_data_o <= io_data_i;
+                data_data_tag_o <= io_addr_tag_o;
                 {data_sync_ack_o, data_sync_err_o} <= {io_ack_i, io_err_i};
+
                 data_access <= ACCESS_NONE;
 
                 `ifdef BOARD_BLUE_WHALE led[12] <= 1'b0;`endif
@@ -716,15 +729,17 @@ module mem_space #(
             end
 `endif
             if (core_access == ACCESS_CSR) begin
-                /*if (~csr_we_o)*/ core_data_o <= csr_data_i;
+                core_data_o <= csr_data_i;
                 {core_sync_ack_o, core_sync_err_o} <= {csr_ack_i, csr_err_i};
+
                 core_access <= ACCESS_NONE;
 
                 `ifdef BOARD_BLUE_WHALE led[4] <= 1'b0;`endif
                 `ifdef BOARD_BLUE_WHALE led[5] <= 1'b0;`endif
             end else begin
-                /*if (~csr_we_o)*/ data_data_o <= csr_data_i;
+                data_data_o <= csr_data_i;
                 {data_sync_ack_o, data_sync_err_o} <= {csr_ack_i, csr_err_i};
+
                 data_access <= ACCESS_NONE;
 
                 `ifdef BOARD_BLUE_WHALE led[14] <= 1'b0;`endif

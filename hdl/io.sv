@@ -85,6 +85,7 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
     logic new_transaction;
     assign new_transaction = stb_i & cyc_i & ~sync_ack_o & ~sync_err_o;
 
+    logic [31:0] io_scratch;
     //==================================================================================================================
     // Module definitions
     //==================================================================================================================
@@ -153,6 +154,7 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
 
             // Clear interrupts
             io_interrupts_o <= 0;
+            io_scratch <= 0;
         end else begin
             io_interrupts_o[`IRQ_TIMER] <= sync_timer_irq_pulse;
             timer_clr_irq_i <= sync_timer_irq;
@@ -203,6 +205,16 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
 
                             {timer_stb_o, timer_cyc_o} <= 2'b11;
                         end
+                    end
+
+                    `IO_SCRATCH: begin
+                        if (we_i) begin
+                            io_scratch <= data_i;
+                        end else begin
+                            data_o <= io_scratch;
+                        end
+
+                        {sync_ack_o, sync_err_o} <= 2'b10;
                     end
 
                     default: begin

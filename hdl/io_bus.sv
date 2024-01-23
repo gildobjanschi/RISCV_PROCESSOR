@@ -20,110 +20,70 @@
 `include "memory_map.svh"
 `include "tags.svh"
 
-module ram_bus #(
-    parameter [31:0] CLK_PERIOD_NS = 20) (
+module io_bus #(
+    parameter [31:0] CLK_PERIOD_NS = 20,
+    parameter [31:0] TIMER_PERIOD_NS = 100) (
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
     input logic cyc_i,
-    input logic [3:0] sel_i,
-    input logic we_i,
     input logic [31:0] addr_i,
     input logic [2:0] addr_tag_i,
     input logic [31:0] data_i,
+    input logic [3:0] sel_i,
+    input logic we_i,
     output logic ack_o,
+    output logic err_o,
     output logic [31:0] data_o,
     output logic data_tag_o,
-`ifdef BOARD_ULX3S
-    input logic sdram_device_clk_i,
-    // SDRAM wires
-    output logic sdram_clk,
-    output logic sdram_cke,
-    output logic sdram_csn,
-    output logic sdram_wen,
-    output logic sdram_rasn,
-    output logic sdram_casn,
-    output logic [12:0] sdram_a,
-    output logic [1:0] sdram_ba,
-    output logic [1:0] sdram_dqm,
-    inout logic [15:0] sdram_d
-`else //BOARD_ULX3S
-    // RAM wires
-    output logic psram_cen,
-    output logic psram_wen,
-    output logic psram_oen,
-    output logic psram_lbn,
-    output logic psram_ubn,
-    output logic [21:0] psram_a,
-    inout logic [15:0] psram_d
-`endif // BOARD_ULX3S
-);
+    // IO clock
+    input logic timer_clk_i,
+    // Interrupts
+    output logic [31:0] io_interrupts_o,
+    // UART lines
+    output logic uart_txd_o,    // FPGA output: TXD
+    input logic uart_rxd_i,     // FPGA input: RXD
+    // External interrupts
+    input logic external_irq_i);
 
-    logic [31:0] ram_data_o;
-    logic ram_ack_i;
-`ifdef BOARD_ULX3S
-    sdram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) sdram_m (
+
+    logic io_ack_i;
+    io #(.CLK_PERIOD_NS(CLK_PERIOD_NS), .TIMER_PERIOD_NS(TIMER_PERIOD_NS)) io_m (
         // Wishbone interface
-        .clk_i          (clk_i),
-        .rst_i          (rst_i),
-        .addr_i         (addr_i[24:1]),
-        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
-        .stb_i          (ram_stb_o),
-        .cyc_i          (ram_cyc_o),
-        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
-        .we_i           (we_i),
-        .ack_o          (ram_ack_i),
-        .data_o         (ram_data_o),
-        // SDRAM clock
-        .device_clk_i   (sdram_device_clk_i),
-        // SDRAM signals
-        .sdram_clk      (sdram_clk),
-        .sdram_cke      (sdram_cke),
-        .sdram_csn      (sdram_csn),
-        .sdram_wen      (sdram_wen),
-        .sdram_rasn     (sdram_rasn),
-        .sdram_casn     (sdram_casn),
-        .sdram_a        (sdram_a),
-        .sdram_ba       (sdram_ba),
-        .sdram_dqm      (sdram_dqm),
-        .sdram_d        (sdram_d));
-`else // BOARD_ULX3S
-    psram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) psram_m (
-        // Wishbone interface
-        .clk_i          (clk_i),
-        .rst_i          (rst_i),
-        .addr_i         (addr_i[22:1]),
-        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
-        .stb_i          (ram_stb_o),
-        .cyc_i          (ram_cyc_o),
-        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
-        .we_i           (we_i),
-        .ack_o          (ram_ack_i),
-        .data_o         (ram_data_o),
-        // PSRAM signals
-        .psram_cen      (psram_cen),
-        .psram_wen      (psram_wen),
-        .psram_oen      (psram_oen),
-        .psram_lbn      (psram_lbn),
-        .psram_ubn      (psram_ubn),
-        .psram_a        (psram_a),
-        .psram_d        (psram_d));
-`endif // BOARD_ULX3S
+        .clk_i      (clk_i),
+        .rst_i      (rst_i),
+        .addr_i     (addr_i[23:0]),
+        .data_i     (data_i),
+        .stb_i      (io_stb_o),
+        .cyc_i      (io_cyc_o),
+        .sel_i      (sel_i),
+        .we_i       (we_i),
+        .ack_o      (io_ack_i),
+        .err_o      (err_o),
+        .data_o     (data_o),
+        // IO clock
+        .timer_clk_i    (timer_clk_i),
+        // IO interrupts
+        .io_interrupts_o(io_interrupts_o),
+        // UART wires
+        .uart_txd_o     (uart_txd_o),   // FPGA output: TXD
+        .uart_rxd_i     (uart_rxd_i),   // FPGA input: RXD
+        .external_irq_i (external_irq_i));
 
     logic sync_ack = 1'b0;
-    assign ack_o = (sync_ack | ram_ack_i) & stb_i;
+    assign ack_o = (sync_ack | io_ack_i) & stb_i;
 
-    // Control if transactions can start by gating the strobe and cycle of the RAM.
-    logic ram_stb_o;
-    assign ram_stb_o = stb_i &&
+    // Control if transactions can start by gating the strobe and cycle of the IO.
+    logic io_stb_o;
+    assign io_stb_o = stb_i &&
                     ((addr_tag_i[2:1] == `ADDR_TAG_MODE_NONE) ||
                     ((addr_tag_i[2:1] == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
                     ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i == reservation_addr)) ||
                     ((addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}) && (addr_i != reservation_addr)) ||
                     (addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}));
 
-    logic ram_cyc_o;
-    assign ram_cyc_o = cyc_i &&
+    logic io_cyc_o;
+    assign io_cyc_o = cyc_i &&
                     ((addr_tag_i[2:1] == `ADDR_TAG_MODE_NONE) ||
                     ((addr_tag_i[2:1] == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
                     ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i == reservation_addr)) ||
@@ -132,11 +92,9 @@ module ram_bus #(
 
     assign data_tag_o = (addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i != reservation_addr);
 
-    assign data_o = sel_i == 4'b0001 ? (addr_i[0] == 0 ? ram_data_o[7:0] : ram_data_o[15:8]) : ram_data_o;
-
     logic [31:0] reservation_addr;
     //==================================================================================================================
-    // Memory bus
+    // IO bus
     //==================================================================================================================
     always @(posedge clk_i) begin
         if (rst_i) begin
@@ -146,7 +104,8 @@ module ram_bus #(
             sync_ack <= sync_ack ? stb_i : cyc_i & stb_i & we_i &
                             ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && (addr_i != reservation_addr));
 
-            if (cyc_i & stb_i & (sync_ack | ram_ack_i)) begin
+            if (cyc_i & stb_i & (sync_ack | io_ack_i)) begin
+                $display($time, " IO_BUS: io_stb_o: %h; io_cyc_o: %h; sync_ack: %h; io_ack_i: %h; res: @[%h]", io_stb_o, io_cyc_o, sync_ack, io_ack_i, reservation_addr);
                 case (addr_tag_i[2:1])
                     `ADDR_TAG_MODE_NONE: begin
                         /*
@@ -157,18 +116,18 @@ module ram_bus #(
 
                     `ADDR_TAG_MODE_LRSC: begin
                         if (addr_tag_i[0] == `ADDR_TAG_LOCK) begin
-`ifdef D_RAM_BUS
-                            $display($time, " RAM_BUS:    >>>> Register reservation @[%h]", addr_i);
+`ifdef D_IO_BUS
+                            $display($time, " IO_BUS:    >>>> Register reservation @[%h]", addr_i);
 `endif
                             // Register the reservation for lr.w
                             reservation_addr <= addr_i;
                         end else begin
                             /*
-                             * Validate the reservation for sc.w. ram_cyc_o and ram_stb_o stay low and sync_ack
+                             * Validate the reservation for sc.w. io_cyc_o and io_stb_o stay low and sync_ack
                              * is set above.
                              */
-`ifdef D_RAM_BUS
-                            $display($time, " RAM_BUS:    <<<< Valid reservation: %h; release reservation @[%h]",
+`ifdef D_IO_BUS
+                            $display($time, " IO_BUS:    <<<< Valid reservation: %h; release reservation @[%h]",
                                         addr_i == reservation_addr, addr_i);
 `endif
                             /*
@@ -182,16 +141,16 @@ module ram_bus #(
                     `ADDR_TAG_MODE_AMO: begin
                         if (addr_tag_i[0] == `ADDR_TAG_LOCK) begin
                             if (reservation_addr == `INVALID_ADDR) begin
-`ifdef D_RAM_BUS
-                                $display($time, " RAM_BUS:    >>>> AMO lock @[%h]", addr_i);
+`ifdef D_IO_BUS
+                                $display($time, " IO_BUS:    >>>> AMO lock @[%h]", addr_i);
 `endif
                                 reservation_addr <= addr_i;
                             end else begin
                                 // Wait until the address is unlocked.
                             end
                         end else begin
-`ifdef D_RAM_BUS
-                            $display($time, " RAM_BUS:    >>>> AMO unlock @[%h]", addr_i);
+`ifdef D_IO_BUS
+                            $display($time, " IO_BUS:    >>>> AMO unlock @[%h]", addr_i);
 `endif
                             reservation_addr <= `INVALID_ADDR;
                         end

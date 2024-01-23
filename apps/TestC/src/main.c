@@ -84,7 +84,8 @@ void handle_trap() {
 
 void atomic_lr_sc() {
 	asm ("again:");
-	asm volatile("la a0, lock_var");
+	//asm volatile("la a0, lock_var");
+	asm volatile("la a0, 0xc0100000");
 	asm volatile("li a1, 0");
 	asm volatile("lr.w.aq a3, (a0)");
 	asm volatile("bne a3, a1, again");
