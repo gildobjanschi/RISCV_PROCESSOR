@@ -1153,7 +1153,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             `INSTR_TYPE_LR_W: begin
 `ifdef D_EXEC
                 $display($time, " [%h]: %h lr.w rdx%0d rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; load @[%h] ...",
-                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, rs1_i);
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
                 load_task (rs1_i, {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_LOCK}, 4'b1111);
             end
@@ -1161,8 +1162,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             `INSTR_TYPE_SC_W: begin
 `ifdef D_EXEC
                 $display($time, " [%h]: %h sc.w rdx%0d rs1x%0d[%h], rs2x%0d[%h]; aq:%h; rl:%h; store %h @[%h] ...",
-                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, rs2_i,
-                            rs1_i);
+                            instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
+                            instr_op_imm_i[1], instr_op_imm_i[0], rs2_i, rs1_i);
 `endif
                 store_task (rs1_i, {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}, rs2_i, 4'b1111);
             end

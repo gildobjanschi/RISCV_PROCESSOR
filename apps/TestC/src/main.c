@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+uint32_t lock_var = 0;
+
 /* The trap entry point saves and restores registers and calls handle_trap. */
 extern void trap_entry();
 
@@ -80,6 +82,17 @@ void handle_trap() {
 	}
 }
 
+void atomic_lr_sc() {
+	asm ("again:");
+	asm volatile("la a0, lock_var");
+	asm volatile("li a1, 0");
+	asm volatile("lr.w.aq a3, (a0)");
+	asm volatile("bne a3, a1, again");
+
+	asm volatile("sc.w.rl a3, a2, (a0)");
+	asm volatile("bnez a3, again");
+}
+
 /*
  * Demonstrate how to print a greeting message on standard output and exit.
  */
@@ -105,6 +118,8 @@ int main(void) {
 	// It will live in ROM unless we copy it to RAM.
 	// The code will end up in the .text section
 	printf("Hello RISC-V on FPGA!" "\n");
+
+	atomic_lr_sc();
 
 	// Simulate a NULL Pointer Exception
 //	*((char*)NULL) = (char)1;

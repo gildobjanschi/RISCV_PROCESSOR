@@ -68,6 +68,7 @@
 
 `include "memory_map.svh"
 `include "events.svh"
+`include "tags.svh"
 
 module mem_space #(
     parameter [31:0] CLK_PERIOD_NS = 20,
@@ -188,10 +189,11 @@ module mem_space #(
     // Instantiate the modules
     //==================================================================================================================
     // RAM ports
+    logic [31:0] ram_addr_o;
+    logic [2:0] ram_addr_tag_o;
     logic [31:0] ram_data_o, ram_data_i;
-    logic ram_stb_o, ram_cyc_o, ram_we_o, ram_ack_i;
+    logic ram_stb_o, ram_cyc_o, ram_we_o, ram_ack_i, ram_data_tag_i;
     logic [3:0] ram_sel_o;
-
     // Flash ports
     logic flash_stb_o, flash_cyc_o, flash_ack_i;
     logic [23:0] flash_addr_o;
@@ -210,56 +212,43 @@ module mem_space #(
     logic [31:0] csr_data_o, csr_data_i;
     logic csr_stb_o, csr_cyc_o, csr_we_o, csr_ack_i, csr_err_i;
 
+    ram_bus #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) ram_bus_m (
+        .clk_i      (clk_i),
+        .rst_i      (rst_i),
+        .stb_i      (ram_stb_o),
+        .cyc_i      (ram_cyc_o),
+        .sel_i      (ram_sel_o),
+        .we_i       (ram_we_o),
+        .addr_i     (ram_addr_o),
+        .addr_tag_i (ram_addr_tag_o),
+        .data_i     (ram_data_o),
+        .ack_o      (ram_ack_i),
+        .data_o     (ram_data_i),
+        .data_tag_o (ram_data_tag_i),
 `ifdef BOARD_ULX3S
-    logic [23:0] ram_addr_o;
-    sdram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) sdram_m (
-        // Wishbone interface
-        .clk_i          (clk_i),
-        .rst_i          (rst_i),
-        .addr_i         (ram_addr_o),
-        .data_i         (ram_data_o),
-        .stb_i          (ram_stb_o),
-        .cyc_i          (ram_cyc_o),
-        .sel_i          (ram_sel_o),
-        .we_i           (ram_we_o),
-        .ack_o          (ram_ack_i),
-        .data_o         (ram_data_i),
-        // SDRAM clock
-        .device_clk_i   (sdram_device_clk_i),
-        // SDRAM signals
-        .sdram_clk      (sdram_clk),
-        .sdram_cke      (sdram_cke),
-        .sdram_csn      (sdram_csn),
-        .sdram_wen      (sdram_wen),
-        .sdram_rasn     (sdram_rasn),
-        .sdram_casn     (sdram_casn),
-        .sdram_a        (sdram_a),
-        .sdram_ba       (sdram_ba),
-        .sdram_dqm      (sdram_dqm),
-        .sdram_d        (sdram_d));
-`else // BOARD_ULX3S
-    logic [21:0] ram_addr_o;
-    psram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) psram_m (
-        // Wishbone interface
-        .clk_i          (clk_i),
-        .rst_i          (rst_i),
-        .addr_i         (ram_addr_o),
-        .data_i         (ram_data_o),
-        .stb_i          (ram_stb_o),
-        .cyc_i          (ram_cyc_o),
-        .sel_i          (ram_sel_o),
-        .we_i           (ram_we_o),
-        .ack_o          (ram_ack_i),
-        .data_o         (ram_data_i),
+        .sdram_device_clk_i (sdram_device_clk_i),
+        // SDRAM wires
+        .sdram_clk  (sdram_clk),
+        .sdram_cke  (sdram_cke),
+        .sdram_csn  (sdram_csn),
+        .sdram_wen  (sdram_wen),
+        .sdram_rasn (sdram_rasn),
+        .sdram_casn (sdram_casn),
+        .sdram_a    (sdram_a),
+        .sdram_ba   (sdram_ba),
+        .sdram_dqm  (sdram_dqm),
+        .sdram_d    (sdram_d)
+`else //BOARD_ULX3S
         // PSRAM signals
-        .psram_cen      (psram_cen),
-        .psram_wen      (psram_wen),
-        .psram_oen      (psram_oen),
-        .psram_lbn      (psram_lbn),
-        .psram_ubn      (psram_ubn),
-        .psram_a        (psram_a),
-        .psram_d        (psram_d));
+        .psram_cen  (psram_cen),
+        .psram_wen  (psram_wen),
+        .psram_oen  (psram_oen),
+        .psram_lbn  (psram_lbn),
+        .psram_ubn  (psram_ubn),
+        .psram_a    (psram_a),
+        .psram_d    (psram_d)
 `endif // BOARD_ULX3S
+        );
 
     flash_master #(.FLASH_CLK_PERIOD_NS(FLASH_CLK_PERIOD_NS)) flash_master_m (
         // Wishbone interface
@@ -322,14 +311,12 @@ module mem_space #(
         .io_interrupts_o        (io_interrupts_o));
 
     //==================================================================================================================
-    // Start a rd/wr RAM transaction
+    // Start a rd/wr 16-bit RAM transaction.
     //==================================================================================================================
-    task start_ram_transaction_task(input we, input [23:0] addr, input [3:0] sel, input [31:0] wr_data);
-`ifdef BOARD_ULX3S
-        ram_addr_o <= {1'b0, addr[23:1]};
-`else // BOARD_BLUE_WHALE
-        ram_addr_o <= {1'b0, addr[21:1]};
-`endif
+    task start_ram_transaction_task(input we, input [31:0] addr, input [2:0] addr_tag, input [3:0] sel,
+                                        input [31:0] wr_data);
+        ram_addr_o <= {1'b0, addr[31:1]};
+        ram_addr_tag_o <= addr_tag;
         ram_we_o <= we;
 
         case (1'b1)
@@ -430,7 +417,7 @@ module mem_space #(
                                         data_addr_tag_i);
                         end
 `endif
-                        start_ram_transaction_task(data_we_i, data_addr_i[23:0], data_sel_i, data_data_i);
+                        start_ram_transaction_task(data_we_i, data_addr_i, data_addr_tag_i, data_sel_i, data_data_i);
 
                         data_new_transaction_q <= 1'b0;
                         data_access <= ACCESS_RAM;
@@ -561,7 +548,7 @@ module mem_space #(
 `ifdef D_MEM_SPACE
                             $display($time, " MEM_SPACE: Reading RAM instruction @[%h]", core_addr_i);
 `endif
-                            start_ram_transaction_task(1'b0, core_addr_i[23:0], 4'b1111, 0);
+                            start_ram_transaction_task(1'b0, core_addr_i, `ADDR_TAG_MODE_NONE, 4'b1111, 0);
 
                             core_new_transaction_q <= 1'b0;
                             core_access <= ACCESS_RAM;
@@ -690,7 +677,7 @@ module mem_space #(
                     data_sel_i[0]: data_data_o[7:0] <= ram_sel_o[1:0] == 2'b01 ? ram_data_i[7:0] : ram_data_i[15:8];
                 endcase
                 //end
-
+                data_data_tag_o <= ram_data_tag_i;
                 {data_sync_ack_o, data_sync_err_o} <= 2'b10;
 
 `ifdef ENABLE_HPM_COUNTERS
