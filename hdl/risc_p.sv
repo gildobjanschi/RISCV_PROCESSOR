@@ -1370,35 +1370,48 @@ module risc_p (
                         $display($time, " CORE: ---------------- Halt due to exception: %s --------------------",
                                     to_mcause_bits_string(pipeline_trap_mcause));
                     end
-`endif
-                end
 
-`ifndef TEST_MODE
 `ifdef ENABLE_HPM_COUNTERS
-                $display($time, " CORE: Cycles:                 %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display($time, " CORE: Instructions retired:   %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
-                $display($time, " CORE: Instructions from ROM:  %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
-                $display($time, " CORE: Instructions from RAM:  %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
-                $display($time, " CORE: I-Cache hits:           %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
-                $display($time, " CORE: Load from ROM:          %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
-                $display($time, " CORE: Load from RAM:          %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
-                $display($time, " CORE: Store to RAM:           %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
-                $display($time, " CORE: IO load:                %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
-                $display($time, " CORE: IO store:               %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
-                $display($time, " CORE: CSR load:               %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
-                $display($time, " CORE: CSR store:              %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
-                $display($time, " CORE: Timer interrupts:       %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
-                $display($time, " CORE: External interrupts:    %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
+                    $display($time, " CORE: Cycles:                 %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
+                    $display($time, " CORE: Instructions retired:   %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
+                    $display($time, " CORE: Instructions from ROM:  %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
+                    $display($time, " CORE: Instructions from RAM:  %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
+                    $display($time, " CORE: I-Cache hits:           %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
+                    $display($time, " CORE: Load from ROM:          %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
+                    $display($time, " CORE: Load from RAM:          %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
+                    $display($time, " CORE: Store to RAM:           %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
+                    $display($time, " CORE: IO load:                %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
+                    $display($time, " CORE: IO store:               %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
+                    $display($time, " CORE: CSR load:               %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
+                    $display($time, " CORE: CSR store:              %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
+                    $display($time, " CORE: Timer interrupts:       %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
+                    $display($time, " CORE: External interrupts:    %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
 `else // ENABLE_HPM_COUNTERS
-                $display($time, " CORE: Cycles:                 %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display($time, " CORE: Instructions:           %0d", mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
+                    $display($time, " CORE: Cycles:                 %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
+                    $display($time, " CORE: Instructions:           %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
 `endif // ENABLE_HPM_COUNTERS
+`endif // TEST_MODE
+                end
 
 `ifdef D_STATS_FILE
                 $fclose(fd);
 `endif
-
-`endif //TEST_MODE
                 // Finish the simulation
                 $finish(0);
             end
