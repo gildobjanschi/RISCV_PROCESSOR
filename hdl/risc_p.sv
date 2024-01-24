@@ -1003,7 +1003,7 @@ module risc_p (
 `endif
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
-            $fdisplay (fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
+            $fdisplay(fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
                         ($time - stats_start_execution_time)/CLK_PERIOD_NS,
                         (stats_start_execution_time - stats_prev_end_execution_time)/CLK_PERIOD_NS);
 `endif
