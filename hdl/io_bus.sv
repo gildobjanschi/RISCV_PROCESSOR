@@ -18,7 +18,9 @@
 `default_nettype none
 
 `include "memory_map.svh"
+`ifdef ENABLE_RV32A_EXT
 `include "tags.svh"
+`endif
 
 module io_bus #(
     parameter [31:0] CLK_PERIOD_NS = 20,
@@ -46,19 +48,26 @@ module io_bus #(
     // External interrupts
     input logic external_irq_i);
 
-
-    logic io_ack_i;
     io #(.CLK_PERIOD_NS(CLK_PERIOD_NS), .TIMER_PERIOD_NS(TIMER_PERIOD_NS)) io_m (
         // Wishbone interface
         .clk_i      (clk_i),
         .rst_i      (rst_i),
         .addr_i     (addr_i[23:0]),
         .data_i     (data_i),
+`ifdef ENABLE_RV32A_EXT
         .stb_i      (io_stb_o),
         .cyc_i      (io_cyc_o),
+`else
+        .stb_i      (stb_i),
+        .cyc_i      (cyc_i),
+`endif
         .sel_i      (sel_i),
         .we_i       (we_i),
+`ifdef ENABLE_RV32A_EXT
         .ack_o      (io_ack_i),
+`else
+        .ack_o      (ack_o),
+`endif
         .err_o      (err_o),
         .data_o     (data_o),
         // IO clock
@@ -69,6 +78,9 @@ module io_bus #(
         .uart_txd_o     (uart_txd_o),   // FPGA output: TXD
         .uart_rxd_i     (uart_rxd_i),   // FPGA input: RXD
         .external_irq_i (external_irq_i));
+
+`ifdef ENABLE_RV32A_EXT
+    logic io_ack_i;
 
     logic sync_ack = 1'b0;
     assign ack_o = (sync_ack | io_ack_i) & stb_i;
@@ -164,4 +176,6 @@ module io_bus #(
             end
         end
     end
+`endif // ENABLE_RV32A_EXT
+
 endmodule
