@@ -18,7 +18,9 @@
 `default_nettype none
 
 `include "memory_map.svh"
+`ifdef ENABLE_RV32A_EXT
 `include "tags.svh"
+`endif
 
 module ram_bus #(
     parameter [31:0] CLK_PERIOD_NS = 20) (
@@ -60,7 +62,6 @@ module ram_bus #(
 );
 
     logic [31:0] ram_data_o;
-    logic ram_ack_i;
 `ifdef BOARD_ULX3S
     sdram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) sdram_m (
         // Wishbone interface
@@ -68,11 +69,20 @@ module ram_bus #(
         .rst_i          (rst_i),
         .addr_i         (addr_i[24:1]),
         .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
+`ifdef ENABLE_RV32A_EXT
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
+`else
+        .stb_i          (stb_i),
+        .cyc_i          (cyc_i),
+`endif
         .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
+`ifdef ENABLE_RV32A_EXT
         .ack_o          (ram_ack_i),
+`else
+        .ack_o          (ack_o),
+`endif
         .data_o         (ram_data_o),
         // SDRAM clock
         .device_clk_i   (sdram_device_clk_i),
@@ -94,11 +104,20 @@ module ram_bus #(
         .rst_i          (rst_i),
         .addr_i         (addr_i[22:1]),
         .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
+`ifdef ENABLE_RV32A_EXT
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
+`else
+        .stb_i          (stb_i),
+        .cyc_i          (cyc_i),
+`endif
         .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
+`ifdef ENABLE_RV32A_EXT
         .ack_o          (ram_ack_i),
+`else
+        .ack_o          (ack_o),
+`endif
         .data_o         (ram_data_o),
         // PSRAM signals
         .psram_cen      (psram_cen),
@@ -109,6 +128,11 @@ module ram_bus #(
         .psram_a        (psram_a),
         .psram_d        (psram_d));
 `endif // BOARD_ULX3S
+
+    assign data_o = sel_i == 4'b0001 ? (addr_i[0] == 0 ? ram_data_o[7:0] : ram_data_o[15:8]) : ram_data_o;
+
+`ifdef ENABLE_RV32A_EXT
+    logic ram_ack_i;
 
     logic sync_ack = 1'b0;
     assign ack_o = (sync_ack | ram_ack_i) & stb_i;
@@ -131,8 +155,6 @@ module ram_bus #(
                     (addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}));
 
     assign data_tag_o = (addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i != reservation_addr);
-
-    assign data_o = sel_i == 4'b0001 ? (addr_i[0] == 0 ? ram_data_o[7:0] : ram_data_o[15:8]) : ram_data_o;
 
     logic [31:0] reservation_addr;
     //==================================================================================================================
@@ -206,4 +228,5 @@ module ram_bus #(
             end
         end
     end
+`endif // ENABLE_RV32A_EXT
 endmodule
