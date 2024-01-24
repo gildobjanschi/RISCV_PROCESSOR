@@ -35,14 +35,15 @@ helpFunction()
 # Flags added by default by the script
 #
 # SIMULATION:          Use simulation mode
-# CLK_PERIOD_NS        The main clock period in nano seconds (can be overridden by the command line).
+# CLK_PERIOD_NS:       The main clock period in nano seconds (can be overridden by the command line).
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
-# ENABLE_ZICSR_EXT     Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
+# ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
 # ENABLE_HPM_COUNTERS: Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
+#OPTIONS="-D SIMULATION -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 OPTIONS="-D SIMULATION -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
 BOARD=""

@@ -21,7 +21,7 @@ BOARD=""
 # Flags added by default by the script
 #
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
-# ENABLE_ZICSR_EXT     Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
+# ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.

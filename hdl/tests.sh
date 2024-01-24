@@ -7,9 +7,10 @@ SIM_RAM_FILE=""
 # Flags added by default by the script
 #
 # SIMULATION:          Use simulation mode
-# CLK_PERIOD_NS        The main clock period in nano seconds.
+# TEST_MODE:           Test mode checks if the test terminated with or without errors..
+# CLK_PERIOD_NS:       The main clock period in nano seconds.
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
-# ENABLE_ZICSR_EXT     Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
+# ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
