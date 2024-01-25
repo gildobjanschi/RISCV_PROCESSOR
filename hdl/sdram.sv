@@ -204,6 +204,7 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     //  The array of rows activated corresponding to each one of the 4 banks.
     logic [12:0] activated_bank_rows[0:3];
     logic [14:0] activate_row_bank;
+    logic [3:0] activated_bank;
     // This register is used to shift a bit during reset to indicate how many refresh cycles are performed.
     logic [1:0] reset_auto_refresh_count;
     // The following two bits are used to determine when a new transaction starts.
@@ -229,10 +230,14 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
         sdram_dqm <= 2'b11;
 
         // The row in each bank will be deactivated.
-        activated_bank_rows[2'h0] = 13'h1fff;
-        activated_bank_rows[2'h1] = 13'h1fff;
-        activated_bank_rows[2'h2] = 13'h1fff;
-        activated_bank_rows[2'h3] = 13'h1fff;
+        activated_bank_rows[2'h0] <= 13'h0000;
+        activated_bank[2'h0] <= 1'b0;
+        activated_bank_rows[2'h1] <= 13'h0000;
+        activated_bank[2'h1] <= 1'b0;
+        activated_bank_rows[2'h2] <= 13'h0000;
+        activated_bank[2'h2] <= 1'b0;
+        activated_bank_rows[2'h3] <= 13'h0000;
+        activated_bank[2'h3] <= 1'b0;
     endtask
 
     //==================================================================================================================
@@ -245,7 +250,8 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
         sdram_a <= 13'b0_0000_0000_0000;
         sdram_dqm <= 2'b11;
         // The bank row will be deactivated
-        activated_bank_rows[bank] = 13'h1fff;
+        activated_bank_rows[bank] <= 13'h0000;
+        activated_bank[bank] <= 1'b0;
     endtask
 
     //==================================================================================================================
@@ -532,6 +538,7 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                     sdram_cmd <= SDRAM_CMD_ACTIVE;
                     // The row will be activated for the specified bank
                     activated_bank_rows[activate_row_bank[14:13]] <= activate_row_bank[12:0];
+                    activated_bank[activate_row_bank[14:13]] <= 1'b1;
 `ifdef D_SDRAM
                     $display($time, " SDRAM: STATE_IDLE: Activate bank: %h, row: %h -> STATE_WAIT_TRCD",
                                         activate_row_bank[14:13], activate_row_bank[12:0]);
@@ -554,7 +561,8 @@ module sdram #(parameter [31:0] CLK_PERIOD_NS = 20) (
 
                 STATE_ACTIVATED: begin
                     if ((stb_i & cyc_i & ~ack_o & ~prev_stb_cyc) | transaction_start_q) begin
-                        if (activated_bank_rows[active_addr[23:22]] == active_addr[21:9]) begin
+                        if (activated_bank[active_addr[23:22]] &&
+                                        activated_bank_rows[active_addr[23:22]] == active_addr[21:9]) begin
                             // We started servicing this request
                             transaction_start_q <= 1'b0;
                             /*
