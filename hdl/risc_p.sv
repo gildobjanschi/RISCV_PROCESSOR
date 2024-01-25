@@ -525,6 +525,7 @@ module risc_p (
         pipeline_wr_ptr <= next_pipeline_wr_ptr;
 
         if (address[0]) begin
+            // This trap cannot overwrite an exiting trap since it is the earliest occurence in the pipeline.
             if (~|pipeline_trap_mcause) begin
 `ifdef D_CORE
                 $display($time, " CORE:    [%h] Fetch address misaligned @[%h]. Stall the pipeline.",
@@ -670,11 +671,13 @@ module risc_p (
     // is marked as "ready for execution". We let the instructions in the pipeline execute normally until the pipeline
     // entry is encountered and then we handle the exception.
     //==================================================================================================================
-    task pipeline_trap_task(input [PIPELINE_BITS-1:0] entry, input [31:0] mcause, input [31:0] mepc, input [31:0] mtval);
+    task pipeline_trap_task(input [PIPELINE_BITS-1:0] entry, input [31:0] mcause, input [31:0] mepc,
+                                input [31:0] mtval);
         // Make this entry "ready for execution"
         pipeline_entry_status[entry] <= PL_E_REGFILE_READ;
         pipeline_trap[entry] <= 1'b1;
-        // The instruction address must be 16 bit aligned.
+
+        // Store trap cause and related values.
         pipeline_trap_mcause <= mcause;
         pipeline_trap_mepc <= mepc;
         pipeline_trap_mtval <= mtval;
@@ -816,7 +819,7 @@ module risc_p (
 `endif
                             // The CPU is halted with the mcause that was set earlier.
                             // Note that tests.sh rely on the fact that failed tests raise EX_CODE_BREAKPOINT and that
-                            // at least in SIMULATION mode CPU should halt.
+                            // in SIMULATION mode CPU should halt.
                             cpu_state_m <= STATE_HALTED;
                         end
                     end else begin
@@ -825,7 +828,6 @@ module risc_p (
 `endif
 
                         execute_trap <= execute_trap + 1;
-
                     end
 
                     trap_state_m <= TRAP_STATE_FETCH;
@@ -884,8 +886,7 @@ module risc_p (
                 fetch_address <= core_data_i[1:0] == 2'b11 ? fetch_address + 4 : fetch_address + 2;
             end else begin
 `ifdef D_CORE_FINE
-                $display($time, " CORE:    [%h] Ignoring fetch complete. Pipeline was flushed.",
-                                fetch_pending_entry);
+                $display($time, " CORE:    [%h] Ignoring fetch complete. Pipeline was flushed.", fetch_pending_entry);
 `endif
             end
         end else if (core_stb_o & core_cyc_o & core_err_i) begin
@@ -896,7 +897,7 @@ module risc_p (
 `ifdef D_CORE
             $display($time, " CORE:        Illegal instruction address @[%h].", core_addr_o);
 `endif
-            // If a pipeline trap has been detected during decode we do not overwrite it.
+            // If a pipeline trap occurs during fetch we do not overwrite an existing trap (the instruction is latest).
             if (~|pipeline_trap_mcause) begin
 `ifdef D_CORE
                 $display($time, " CORE:        --- Invalid instruction address %h. Stall the pipeline. ---",
@@ -950,7 +951,7 @@ module risc_p (
             $display($time, " CORE:        --- Illegal instruction %h @[%h]. Stall the pipeline. ---",
                         decoder_instruction_o, pipeline_instr_addr[decode_pending_entry]);
 `endif
-            // This exception may overwrite a pipeline trap detected during fetch.
+            // This exception may overwrite a pipeline trap detected during fetch since the instruction is an older one.
             pipeline_trap_task(decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
         end else if (~(decoder_stb_o & decoder_cyc_o) & pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED) begin
@@ -966,9 +967,8 @@ module risc_p (
             `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b0;`endif
 
 `ifdef D_CORE_FINE
-            $display($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h",
-                            regfile_read_pending_entry, regfile_op_rs1_o, regfile_reg_rs1_i,
-                            regfile_op_rs2_o, regfile_reg_rs2_i);
+            $display($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h", regfile_read_pending_entry,
+                            regfile_op_rs1_o, regfile_reg_rs1_i, regfile_op_rs2_o, regfile_reg_rs2_i);
 `endif
             if (pipeline_entry_status[regfile_read_pending_entry] == PL_E_REGFILE_READ_PENDING) begin
                 pipeline_entry_status[regfile_read_pending_entry] <= PL_E_REGFILE_READ;
