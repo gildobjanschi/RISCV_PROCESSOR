@@ -547,7 +547,6 @@ module risc_p (
 
             fetch_pending_entry <= pipeline_wr_ptr;
 
-            fetch_address <= address;
             // Fetch LED on
             led[0] <= 1'b1;
 `ifdef D_CORE_FINE
@@ -687,6 +686,7 @@ module risc_p (
     // Handle interrupts and exceptions
     //==================================================================================================================
     task enter_trap_task;
+        // Flush the pipeline and stall it.
         flush_pipeline_task(1'b1);
 
         cpu_state_m <= STATE_TRAP;
@@ -867,7 +867,7 @@ module risc_p (
     // The running task
     //==================================================================================================================
     task running_task;
-        // ------------------------------------ Handle flash read transactions -----------------------------------------
+        // ------------------------------ Handle instruction read transactions -----------------------------------------
         if (core_stb_o & core_cyc_o & core_ack_i) begin
             {core_stb_o, core_cyc_o} <= 2'b00;
             // Fetch instruction LED off
