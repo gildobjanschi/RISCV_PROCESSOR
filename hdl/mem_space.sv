@@ -173,7 +173,8 @@ module mem_space #(
     logic [31:0] i_cache_data[0:31];
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_addr[0:31];
-    logic [4:0] i_cache_index;
+    logic [4:0] i_cache_index, ii_cache_index;
+    assign i_cache_index = core_addr_i[5:1];
 
     localparam STATE_RESET = 1'b0;
     localparam STATE_IDLE = 1'b1;
@@ -464,22 +465,19 @@ module mem_space #(
             casex (core_addr_i[31:20])
                 // Flash (32'h0060_0000 to 32'h0100_0000)
                 12'h006, 12'h007, 12'h008, 12'h009, 12'h00a, 12'h00b, 12'h00c, 12'h00d, 12'h00e, 12'h00f: begin
-                    if (i_cache_addr[core_addr_i[5:1]] == core_addr_i) begin
+                    if (i_cache_addr[i_cache_index] == core_addr_i) begin
 `ifdef D_MEM_SPACE
-                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, {core_addr_i[5:1]});
+                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, i_cache_index);
 `endif
                         `ifdef BOARD_BLUE_WHALE led[0] <= 1'b1;`endif
                         core_new_transaction_q <= 1'b0;
 
-                        core_data_o <= i_cache_data[{core_addr_i[5:1]}];
+                        core_data_o <= i_cache_data[i_cache_index];
                         {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 `ifdef ENABLE_HPM_COUNTERS
                         incr_internal_event_counters[`EVENT_I_CACHE_HIT] <= 1'b1;
 `endif
                     end else begin
-                        // Keep the index where we will write the value we read
-                        i_cache_index <= core_addr_i[5:1];
-
                         if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
 `ifdef D_MEM_SPACE
                             $display($time, " MEM_SPACE: Reading flash instruction @[%h]", core_addr_i);
@@ -506,22 +504,19 @@ module mem_space #(
                 // RAM (32'h8000_0000 to 32'h8080_0000) // 8MB
                 12'h800, 12'h801, 12'h802, 12'h803, 12'h804, 12'h805, 12'h806, 12'h807: begin
 `endif
-                    if (i_cache_addr[core_addr_i[5:1]] == core_addr_i) begin
+                    if (i_cache_addr[i_cache_index] == core_addr_i) begin
 `ifdef D_MEM_SPACE
-                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, {core_addr_i[5:1]});
+                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, i_cache_index);
 `endif
                         `ifdef BOARD_BLUE_WHALE led[0] <= 1'b1;`endif
                         core_new_transaction_q <= 1'b0;
 
-                        core_data_o <= i_cache_data[{core_addr_i[5:1]}];
+                        core_data_o <= i_cache_data[i_cache_index];
                         {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 `ifdef ENABLE_HPM_COUNTERS
                         incr_internal_event_counters[`EVENT_I_CACHE_HIT] <= 1'b1;
 `endif
                     end else begin
-                        // Keep the index where we will write the value we read
-                        i_cache_index <= core_addr_i[5:1];
-
                         if (~ram_stb_o & ~ram_cyc_o & ~ram_ack_i) begin
 `ifdef D_MEM_SPACE
                             $display($time, " MEM_SPACE: Reading RAM instruction @[%h]", core_addr_i);
@@ -754,7 +749,6 @@ module mem_space #(
             end
 `endif
         end
-
     endtask
 
     //==================================================================================================================
@@ -778,7 +772,7 @@ module mem_space #(
             core_prev_new_transaction <= 1'b0;
             data_prev_new_transaction <= 1'b0;
 
-            i_cache_index <= 31;
+            ii_cache_index <= 5'd31;
 `ifdef BOARD_BLUE_WHALE
             led <= 16'h0;
 `endif
@@ -787,11 +781,11 @@ module mem_space #(
             case (state_m)
                 STATE_RESET: begin
                     // The cache is reset location-by-location so we can use block RAM for this cache
-                    i_cache_addr[i_cache_index] <= `INVALID_ADDR;
-                    if (~|i_cache_index) begin
+                    i_cache_addr[ii_cache_index] <= `INVALID_ADDR;
+                    if (~|ii_cache_index) begin
                         state_m <= STATE_IDLE;
                     end else begin
-                        i_cache_index <= i_cache_index - 1;
+                        ii_cache_index <= ii_cache_index - 5'h1;
                     end
                 end
 
