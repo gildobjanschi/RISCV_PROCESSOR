@@ -230,28 +230,28 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
                     end
                 endcase
             end
-        end
 
-        if (timer_stb_o & timer_cyc_o & sync_timer_ack_i_pulse) begin
-            {timer_stb_o, timer_cyc_o} <= 2'b00;
+            if (timer_stb_o & timer_cyc_o & sync_timer_ack_i_pulse) begin
+                {timer_stb_o, timer_cyc_o} <= 2'b00;
 
-            data_o <= timer_data_i;
+                data_o <= timer_data_i;
 
-            {sync_ack_o, sync_err_o} <= 2'b10;
-        end
+                {sync_ack_o, sync_err_o} <= 2'b10;
+            end
 
-        if (tx_stb_o & tx_cyc_o & tx_ack_i) begin
-            {tx_stb_o, tx_cyc_o} <= 2'b00;
+            if (tx_stb_o & tx_cyc_o & tx_ack_i) begin
+                {tx_stb_o, tx_cyc_o} <= 2'b00;
 
-            {sync_ack_o, sync_err_o} <= 2'b10;
-        end
+                {sync_ack_o, sync_err_o} <= 2'b10;
+            end
 
-        if (rx_stb_o & rx_cyc_o & rx_ack_i) begin
-            {rx_stb_o, rx_cyc_o} <= 2'b00;
+            if (rx_stb_o & rx_cyc_o & rx_ack_i) begin
+                {rx_stb_o, rx_cyc_o} <= 2'b00;
 
-            data_o <= {24'h0, rx_data_i};
+                data_o <= {24'h0, rx_data_i};
 
-            {sync_ack_o, sync_err_o} <= 2'b10;
+                {sync_ack_o, sync_err_o} <= 2'b10;
+            end
         end
     end
 endmodule
