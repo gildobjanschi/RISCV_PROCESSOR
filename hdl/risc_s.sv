@@ -406,6 +406,16 @@ module risc_s (
 `else
     DFF_META reset_meta_m (1'b0, btn[0], clk, reset_btn);
 `endif
+
+    // Cache
+    (* syn_ramstyle="auto" *)
+    logic [31:0] i_cache_data[0:31];
+    (* syn_ramstyle="auto" *)
+    logic [31:0] i_cache_addr[0:31];
+    logic [4:0] o_cache_index, reset_cache_index;
+    assign o_cache_index = core_addr_o[5:1];
+
+    logic [31:0] fetch_address;
     //==================================================================================================================
     // The reset task
     //==================================================================================================================
@@ -417,7 +427,7 @@ module risc_s (
     task reset_task;
         reset_clks <= reset_clks + 16'h1;
 
-        case (reset_clks)
+        casex (reset_clks)
             0: begin
                 if (pll_locked) begin
 `ifdef D_CORE
@@ -432,10 +442,16 @@ module risc_s (
 
                     trap_mcause <= 0;
                     execute_trap <= 0;
+                    reset_cache_index <= 5'd0;
                 end else begin
                     // Back to zero to wait for PLL lock
                     reset_clks <= 0;
                 end
+            end
+
+            16'b0000_0000_000x_xxxx, 16'b0000_0000_0010_0000: begin // [1:32]
+                i_cache_addr[reset_cache_index] <= `INVALID_ADDR;
+                reset_cache_index <= reset_cache_index + 5'd1;
             end
 
             // Set the case value below to configure the duration of the reset assertion.
@@ -452,7 +468,7 @@ module risc_s (
 `ifdef D_CORE
                 $display($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
 `endif
-                fetch_instruction_task(`ROM_BEGIN_ADDR);
+                fetch_instruction_task (`ROM_BEGIN_ADDR);
 
                 cpu_state_m <= STATE_RUNNING;
                 `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b0;`endif
@@ -463,8 +479,24 @@ module risc_s (
     //==================================================================================================================
     // Fetch instruction task
     //==================================================================================================================
-    task fetch_instruction_task(input [31:0] address);
-        if (~address[0]) begin
+    task fetch_instruction_task (input [31:0] address);
+        if (address[0]) begin
+`ifdef D_CORE
+            $display($time, " CORE:        Instruction address misaligned @[%h].", address);
+`endif
+            enter_trap_task (1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, address, 0);
+        end else if (i_cache_addr[address[5:1]] == address) begin
+            fetch_address <= address;
+`ifdef D_CORE_FINE
+            $display($time, " CORE: Cache hit: @%h %0d", address, address[5:1]);
+`endif
+            decode_instruction_task (i_cache_data[address[5:1]]);
+
+`ifdef ENABLE_HPM_COUNTERS
+            incr_event_counters_o[`EVENT_I_CACHE_HIT] <= 1'b1;
+`endif
+        end else begin
+            fetch_address <= address;
             core_addr_o <= address;
             core_we_o <= 1'b0;
             core_sel_o <= 4'b1111;
@@ -475,18 +507,13 @@ module risc_s (
 `ifdef D_CORE_FINE
             $display($time, " CORE:            Fetch @[%h]", address);
 `endif
-        end else begin
-`ifdef D_CORE
-            $display($time, " CORE:        Instruction address misaligned @[%h].", address);
-`endif
-            enter_trap_task(1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, address, 0);
         end
     endtask
 
     //==================================================================================================================
     // Decode instruction task
     //==================================================================================================================
-    task decode_instruction_task(input [31:0] instruction);
+    task decode_instruction_task (input [31:0] instruction);
         decoder_instruction_o <= instruction;
         {decoder_stb_o, decoder_cyc_o} <= 2'b11;
 
@@ -501,7 +528,7 @@ module risc_s (
     //==================================================================================================================
     // Regfile read request
     //==================================================================================================================
-    task regfile_read_task(input [4:0] op_rs1, input [4:0] op_rs2);
+    task regfile_read_task (input [4:0] op_rs1, input [4:0] op_rs2);
         regfile_op_rs1_o <= op_rs1;
         regfile_op_rs2_o <= op_rs2;
         {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b11;
@@ -517,7 +544,7 @@ module risc_s (
     //==================================================================================================================
     // Exec task
     //==================================================================================================================
-    task exec_task( input [31:0] instr_addr,
+    task exec_task (input [31:0] instr_addr,
                     input [31:0] instr,
                     input [6:0] instr_op_type,
                     input [4:0] instr_op_rd,
@@ -552,7 +579,7 @@ module risc_s (
     //==================================================================================================================
     // Handle interrupts and exceptions
     //==================================================================================================================
-    task enter_trap_task(input [31:0] cause, input [31:0] mepc, input [31:0] mtval);
+    task enter_trap_task (input [31:0] cause, input [31:0] mepc, input [31:0] mtval);
 `ifdef D_CORE_FINE
         $display($time, " CORE:            Enter trap task; mcause = %h; mepc = %h; mtval = %h", cause, mepc, mtval);
 `endif
@@ -695,7 +722,7 @@ module risc_s (
             TRAP_STATE_FETCH: begin
                 // Clear the trap cause
                 trap_mcause <= 0;
-                fetch_instruction_task(core_data_i[1] ? trap_mepc : core_data_i);
+                fetch_instruction_task (core_data_i[1] ? trap_mepc : core_data_i);
                 cpu_state_m <= STATE_RUNNING;
             end
 
@@ -722,10 +749,15 @@ module risc_s (
         // ------------------------------------ Handle flash read transactions -----------------------------------------
         if (core_stb_o & core_cyc_o & core_ack_i) begin
             {core_stb_o, core_cyc_o} <= 2'b00;
+
+            // Write the instruction into the cache.
+            i_cache_addr[o_cache_index] <= core_addr_o;
+            i_cache_data[o_cache_index] <= core_data_i;
+
             // Fetch instruction LED off
             led[0] <= 1'b0;
 
-            decode_instruction_task(core_data_i);
+            decode_instruction_task (core_data_i);
         end else if (core_stb_o & core_cyc_o & core_err_i) begin
             {core_stb_o, core_cyc_o} <= 2'b00;
             // Fetch instruction LED off
@@ -733,7 +765,7 @@ module risc_s (
 `ifdef D_CORE
             $display($time, " CORE:        Illegal instruction address @[%h].", core_addr_o);
 `endif
-            enter_trap_task(1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, core_addr_o, 0);
+            enter_trap_task (1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, core_addr_o, 0);
         end
 
         // ------------------------------------ Handle decoder transactions --------------------------------------------
@@ -744,9 +776,9 @@ module risc_s (
             `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
 
             if (decoder_load_rs1_rs2_i) begin
-                regfile_read_task(decoder_op_rs1_i, decoder_op_rs2_i);
+                regfile_read_task (decoder_op_rs1_i, decoder_op_rs2_i);
             end else begin // No need to read RS1 and RS2
-                exec_task(  core_addr_o,
+                exec_task ( fetch_address,
                             decoder_instruction_o,
                             decoder_op_type_i,
                             decoder_op_rd_i,
@@ -762,9 +794,9 @@ module risc_s (
             led[1] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
 `ifdef D_CORE
-            $display($time, " CORE:        Illegal instruction %h @[%h].", decoder_instruction_o, core_addr_o);
+            $display($time, " CORE:        Illegal instruction %h @[%h].", decoder_instruction_o, fetch_address);
 `endif
-            enter_trap_task(1 << `EX_CODE_ILLEGAL_INSTRUCTION, core_addr_o, decoder_instruction_o);
+            enter_trap_task (1 << `EX_CODE_ILLEGAL_INSTRUCTION, fetch_address, decoder_instruction_o);
         end
 
         // ------------------------------------ Handle regfile transactions --------------------------------------------
@@ -777,7 +809,7 @@ module risc_s (
             $display($time, " CORE:            Regfile read rs1x%0d: %h, rs2x%0d: %h.",
                         decoder_op_rs1_i, regfile_reg_rs1_i, decoder_op_rs2_i, regfile_reg_rs2_i);
 `endif
-            exec_task(  core_addr_o,
+            exec_task ( fetch_address,
                         decoder_instruction_o,
                         decoder_op_type_i,
                         decoder_op_rd_i,
@@ -821,7 +853,7 @@ module risc_s (
                         `ifdef BOARD_BLUE_WHALE led_a[14] <= 1'b0;`endif
                     end
                     execute_trap <= execute_trap - 1;
-                    fetch_instruction_task(exec_next_addr_i);
+                    fetch_instruction_task (exec_next_addr_i);
                 end
 
                 // Handle interrupts in the order of priority
@@ -842,20 +874,20 @@ module risc_s (
                         looping_instruction <= 1'b1;
                         cpu_state_m <= STATE_HALTED;
 `else // SIMULATION
-                        fetch_instruction_task(exec_next_addr_i);
+                        fetch_instruction_task (exec_next_addr_i);
 `endif // SIMULATION
                     end else begin
 `ifdef D_CORE_FINE
                         $display($time, " CORE:            Jmp to @[%h].", exec_next_addr_i);
 `endif
-                        fetch_instruction_task(exec_next_addr_i);
+                        fetch_instruction_task (exec_next_addr_i);
                     end
                 end
 
                 default: begin
                     led[5] <= 1'b0;
                     `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b0;`endif
-                    fetch_instruction_task(exec_next_addr_i);
+                    fetch_instruction_task (exec_next_addr_i);
                 end
             endcase
         end else if (exec_stb_o & exec_cyc_o & exec_err_i) begin
@@ -870,46 +902,46 @@ module risc_s (
             // If multiple exceptions were raised, process the highest priority one (see Table 8.7)
             case (1'b1)
                 exec_trap_mcause_i[`EX_CODE_INSTRUCTION_ACCESS_FAULT]: begin
-                    enter_trap_task(1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
 
                 exec_trap_mcause_i[`EX_CODE_ILLEGAL_INSTRUCTION]: begin
-                    enter_trap_task(1 << `EX_CODE_ILLEGAL_INSTRUCTION, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_ILLEGAL_INSTRUCTION, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
 
                 exec_trap_mcause_i[`EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED]: begin
-                    enter_trap_task(1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
 
                 exec_trap_mcause_i[`EX_CODE_ECALL]: begin
-                    enter_trap_task(1 << `EX_CODE_ECALL, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_ECALL, exec_instr_addr_o, exec_trap_mtval_i);
                 end
 
                 exec_trap_mcause_i[`EX_CODE_BREAKPOINT]: begin
                     // Note that this is treated as an environment ebreak (not as a debugger breakpoint)
-                    enter_trap_task(1 << `EX_CODE_BREAKPOINT, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_BREAKPOINT, exec_instr_addr_o, exec_trap_mtval_i);
                 end
 
                 exec_trap_mcause_i[`EX_CODE_LOAD_ADDRESS_MISALIGNED]: begin
-                    enter_trap_task(1 << `EX_CODE_LOAD_ADDRESS_MISALIGNED, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_LOAD_ADDRESS_MISALIGNED, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
 
                 exec_trap_mcause_i[`EX_CODE_STORE_ADDRESS_MISALIGNED]: begin
-                    enter_trap_task(1 << `EX_CODE_STORE_ADDRESS_MISALIGNED, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_STORE_ADDRESS_MISALIGNED, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
 
                 exec_trap_mcause_i[`EX_CODE_LOAD_ACCESS_FAULT]: begin
-                    enter_trap_task(1 << `EX_CODE_LOAD_ACCESS_FAULT, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_LOAD_ACCESS_FAULT, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
 
                 exec_trap_mcause_i[`EX_CODE_STORE_ACCESS_FAULT]: begin
-                    enter_trap_task(1 << `EX_CODE_STORE_ACCESS_FAULT, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_STORE_ACCESS_FAULT, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
 
@@ -918,7 +950,7 @@ module risc_s (
                     $display($time, " CORE:            Unsupported exception: %h.", exec_next_addr_i);
 `endif
                     // Break the execution.
-                    enter_trap_task(1 << `EX_CODE_BREAKPOINT, exec_instr_addr_o, exec_trap_mtval_i);
+                    enter_trap_task (1 << `EX_CODE_BREAKPOINT, exec_instr_addr_o, exec_trap_mtval_i);
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
                 end
             endcase
