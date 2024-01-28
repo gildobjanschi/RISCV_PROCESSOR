@@ -66,7 +66,6 @@
 `timescale 1ns / 1ns
 `default_nettype none
 
-`include "memory_map.svh"
 `include "events.svh"
 `include "tags.svh"
 
@@ -167,18 +166,6 @@ module mem_space #(
     localparam ACCESS_IO    = 3'b011;
     localparam ACCESS_CSR   = 3'b100;
     logic [2:0] core_access, data_access;
-
-    // Using block_ram slows down the writing to the cache.
-    (* syn_ramstyle="auto" *)
-    logic [31:0] i_cache_data[0:31];
-    (* syn_ramstyle="auto" *)
-    logic [31:0] i_cache_addr[0:31];
-    logic [4:0] i_cache_index, ii_cache_index;
-    assign i_cache_index = core_addr_i[5:1];
-
-    localparam STATE_RESET = 1'b0;
-    localparam STATE_IDLE = 1'b1;
-    logic state_m;
 
     logic [31:0] incr_internal_event_counters;
     // Wishbone flip flop for handling cross domain flash ack
@@ -320,8 +307,6 @@ module mem_space #(
     task mem_space_task;
         incr_internal_event_counters <= 0;
 
-        // Turn off the cache LED
-        `ifdef BOARD_BLUE_WHALE led[0] <= 1'b0;`endif
         // Reflect the status of IRQs
         `ifdef BOARD_BLUE_WHALE led[8] <= |io_interrupts_o;`endif
 
@@ -465,35 +450,21 @@ module mem_space #(
             casex (core_addr_i[31:20])
                 // Flash (32'h0060_0000 to 32'h0100_0000)
                 12'h006, 12'h007, 12'h008, 12'h009, 12'h00a, 12'h00b, 12'h00c, 12'h00d, 12'h00e, 12'h00f: begin
-                    if (i_cache_addr[i_cache_index] == core_addr_i) begin
+                    if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
 `ifdef D_MEM_SPACE
-                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, i_cache_index);
+                        $display($time, " MEM_SPACE: Reading flash instruction @[%h]", core_addr_i);
 `endif
-                        `ifdef BOARD_BLUE_WHALE led[0] <= 1'b1;`endif
+                        // Read an instruction from flash
+                        flash_addr_o <= core_addr_i[23:0];
+                        flash_sel_o <= core_sel_i;
+                        {flash_stb_o, flash_cyc_o} <= 2'b11;
+
                         core_new_transaction_q <= 1'b0;
+                        core_access <= ACCESS_FLASH;
 
-                        core_data_o <= i_cache_data[i_cache_index];
-                        {core_sync_ack_o, core_sync_err_o} <= 2'b10;
-`ifdef ENABLE_HPM_COUNTERS
-                        incr_internal_event_counters[`EVENT_I_CACHE_HIT] <= 1'b1;
-`endif
+                        `ifdef BOARD_BLUE_WHALE led[1] <= 1'b1;`endif
                     end else begin
-                        if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
-`ifdef D_MEM_SPACE
-                            $display($time, " MEM_SPACE: Reading flash instruction @[%h]", core_addr_i);
-`endif
-                            // Read an instruction from flash
-                            flash_addr_o <= core_addr_i[23:0];
-                            flash_sel_o <= core_sel_i;
-                            {flash_stb_o, flash_cyc_o} <= 2'b11;
-
-                            core_new_transaction_q <= 1'b0;
-                            core_access <= ACCESS_FLASH;
-
-                            `ifdef BOARD_BLUE_WHALE led[1] <= 1'b1;`endif
-                        end else begin
-                            core_new_transaction_q <= 1'b1;
-                        end
+                        core_new_transaction_q <= 1'b1;
                     end
                 end
 
@@ -504,40 +475,26 @@ module mem_space #(
                 // RAM (32'h8000_0000 to 32'h8080_0000) // 8MB
                 12'h800, 12'h801, 12'h802, 12'h803, 12'h804, 12'h805, 12'h806, 12'h807: begin
 `endif
-                    if (i_cache_addr[i_cache_index] == core_addr_i) begin
+                    if (~ram_stb_o & ~ram_cyc_o & ~ram_ack_i) begin
 `ifdef D_MEM_SPACE
-                        $display($time, " MEM_SPACE: Cache hit: @%h %0d", core_addr_i, i_cache_index);
+                        $display($time, " MEM_SPACE: Reading RAM instruction @[%h]", core_addr_i);
 `endif
-                        `ifdef BOARD_BLUE_WHALE led[0] <= 1'b1;`endif
+                        /*
+                         * Start the RAM transaction to read an instruction.
+                         */
+                        ram_addr_o <= core_addr_i;
+                        ram_addr_tag_o <= `ADDR_TAG_MODE_NONE;
+                        ram_we_o <= 1'b0;
+                        ram_sel_o <= 4'b1111;
+                        {ram_stb_o, ram_cyc_o} <= 2'b11;
+
                         core_new_transaction_q <= 1'b0;
+                        core_access <= ACCESS_RAM;
 
-                        core_data_o <= i_cache_data[i_cache_index];
-                        {core_sync_ack_o, core_sync_err_o} <= 2'b10;
-`ifdef ENABLE_HPM_COUNTERS
-                        incr_internal_event_counters[`EVENT_I_CACHE_HIT] <= 1'b1;
-`endif
+                        `ifdef BOARD_BLUE_WHALE led[2] <= ~core_we_i;`endif
+                        `ifdef BOARD_BLUE_WHALE led[3] <= core_we_i;`endif
                     end else begin
-                        if (~ram_stb_o & ~ram_cyc_o & ~ram_ack_i) begin
-`ifdef D_MEM_SPACE
-                            $display($time, " MEM_SPACE: Reading RAM instruction @[%h]", core_addr_i);
-`endif
-                            /*
-                             * Start the RAM transaction to read an instruction.
-                             */
-                            ram_addr_o <= core_addr_i;
-                            ram_addr_tag_o <= `ADDR_TAG_MODE_NONE;
-                            ram_we_o <= 1'b0;
-                            ram_sel_o <= 4'b1111;
-                            {ram_stb_o, ram_cyc_o} <= 2'b11;
-
-                            core_new_transaction_q <= 1'b0;
-                            core_access <= ACCESS_RAM;
-
-                            `ifdef BOARD_BLUE_WHALE led[2] <= ~core_we_i;`endif
-                            `ifdef BOARD_BLUE_WHALE led[3] <= core_we_i;`endif
-                        end else begin
-                            core_new_transaction_q <= 1'b1;
-                        end
+                        core_new_transaction_q <= 1'b1;
                     end
                 end
 
@@ -610,9 +567,6 @@ module mem_space #(
             if (core_access == ACCESS_FLASH) begin
                 core_data_o <= flash_data_i;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
-                // Write the instruction into the cache.
-                i_cache_addr[i_cache_index] <= core_addr_i;
-                i_cache_data[i_cache_index] <= flash_data_i;
 
                 core_access <= ACCESS_NONE;
 
@@ -643,9 +597,6 @@ module mem_space #(
             if (core_access == ACCESS_RAM) begin
                 core_data_o <= ram_data_i;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
-                // Write the instruction into the cache.
-                i_cache_addr[i_cache_index] <= core_addr_i;
-                i_cache_data[i_cache_index] <= ram_data_i;
 
                 core_access <= ACCESS_NONE;
 
@@ -772,31 +723,11 @@ module mem_space #(
             core_prev_new_transaction <= 1'b0;
             data_prev_new_transaction <= 1'b0;
 
-            ii_cache_index <= 5'd31;
 `ifdef BOARD_BLUE_WHALE
             led <= 16'h0;
 `endif
-            state_m <= STATE_RESET;
         end else begin
-            case (state_m)
-                STATE_RESET: begin
-                    // The cache is reset location-by-location so we can use block RAM for this cache
-                    i_cache_addr[ii_cache_index] <= `INVALID_ADDR;
-                    if (~|ii_cache_index) begin
-                        state_m <= STATE_IDLE;
-                    end else begin
-                        ii_cache_index <= ii_cache_index - 5'h1;
-                    end
-                end
-
-                STATE_IDLE: begin
-                    mem_space_task;
-                end
-
-                default: begin
-                    // Invalid state machine
-                end
-            endcase
+            mem_space_task;
         end
     end
 endmodule
