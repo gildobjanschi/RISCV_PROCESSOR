@@ -22,7 +22,6 @@
  * clk_i            -- The clock signal.
  * rst_i            -- Reset active high.
  * stb_i            -- The transaction starts on the posedge of this signal.
- * cyc_i            -- This signal is asserted for the duration of a cycle (same as stb_i).
  * addr_i           -- The address from where data is read/written.
  * data_i           -- The input data to write.
  * sel_i            -- The number of bytes to read (1 -> 4'b0001, 2 -> 4'b0011, 3 -> 4'b0111 or 4 bytes -> 4'b1111).
@@ -41,11 +40,9 @@
 
 module io #(parameter [31:0] CLK_PERIOD_NS = 20,
             parameter [31:0] TIMER_PERIOD_NS = 100) (
-    // Wishbone interface
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     input logic [23:0] addr_i,
     input logic [31:0] data_i,
     input logic [3:0] sel_i,
@@ -63,13 +60,6 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
     // External interrupts
     input logic external_irq_i);
 
-    // Negate the ack_o as soon as the stb_i is deactivated.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
-    // Negate the err_o as soon as the stb_i is deactivated.
-    logic sync_err_o = 1'b0;
-    assign err_o = sync_err_o & stb_i;
-
     // The timer module uses the timer clock (timer_clk_i) and it is asynchronous to the main clock.
     logic sync_timer_ack_i, sync_timer_ack_i_pulse;
     DFF_META dff_ack_meta (.reset(rst_i), .D(timer_ack_i), .clk(clk_i), .Q(sync_timer_ack_i),
@@ -82,10 +72,16 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
     logic sync_external_irq_pulse;
     DFF_META dff_ext_irq_meta (.reset(rst_i), .D(external_irq_i), .clk(clk_i), .Q_pulse(sync_external_irq_pulse));
 
-    logic new_transaction;
-    assign new_transaction = stb_i & cyc_i & ~sync_ack_o & ~sync_err_o;
+    logic tx_pending_o;
+    DFF_REQUEST dff_request_tx (.reset(rst_i), .clk(clk_i), .request_begin(tx_stb_o),
+                                    .request_end(tx_ack_i), .request_pending(tx_pending_o));
+    logic rx_pending_o;
+    DFF_REQUEST dff_request_rx (.reset(rst_i), .clk(clk_i), .request_begin(rx_stb_o),
+                                    .request_end(rx_ack_i), .request_pending(rx_pending_o));
 
     logic [31:0] io_scratch;
+    logic stb_q;
+
     //==================================================================================================================
     // Module definitions
     //==================================================================================================================
@@ -116,13 +112,12 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
     localparam BIT_PERIOD_NS = 1000000000/BAUD_RATE;
     localparam CLKS_PER_BIT = BIT_PERIOD_NS/CLK_PERIOD_NS;
 
-    logic tx_stb_o, tx_cyc_o, tx_ack_i;
+    logic tx_stb_o, tx_ack_i;
     logic [7:0] tx_data_o;
     uart_tx #(.CLKS_PER_BIT(CLKS_PER_BIT)) uart_tx_m (
         .clk_i          (clk_i),
         .rst_i          (rst_i),
         .stb_i          (tx_stb_o),
-        .cyc_i          (tx_cyc_o),
         .data_i         (tx_data_o),
         .ack_o          (tx_ack_i),
         .uart_txd_o     (uart_txd_o));
@@ -130,14 +125,13 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
     //==================================================================================================================
     // Instantiate the UART RX
     //==================================================================================================================
-    logic rx_stb_o, rx_cyc_o, rx_ack_i;
+    logic rx_stb_o, rx_ack_i;
     logic [7:0] rx_data_i;
 
     uart_rx #(.CLKS_PER_BIT(CLKS_PER_BIT)) uart_rx_m (
         .clk_i          (clk_i),
         .rst_i          (rst_i),
         .stb_i          (rx_stb_o),
-        .cyc_i          (rx_cyc_o),
         .data_o         (rx_data_i),
         .ack_o          (rx_ack_i),
         .uart_rxd_i     (uart_rxd_i));
@@ -147,63 +141,82 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
     //==================================================================================================================
     always @(posedge clk_i) begin
         if (rst_i) begin
-            {sync_ack_o, sync_err_o} <= 2'b00;
+            {ack_o, err_o} <= 2'b00;
             {timer_stb_o, timer_cyc_o} <= 2'b00;
-            {tx_stb_o, tx_cyc_o} <= 2'b00;
-            {rx_stb_o, rx_cyc_o} <= 2'b00;
+
+            stb_q <= 1'b0;
+            tx_stb_o <= 1'b0;
+            rx_stb_o <= 1'b0;
 
             // Clear interrupts
             io_interrupts_o <= 0;
             io_scratch <= 0;
         end else begin
+            {ack_o, err_o} <= 2'b00;
+
+            if (stb_i) stb_q <= 1'b1;
+            tx_stb_o <= 1'b0;
+            rx_stb_o <= 1'b0;
+
             io_interrupts_o[`IRQ_TIMER] <= sync_timer_irq_pulse;
             timer_clr_irq_i <= sync_timer_irq;
 
             io_interrupts_o[`IRQ_EXTERNAL] <= sync_external_irq_pulse;
 
-            if (sync_ack_o) sync_ack_o <= stb_i;
-            if (sync_err_o) sync_err_o <= stb_i;
-
-            if (new_transaction) begin
+            if (stb_i | stb_q) begin
                 (* parallel_case, full_case *)
                 case (addr_i[23:0])
                     `IO_STD_OUTPUT: begin
                         if (we_i) begin
-                            if (~tx_stb_o & ~tx_cyc_o & ~tx_ack_i) begin
+                            if (~tx_pending_o) begin
 `ifdef D_IO
                                 $write("%c", data_i[7:0]);
 `endif
 `ifdef D_IO_FINE
                                 $display($time, " IO: TX byte: %h", data_i[7:0]);
 `endif
-                                {tx_stb_o, tx_cyc_o} <= 2'b11;
+                                tx_stb_o <= 1'b1;
                                 tx_data_o <= data_i[7:0];
+
+                                stb_q <= 1'b0;
                             end
                         end else begin
-                            {sync_ack_o, sync_err_o} <= 2'b10;
+                            stb_q <= 1'b0;
+                            {ack_o, err_o} <= 2'b10;
                         end
                     end
 
                     `IO_STD_INPUT: begin
                         if (~we_i) begin
-                            if (~rx_stb_o & ~rx_cyc_o & ~rx_ack_i) begin
+                            if (~rx_pending_o) begin
 `ifdef D_IO_FINE
                                 $display($time, " IO: RX byte...");
 `endif
-                                {rx_stb_o, rx_cyc_o} <= 2'b11;
+                                rx_stb_o <= 1'b1;
+
+                                stb_q <= 1'b0;
                             end
                         end else begin
-                            {sync_ack_o, sync_err_o} <= 2'b10;
+                            stb_q <= 1'b0;
+                            {ack_o, err_o} <= 2'b10;
                         end
                     end
 
                     `IO_MTIME, `IO_MTIMEH, `IO_MTIMECMP, `IO_MTIMECMPH: begin
                         if (~timer_stb_o & ~timer_cyc_o & ~sync_timer_ack_i) begin
+`ifdef D_IO
+                            if (we_i) begin
+                                $display($time, " IO: Write to timer address @[%h] -> %h", addr_i, data_i);
+                            end else begin
+                                $display($time, " IO: Read from timer address @[%h]", addr_i);
+                            end
+`endif
                             timer_addr_o <= addr_i;
                             timer_data_o <= data_i;
                             timer_we_o <= we_i;
 
                             {timer_stb_o, timer_cyc_o} <= 2'b11;
+                            stb_q <= 1'b0;
                         end
                     end
 
@@ -214,7 +227,8 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
                             data_o <= io_scratch;
                         end
 
-                        {sync_ack_o, sync_err_o} <= 2'b10;
+                        stb_q <= 1'b0;
+                        {ack_o, err_o} <= 2'b10;
                     end
 
                     default: begin
@@ -225,33 +239,30 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
                             $display($time, " IO: Read from unknown address @[%h]", addr_i);
                         end
 `endif
+                        stb_q <= 1'b0;
                         // An error is not raised if the port does not exist.
-                        {sync_ack_o, sync_err_o} <= 2'b10;
+                        {ack_o, err_o} <= 2'b10;
                     end
                 endcase
             end
-        end
 
-        if (timer_stb_o & timer_cyc_o & sync_timer_ack_i_pulse) begin
-            {timer_stb_o, timer_cyc_o} <= 2'b00;
+            if (timer_stb_o & timer_cyc_o & sync_timer_ack_i_pulse) begin
+                {timer_stb_o, timer_cyc_o} <= 2'b00;
 
-            data_o <= timer_data_i;
+                data_o <= timer_data_i;
 
-            {sync_ack_o, sync_err_o} <= 2'b10;
-        end
+                {ack_o, err_o} <= 2'b10;
+            end
 
-        if (tx_stb_o & tx_cyc_o & tx_ack_i) begin
-            {tx_stb_o, tx_cyc_o} <= 2'b00;
+            if (tx_ack_i) begin
+                {ack_o, err_o} <= 2'b10;
+            end
 
-            {sync_ack_o, sync_err_o} <= 2'b10;
-        end
+            if (rx_ack_i) begin
+                data_o <= {24'h0, rx_data_i};
 
-        if (rx_stb_o & rx_cyc_o & rx_ack_i) begin
-            {rx_stb_o, rx_cyc_o} <= 2'b00;
-
-            data_o <= {24'h0, rx_data_i};
-
-            {sync_ack_o, sync_err_o} <= 2'b10;
+                {ack_o, err_o} <= 2'b10;
+            end
         end
     end
 endmodule

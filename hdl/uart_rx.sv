@@ -21,7 +21,6 @@
  * clk_i        -- The clock signal.
  * rst_i        -- Reset active high.
  * stb_i        -- The transaction starts on the posedge of this signal.
- * cyc_i        -- The transaction starts on the posedge of this signal (same as stb_i).
  * data_o       -- The byte received.
  * ack_o        -- The transaction completes successfully on the posedge of this signal.
  * uart_rxd_i   -- The UART RX line.
@@ -33,15 +32,10 @@ module uart_rx #(parameter integer CLKS_PER_BIT = 62) (
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     output logic [7:0] data_o,
     output logic ack_o,
     // The UART RX line
     input logic uart_rxd_i);
-
-    // Negate the ack_o as soon as the stb_i is deactivated.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
 
     //==================================================================================================================
     // Prevent metastability problems.
@@ -69,6 +63,7 @@ module uart_rx #(parameter integer CLKS_PER_BIT = 62) (
     logic [2:0] bit_index;
     logic [7:0] rx_byte;
     logic save_rx_byte;
+    logic stb_q;
 
     // RX FIFO
     localparam FIFO_BITS = 4;
@@ -98,12 +93,15 @@ module uart_rx #(parameter integer CLKS_PER_BIT = 62) (
             rx_fifo_rd_ptr <= 0;
             rx_fifo_wr_ptr <= 0;
 
-            sync_ack_o <= 1'b0;
+            ack_o <= 1'b0;
+            stb_q <= 1'b0;
             save_rx_byte <= 1'b0;
 
             state_m <= RX_IDLE;
         end else begin
-            if (sync_ack_o) sync_ack_o <= stb_i;
+            ack_o <= 1'b0;
+
+            if (stb_i) stb_q <= 1'b1;
 
             (* parallel_case, full_case *)
             case (state_m)
@@ -174,13 +172,12 @@ module uart_rx #(parameter integer CLKS_PER_BIT = 62) (
                     $display($time, " UART: Rx FIFO is full. Dropping byte: %h", rx_byte);
 `endif
                 end
-            end else begin
-                if (stb_i & cyc_i & ~sync_ack_o & rx_fifo_has_bytes) begin
-                    data_o <= rx_fifo[rx_fifo_rd_ptr];
-                    sync_ack_o <= 1'b1;
+            end else if ((stb_i | stb_q) & ~ack_o & rx_fifo_has_bytes) begin
+                data_o <= rx_fifo[rx_fifo_rd_ptr];
 
-                    rx_fifo_rd_ptr <= next_rx_fifo_rd_ptr;
-                end
+                rx_fifo_rd_ptr <= next_rx_fifo_rd_ptr;
+                ack_o <= 1'b1;
+                stb_q <= 1'b0;
             end
         end
     end

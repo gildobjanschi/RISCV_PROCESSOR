@@ -201,13 +201,13 @@ module mem_space_test(
     logic [31:0] core_addr_o;
     logic [31:0] core_data_i, core_data_o;
     logic [3:0] core_sel_o;
-    logic core_we_o, core_stb_o, core_cyc_o, core_ack_i, core_err_i;
+    logic core_we_o, core_stb_o, core_ack_i, core_err_i;
 
     // SDRAM ports
     logic [31:0] data_addr_o;
     logic [31:0] data_data_i, data_data_o;
     logic [3:0] data_sel_o;
-    logic data_we_o, data_stb_o, data_cyc_o, data_ack_i, data_err_i;
+    logic data_we_o, data_stb_o, data_ack_i, data_err_i;
     logic [2:0] data_addr_tag_w;
     // Event counters
     logic [31:0] incr_event_counters_o;
@@ -217,9 +217,8 @@ module mem_space_test(
     mem_space #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) mem_space_m(
     .clk_i              (clk),
     .rst_i              (reset),
-    // Wishbone interface for reading instructions
+    // Interface for reading instructions
     .core_stb_i         (core_stb_o),
-    .core_cyc_i         (core_cyc_o),
     .core_sel_i         (core_sel_o),
     .core_we_i          (core_we_o),
     .core_addr_i        (core_addr_o),
@@ -227,9 +226,8 @@ module mem_space_test(
     .core_ack_o         (core_ack_i),
     .core_err_o         (core_err_i),
     .core_data_o        (core_data_i),
-    // Wishbone interface for reading and writing data
+    // Interface for reading and writing data
     .data_stb_i         (data_stb_o),
-    .data_cyc_i         (data_cyc_o),
     .data_sel_i         (data_sel_o),
     .data_we_i          (data_we_o),
     .data_addr_i        (data_addr_o),
@@ -409,8 +407,10 @@ module mem_space_test(
             done_flash_rd <= 1'b0;
             do_next_core_read <= 1'b0;
 
-            if (core_cyc_o & core_stb_o & core_ack_i) begin
-                {core_stb_o, core_cyc_o} <= 2'b00;
+            core_stb_o <= 1'b0;
+            data_stb_o <= 1'b0;
+
+            if (core_ack_i) begin
 `ifdef D_CORE_FINE
                 $display($time, " CORE: Core data @[%h]: %h", core_addr_o, core_data_i);
 `endif
@@ -437,14 +437,13 @@ module mem_space_test(
                 data_wr_data <= core_data_i;
                 data_wr_address <= `RAM_BEGIN_ADDR + (core_addr_o - `ROM_BEGIN_ADDR) + RAM_OFFSET;
                 do_data_write <= 1'b1;
-            end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                {core_stb_o, core_cyc_o} <= 2'b00;
+            end else if (core_err_i) begin
                 test_error <= TEST_ERROR_CORE;
             end else if (do_next_core_read) begin
                 core_addr_o <= core_rd_address;
                 core_we_o <= 1'b0;
                 // core_sel_o was set at the beginning of the test
-                {core_stb_o, core_cyc_o} <= 2'b11;
+                core_stb_o <= 1'b1;
             end else if (done_flash_rd) begin
                 if (rd_flash_checksum == RD_FLASH_CHECKSUM) begin
                     if (CHECKSUM_LED == 2'h0) begin
@@ -460,10 +459,7 @@ module mem_space_test(
 `endif
                     test_error <= TEST_ERROR_FLASH_CHECKSUM;
                 end
-            end else if (data_cyc_o & data_stb_o & data_ack_i) begin
-                // A transaction is complete
-                {data_stb_o, data_cyc_o} <= 2'b00;
-
+            end else if (data_ack_i) begin
                 if (data_we_o) begin
 `ifdef D_CORE_FINE
                     $display($time, " CORE: Data write complete %h -> @[%h]", data_data_o, data_addr_o);
@@ -508,8 +504,7 @@ module mem_space_test(
                         do_next_data_read <= 1'b1;
                     end
                 end
-            end else if (data_cyc_o & data_stb_o & data_err_i) begin
-                {data_stb_o, data_cyc_o} <= 2'b00;
+            end else if (data_err_i) begin
                 test_error <= TEST_ERROR_DATA;
             end else if (do_next_data_read) begin
 `ifdef D_CORE_FINE
@@ -524,7 +519,7 @@ module mem_space_test(
                     RD_RAM_INCR[1]: data_sel_o <= 4'b0011;
                     RD_RAM_INCR[2]: data_sel_o <= 4'b1111;
                 endcase
-                {data_stb_o, data_cyc_o} <= 2'b11;
+                data_stb_o <= 1'b1;
             end else if (done_ram_rd) begin
                 done_ram_rd <= 1'b0;
                 if (rd_ram_checksum == RD_RAM_CHECKSUM) begin
@@ -548,7 +543,7 @@ module mem_space_test(
                 data_data_o <= data_wr_data;
                 data_we_o <= 1'b1;
                 data_sel_o <= core_sel_o;
-                {data_stb_o, data_cyc_o} <= 2'b11;
+                data_stb_o <= 1'b1;
             end
         end
     endtask
@@ -558,34 +553,27 @@ module mem_space_test(
     //==================================================================================================================
     localparam [4:0] STATE_WRITE_MTVEC              = 5'h1;
     localparam [4:0] STATE_WRITE_MTVEC_READY        = 5'h2;
-    localparam [4:0] STATE_READ_MTIME               = 5'h3;
-    localparam [4:0] STATE_READ_MTIME_READY         = 5'h4;
-    localparam [4:0] STATE_READ_MTIME_H             = 5'h5;
-    localparam [4:0] STATE_READ_MTIME_H_READY       = 5'h6;
-    localparam [4:0] STATE_WRITE_TIME_CMP           = 5'h7;
-    localparam [4:0] STATE_WRITE_TIME_CMP_READY     = 5'h8;
-    localparam [4:0] STATE_WRITE_TIME_CMP_H         = 5'h9;
-    localparam [4:0] STATE_WRITE_TIME_CMP_H_READY   = 5'ha;
-    localparam [4:0] STATE_WAIT_FOR_IRQ             = 5'hb;
-    localparam [4:0] STATE_WRITE_MEPC               = 5'hc;
-    localparam [4:0] STATE_WRITE_MEPC_READY         = 5'hd;
-    localparam [4:0] STATE_ENTER_INTERRUPT          = 5'he;
-    localparam [4:0] STATE_ENTER_INTERRUPT_READY    = 5'hf;
-    localparam [4:0] STATE_WRITE_MIE                = 5'h10;
+    localparam [4:0] STATE_READ_MTIME_READY         = 5'h3;
+    localparam [4:0] STATE_READ_MTIME_H_READY       = 5'h4;
+    localparam [4:0] STATE_WRITE_TIME_CMP_H         = 5'h5;
+    localparam [4:0] STATE_WRITE_TIME_CMP_READY     = 5'h6;
+    localparam [4:0] STATE_WRITE_TIME_CMP_H_READY   = 5'h7;
+    localparam [4:0] STATE_WAIT_FOR_IRQ             = 5'h8;
+    localparam [4:0] STATE_WRITE_MEPC_READY         = 5'h9;
+    localparam [4:0] STATE_ENTER_INTERRUPT_READY    = 5'h10;
     localparam [4:0] STATE_WRITE_MIE_READY          = 5'h11;
-    localparam [4:0] STATE_WRITE_MSTATUS            = 5'h12;
-    localparam [4:0] STATE_WRITE_MSTATUS_READY      = 5'h13;
-    localparam [4:0] STATE_EXIT_INTERRUPT           = 5'h14;
-    localparam [4:0] STATE_EXIT_INTERRUPT_READY     = 5'h15;
-    localparam [4:0] STATE_WRITE_MCAUSE             = 5'h16;
-    localparam [4:0] STATE_WRITE_MCAUSE_READY       = 5'h17;
+    localparam [4:0] STATE_WRITE_MSTATUS_READY      = 5'h12;
+    localparam [4:0] STATE_EXIT_INTERRUPT_READY     = 5'h13;
+    localparam [4:0] STATE_WRITE_MCAUSE_READY       = 5'h14;
 
-    localparam [4:0] STATE_ERROR                    = 5'h1e;
-    localparam [4:0] STATE_DONE                     = 5'h1f;
+    localparam [4:0] STATE_ERROR                    = 5'h15;
+    localparam [4:0] STATE_DONE                     = 5'h16;
 
     logic [4:0] state_m;
     logic [63:0] time_now, timecmp;
     task test_io_task;
+        core_stb_o <= 1'b0;
+
         if (start_test) begin
 `ifdef D_CORE
             $display($time, " CORE: Test %0d", test_num);
@@ -599,147 +587,112 @@ module mem_space_test(
                     core_data_o <= `ROM_BEGIN_ADDR;
                     core_we_o <= 1'b1;
                     core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
+                    core_stb_o <= 1'b1;
 
                     state_m <= STATE_WRITE_MTVEC_READY;
                 end
 
                 STATE_WRITE_MTVEC_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        // Enable timer interrupts
-                        state_m <= STATE_WRITE_MIE;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
+                        core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MIE;
+                        core_data_o <= 0;
+                        core_data_o[`IRQ_TIMER] <= 1'b1;
+
+                        core_we_o <= 1'b1;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_WRITE_MIE_READY;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
-                end
-
-                STATE_WRITE_MIE: begin
-                    core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MIE;
-                    core_data_o <= 0;
-                    core_data_o[`IRQ_TIMER] <= 1'b1;
-
-                    core_we_o <= 1'b1;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_WRITE_MIE_READY;
                 end
 
                 STATE_WRITE_MIE_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        // Set the global interrupt bit
-                        state_m <= STATE_WRITE_MSTATUS;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
+                        core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MSTATUS;
+                        core_data_o <= 0;
+                        core_data_o[`MSTATUS_MIE_BIT] <= 1'b1;
+
+                        core_we_o <= 1'b1;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_WRITE_MSTATUS_READY;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
-                end
-
-                STATE_WRITE_MSTATUS: begin
-                    core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MSTATUS;
-                    core_data_o <= 0;
-                    core_data_o[`MSTATUS_MIE_BIT] <= 1'b1;
-
-                    core_we_o <= 1'b1;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_WRITE_MSTATUS_READY;
                 end
 
                 STATE_WRITE_MSTATUS_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        state_m <= STATE_READ_MTIME;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
+                        core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIME;
+                        core_we_o <= 1'b0;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_READ_MTIME_READY;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
-                end
-
-                STATE_READ_MTIME: begin
-                    core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIME;
-                    core_we_o <= 1'b0;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_READ_MTIME_READY;
                 end
 
                 STATE_READ_MTIME_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
                         time_now[31:0] <= core_data_i;
-                        state_m <= STATE_READ_MTIME_H;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+
+                        core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIMEH;
+                        core_we_o <= 1'b0;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_READ_MTIME_H_READY;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
                 end
 
-                STATE_READ_MTIME_H: begin
-                    core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIMEH;
-                    core_we_o <= 1'b0;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_READ_MTIME_H_READY;
-                end
-
                 STATE_READ_MTIME_H_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
                         time_now[63:32] <= core_data_i;
 `ifdef D_CORE
                         $display($time, " CORE: IO/CSR Time read: %0d.", {core_data_i, time_now[31:0]});
 `endif
                         timecmp <= {core_data_i, time_now[31:0]} + 500;
-                        state_m <= STATE_WRITE_TIME_CMP;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        state_m <= STATE_ERROR;
-                    end
-                end
-
-                STATE_WRITE_TIME_CMP: begin
-                    core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIMECMP;
-                    core_data_o <= timecmp[31:0];
-                    core_we_o <= 1'b1;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_WRITE_TIME_CMP_READY;
-                end
-
-                STATE_WRITE_TIME_CMP_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
                         state_m <= STATE_WRITE_TIME_CMP_H;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
                 end
 
                 STATE_WRITE_TIME_CMP_H: begin
-                    core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIMECMPH;
-                    core_data_o <= timecmp[63:32];
+                    core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIMECMP;
+                    core_data_o <= timecmp[31:0];
                     core_we_o <= 1'b1;
                     core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
+                    core_stb_o <= 1'b1;
 
-                    state_m <= STATE_WRITE_TIME_CMP_H_READY;
+                    state_m <= STATE_WRITE_TIME_CMP_READY;
+                end
+
+                STATE_WRITE_TIME_CMP_READY: begin
+                    if (core_ack_i) begin
+                        core_addr_o <= `IO_BEGIN_ADDR + `IO_MTIMECMPH;
+                        core_data_o <= timecmp[63:32];
+                        core_we_o <= 1'b1;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_WRITE_TIME_CMP_H_READY;
+                    end else if (core_err_i) begin
+                        state_m <= STATE_ERROR;
+                    end
                 end
 
                 STATE_WRITE_TIME_CMP_H_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
                         state_m <= STATE_WAIT_FOR_IRQ;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
                 end
@@ -749,84 +702,60 @@ module mem_space_test(
 `ifdef D_CORE
                         $display($time, " CORE: IO interrupt raised.");
 `endif
-                        state_m <= STATE_WRITE_MEPC;
+                        core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MEPC;
+                        core_data_o <= `ROM_BEGIN_ADDR + 32'h0000_1234;
+                        core_we_o <= 1'b1;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_WRITE_MEPC_READY;
                     end
-                end
-
-                STATE_WRITE_MEPC: begin
-                    core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MEPC;
-                    core_data_o <= `ROM_BEGIN_ADDR + 32'h0000_1234;
-                    core_we_o <= 1'b1;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_WRITE_MEPC_READY;
                 end
 
                 STATE_WRITE_MEPC_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        state_m <= STATE_WRITE_MCAUSE;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
+                        core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MCAUSE;
+                        core_data_o <= `IRQ_CODE_TIMER;
+                        core_we_o <= 1'b1;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_WRITE_MCAUSE_READY;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
-                end
-
-                STATE_WRITE_MCAUSE: begin
-                    core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MCAUSE;
-                    core_data_o <= `IRQ_CODE_TIMER;
-                    core_we_o <= 1'b1;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_WRITE_MCAUSE_READY;
                 end
 
                 STATE_WRITE_MCAUSE_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        state_m <= STATE_ENTER_INTERRUPT;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
+                        core_addr_o <= `CSR_BEGIN_ADDR + `CSR_ENTER_TRAP;
+                        core_we_o <= 1'b0;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_ENTER_INTERRUPT_READY;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
-                end
-
-                STATE_ENTER_INTERRUPT: begin
-                    core_addr_o <= `CSR_BEGIN_ADDR + `CSR_ENTER_TRAP;
-                    core_we_o <= 1'b0;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_ENTER_INTERRUPT_READY;
                 end
 
                 STATE_ENTER_INTERRUPT_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        state_m <= STATE_EXIT_INTERRUPT;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
+                        core_addr_o <= `CSR_BEGIN_ADDR + `CSR_EXIT_TRAP;
+                        core_we_o <= 1'b0;
+                        core_sel_o <= 4'b1111;
+                        core_stb_o <= 1'b1;
+
+                        state_m <= STATE_EXIT_INTERRUPT_READY;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
                 end
 
-                STATE_EXIT_INTERRUPT: begin
-                    core_addr_o <= `CSR_BEGIN_ADDR + `CSR_EXIT_TRAP;
-                    core_we_o <= 1'b0;
-                    core_sel_o <= 4'b1111;
-                    {core_stb_o, core_cyc_o} <= 2'b11;
-
-                    state_m <= STATE_EXIT_INTERRUPT_READY;
-                end
-
                 STATE_EXIT_INTERRUPT_READY: begin
-                    if (core_cyc_o & core_stb_o & core_ack_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    if (core_ack_i) begin
                         state_m <= STATE_DONE;
-                    end else if (core_cyc_o & core_stb_o & core_err_i) begin
-                        {core_stb_o, core_cyc_o} <= 2'b00;
+                    end else if (core_err_i) begin
                         state_m <= STATE_ERROR;
                     end
                 end
@@ -908,8 +837,8 @@ module mem_space_test(
                             sleep <= 1'b0;
                             test_ok <= 1'b0;
                             test_error <= TEST_ERROR_NONE;
-                            {core_stb_o, core_cyc_o} <= 2'b00;
-                            {data_stb_o, data_cyc_o} <= 2'b00;
+                            core_stb_o <= 1'b0;
+                            data_stb_o <= 1'b0;
                             blink_count <= 32'h0;
                         end else begin
                             // Back to zero to wait for PLL lock

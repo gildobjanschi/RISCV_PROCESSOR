@@ -21,7 +21,6 @@
  * clk_i            -- The clock signal.
  * rst_i            -- Reset active high.
  * stb_i            -- The transaction starts on the posedge of this signal.
- * cyc_i            -- This signal is asserted for the duration of a cycle (same as stb_i).
  * op_1_i           -- The first 32-bit operand.
  * op_1_is_signed_i -- 1'b1 if the first operand is to be treated as a signed number.
  * op_2_i           -- The second 32-bit operand.
@@ -38,7 +37,6 @@ module multiplier (
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     input logic [31:0] op_1_i,
     input logic op_1_is_signed_i,
     input logic [31:0] op_2_i,
@@ -46,10 +44,6 @@ module multiplier (
     input logic result_upper_i,
     output logic [31:0] result_o,
     output logic ack_o);
-
-    // Negate the ack_o as soon as the stb_i is deactivated.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
 
     logic [63:0] result_t;
     logic [31:0] op_1_abs;
@@ -69,14 +63,15 @@ module multiplier (
     always @(posedge clk_i) begin
         if (rst_i) begin
             state_m <= STATE_START;
-            sync_ack_o <= 1'b0;
+            ack_o <= 1'b0;
         end else begin
+
             (* parallel_case, full_case *)
             case (state_m)
                 STATE_START: begin
-                    if (sync_ack_o) sync_ack_o <= stb_i;
+                    ack_o <= 1'b0;
 
-                    if (stb_i & cyc_i & ~sync_ack_o) begin
+                    if (stb_i) begin
                         op_1_abs <= (op_1_is_signed_i & op_1_i[31]) ? ~op_1_i + 1 : op_1_i;
                         op_2_abs <= (op_2_is_signed_i & op_2_i[31]) ? ~op_2_i + 1 : op_2_i;
 
@@ -106,7 +101,7 @@ module multiplier (
                 STATE_DONE: begin
                     result_o <= result_upper_i ? result_t[63:32] : result_t[31:0];
 
-                    sync_ack_o <= 1'b1;
+                    ack_o <= 1'b1;
                     state_m <= STATE_START;
                 end
             endcase

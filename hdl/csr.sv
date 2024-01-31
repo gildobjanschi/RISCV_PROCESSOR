@@ -19,13 +19,12 @@
  * This module implements the access to CSRs defined in the RISC-V Priviledged specification, interrupt handling
  * and High Performance Counters.
  *
- * clk_i                -- The clock signal
- * rst_i                -- Reset active high
- * addr_i               -- The address from where data is read/written
- * data_i               -- The input data to write
- * stb_i                -- The transaction starts on the posedge of this signal
- * cyc_i                -- This signal is asserted for the duration of a cycle (same as stb_i).
- * we_i                 -- 1 to write data, 0 to read.
+ * clk_i                -- The clock signal.
+ * rst_i                -- Reset active high.
+ * stb_i                -- The transaction starts on the posedge of this signal.
+ * we_i                 -- 1'b1 to write data, 1'b0 to read.
+ * addr_i               -- The address from where data is read/written.
+ * data_i               -- The input data to write.
  * ack_o                -- The transaction completes successfully on the posedge of this signal
  * err_o                -- The transaction completes with an error on the posedge of this signal
  * data_o               -- The data that was read
@@ -41,14 +40,12 @@
 `include "traps.svh"
 
 module csr (
-    // Wishbone interface
     input logic clk_i,
     input logic rst_i,
+    input logic stb_i,
+    input logic we_i,
     input logic [11:0] addr_i,
     input logic [31:0] data_i,
-    input logic stb_i,
-    input logic cyc_i,
-    input logic we_i,
     output logic ack_o,
     output logic err_o,
     output logic [31:0] data_o,
@@ -58,13 +55,6 @@ module csr (
     input logic [31:0] io_interrupts_i,
     // Indicate (to the core) that there are interrupts which need to be serviced.
     output logic [31:0] io_interrupts_o);
-
-    // The wishbone ack_o and err_o are cleared as soon as stb_i is cleared.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
-
-    logic sync_err_o = 1'b0;
-    assign err_o = sync_err_o & stb_i;
 
     // Machine CSR registers
     logic [31:0] mie, mip, mstatus, mepc, mcause, mtvec, mtval, misa, mstatush, mcountinhibit, mscratch, mtinst;
@@ -96,7 +86,7 @@ module csr (
     //==================================================================================================================
     task csr_task;
         // The request succeeds unless an error occurs in the case default block.
-        {sync_ack_o, sync_err_o} <= 2'b10;
+        {ack_o, err_o} <= 2'b10;
 
 `ifdef D_CSR
         if (~we_i) begin
@@ -465,14 +455,14 @@ module csr (
                 if (~we_i) data_o <= sscratch;
                 else sscratch <= data_i;
             end
-`endif  // TEST_MODE
+`endif
 
             default: begin
 `ifdef D_CORE
                 $display($time, " CSR: register [%h] not supported", addr_i);
-`endif  // D_CORE
+`endif
                 /* Attempts to access a non-existent CSR raise an illegal instruction exception */
-                {sync_ack_o, sync_err_o} <= 2'b01;
+                {ack_o, err_o} <= 2'b01;
             end
         endcase
     endtask
@@ -482,7 +472,7 @@ module csr (
     //==================================================================================================================
     always @(posedge clk_i) begin
         if (rst_i) begin
-            {sync_ack_o, sync_err_o} <= 2'b00;
+            {ack_o, err_o} <= 2'b00;
 
             // All performance counters are enabled.
             mcountinhibit <= 0;
@@ -501,15 +491,15 @@ module csr (
 `ifdef ENABLE_RV32A_EXT
             /* Atomic extension */
             misa[0] <= 1'b1;
-`endif  // ENABLE_RV32A_EXT
+`endif
 `ifdef ENABLE_RV32C_EXT
             /* The Compression extension */
             misa[2] <= 1'b1;
-`endif  // ENABLE_RV32C_EXT
+`endif
 `ifdef ENABLE_RV32M_EXT
             /* Integer Multiply/Divide extension */
             misa[12] <= 1'b1;
-`endif  // ENABLE_RV32M_EXT
+`endif
 
             /*
              * MBE controls whether non-instruction-fetch memory accesses made from M-mode
@@ -662,13 +652,11 @@ module csr (
 `endif
             end
 
-            // At the end of a transaction reset ack_o and err_o
-            if (sync_ack_o) sync_ack_o <= stb_i;
-            if (sync_err_o) sync_err_o <= stb_i;
-            if (stb_i & cyc_i & ~ack_o & ~err_o) begin
+            if (stb_i) begin
                 csr_task;
+            end else begin
+                {ack_o, err_o} <= 2'b00;
             end
         end
     end
-
 endmodule

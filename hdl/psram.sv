@@ -16,12 +16,11 @@
  **********************************************************************************************************************/
 
 /***********************************************************************************************************************
- * RAM driver module for a PSRAM (IS66WVE4M16EBLL-70BLI) featuring a wishbone interface.
+ * RAM driver module for a PSRAM (IS66WVE4M16EBLL-70BLI).
  *
  * clk_i    -- The clock signal.
  * rst_i    -- Reset active high.
  * stb_i    -- The transaction starts on the posedge of this signal.
- * cyc_i    -- This signal is asserted for the duration of a cycle.
  * sel_i    -- The number of bytes to r/w (1 -> 4'b0001, 2 -> 4'b0011, 3 -> 4'b0111 or 4 bytes -> 4'b1111).
  * we_i     -- 1'b1 to write data, 1'b0 to read.
  * addr_i   -- The address from where data is read/written.
@@ -34,11 +33,9 @@
 `default_nettype none
 
 module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
-    // Wishbone interface
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     input logic [3:0] sel_i,
     input logic we_i,
     input logic [21:0] addr_i,
@@ -90,10 +87,6 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     TRELLIS_IO #(.DIR("BIDIR")) psram_d_io[15:0] (.B(psram_d), .I(psram_d_o), .T(psram_cmd != PSRAM_CMD_WRITE),
                                                     .O(psram_d_i));
 
-    // The wishbone ack_o is cleared as soon as stb_i is cleared.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
-
     /* The duration of the read and/or write cycle */
     localparam [3:0] TAA_CLKS = (70 / CLK_PERIOD_NS) + 1;
 
@@ -101,6 +94,8 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     localparam [1:0] STATE_IDLE     = 2'b00;
     localparam [1:0] STATE_RW       = 2'b01;
     logic [1:0] state_m;
+
+    logic stb_q;
 
     logic [3:0] wait_clock_cycles;
     logic next_word;
@@ -114,7 +109,8 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
     //==================================================================================================================
     always @(posedge clk_i) begin
         if (rst_i) begin
-            sync_ack_o <= 1'b0;
+            ack_o <= 1'b0;
+            stb_q <= 1'b0;
             /*
              * PSRAM products include an on-chip voltage sensor that is used to launch the power-up
              * initialization process. Initialization will load the CR with its default settings.
@@ -129,13 +125,16 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
 
             state_m <= STATE_IDLE;
         end else begin
-            // At the end of a transaction reset sync_ack_o
-            if (sync_ack_o) sync_ack_o <= stb_i;
+            // At the end of a transaction reset ack_o
+            ack_o <= 1'b0;
+
+            if (stb_i) stb_q <= 1'b1;
 
             (* parallel_case, full_case *)
             case (state_m)
                 STATE_IDLE: begin
-                    if (stb_i & cyc_i & ~sync_ack_o) begin
+                    if (stb_i | stb_q) begin
+                        stb_q <= 1'b0;
                         {psram_ubn, psram_lbn} <= ~sel_i;
 
                         psram_a <= next_word ? next_addr : addr_i;
@@ -152,15 +151,17 @@ module psram #(parameter [31:0] CLK_PERIOD_NS = 20) (
                         if (sel_i[3]) begin
                             if (next_word) begin
                                 if (~we_i) data_o[31:16] <= psram_d_i;
-                                sync_ack_o <= 1'b1;
+                                ack_o <= 1'b1;
                             end else begin
                                 if (~we_i) data_o[15:0] <= psram_d_i;
+                                // Read the next word
+                                stb_q <= 1'b1;
                             end
 
                             next_word <= ~next_word;
                         end else begin
                             if (~we_i) data_o[15:0] <= psram_d_i;
-                            sync_ack_o <= 1'b1;
+                            ack_o <= 1'b1;
                         end
 
                         {psram_ubn, psram_lbn} <= 2'b11;

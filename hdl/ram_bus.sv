@@ -27,7 +27,6 @@ module ram_bus #(
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     input logic [3:0] sel_i,
     input logic we_i,
     input logic [31:0] addr_i,
@@ -64,17 +63,14 @@ module ram_bus #(
     logic [31:0] ram_data_o;
 `ifdef BOARD_ULX3S
     sdram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) sdram_m (
-        // Wishbone interface
         .clk_i          (clk_i),
         .rst_i          (rst_i),
         .addr_i         (addr_i[24:1]),
         .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
 `ifdef ENABLE_RV32A_EXT
         .stb_i          (ram_stb_o),
-        .cyc_i          (ram_cyc_o),
 `else
         .stb_i          (stb_i),
-        .cyc_i          (cyc_i),
 `endif
         .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
@@ -99,17 +95,14 @@ module ram_bus #(
         .sdram_d        (sdram_d));
 `else // BOARD_ULX3S
     psram #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) psram_m (
-        // Wishbone interface
         .clk_i          (clk_i),
         .rst_i          (rst_i),
         .addr_i         (addr_i[22:1]),
         .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
 `ifdef ENABLE_RV32A_EXT
         .stb_i          (ram_stb_o),
-        .cyc_i          (ram_cyc_o),
 `else
         .stb_i          (stb_i),
-        .cyc_i          (cyc_i),
 `endif
         .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
@@ -132,29 +125,19 @@ module ram_bus #(
     assign data_o = sel_i == 4'b0001 ? (addr_i[0] == 0 ? ram_data_o[7:0] : ram_data_o[15:8]) : ram_data_o;
 
 `ifdef ENABLE_RV32A_EXT
-    logic ram_ack_i;
+    logic ram_ack_i, local_ack;
+    assign ack_o = ram_ack_i | local_ack;
 
-    logic sync_ack = 1'b0;
-    assign ack_o = (sync_ack | ram_ack_i) & stb_i;
+    logic ram_forward;
+    assign ram_forward = ~(we_i &
+                            (addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && (addr_i != reservation_addr));
+
 
     // Control if transactions can start by gating the strobe and cycle of the RAM.
     logic ram_stb_o;
-    assign ram_stb_o = stb_i &&
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_NONE) ||
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i == reservation_addr)) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}) && (addr_i != reservation_addr)) ||
-                    (addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}));
+    assign ram_stb_o = stb_i & ram_forward;
 
-    logic ram_cyc_o;
-    assign ram_cyc_o = cyc_i &&
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_NONE) ||
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i == reservation_addr)) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}) && (addr_i != reservation_addr)) ||
-                    (addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}));
-
-    assign data_tag_o = (addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i != reservation_addr);
+    assign data_tag_o = ~ram_forward;
 
     logic [31:0] reservation_addr;
     //==================================================================================================================
@@ -163,70 +146,79 @@ module ram_bus #(
     always @(posedge clk_i) begin
         if (rst_i) begin
             reservation_addr <= `INVALID_ADDR;
-            sync_ack <= 1'b0;
+            local_ack <= 1'b0;
         end else begin
-            sync_ack <= sync_ack ? stb_i : cyc_i & stb_i & we_i &
-                            ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && (addr_i != reservation_addr));
+            local_ack <= 1'b0;
 
-            if (cyc_i & stb_i & (sync_ack | ram_ack_i)) begin
-                (* parallel_case, full_case *)
-                case (addr_tag_i[2:1])
-                    `ADDR_TAG_MODE_NONE: begin
-                        /*
-                         * Invalidate the reservation if a regular store instruction writes to the reservation address.
-                         */
-                        if (we_i & addr_i == reservation_addr) reservation_addr <= `INVALID_ADDR;
-                    end
-
-                    `ADDR_TAG_MODE_LRSC: begin
-                        if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
-`ifdef D_RAM_BUS
-                            $display($time, " RAM_BUS:    >>>> Register reservation @[%h]", addr_i);
-`endif
-                            // Register the reservation for lr.w
-                            reservation_addr <= addr_i;
-                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
-                            /*
-                             * Validate the reservation for sc.w. ram_cyc_o and ram_stb_o stay low and sync_ack
-                             * is set above.
-                             */
-`ifdef D_RAM_BUS
-                            $display($time, " RAM_BUS:    <<<< Valid reservation: %h; release reservation @[%h]",
-                                        addr_i == reservation_addr, addr_i);
-`endif
-                            /*
-                             * Regardless of success or failure, executing an sc.w instruction invalidates any
-                             * reservation held by this hart.
-                             */
-                            reservation_addr <= `INVALID_ADDR;
-                        end
-                    end
-
-                    `ADDR_TAG_MODE_AMO: begin
-                        if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
-                            if (reservation_addr == `INVALID_ADDR) begin
-`ifdef D_RAM_BUS
-                                $display($time, " RAM_BUS:    >>>> AMO lock @[%h]", addr_i);
-`endif
-                                reservation_addr <= addr_i;
-                            end else begin
-                                // Wait until the address is unlocked.
-                            end
-                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
-`ifdef D_RAM_BUS
-                            $display($time, " RAM_BUS:    >>>> AMO unlock @[%h]", addr_i);
-`endif
-                            reservation_addr <= `INVALID_ADDR;
-                        end
-                    end
-
-                    default: begin
-                        // This is an invalid case
-                        reservation_addr <= `INVALID_ADDR;
-                    end
-                endcase
+            if (stb_i & ~ram_forward) begin
+                // Ack the request since the request to io was not forwarded.
+                local_ack <= 1'b1;
+                atomic_locks_task;
+            end else if (ram_ack_i) begin
+                atomic_locks_task;
             end
         end
     end
+
+    //==================================================================================================================
+    // Handle atomic locks
+    //==================================================================================================================
+    task atomic_locks_task;
+        (* parallel_case, full_case *)
+        case (addr_tag_i[2:1])
+            `ADDR_TAG_MODE_NONE: begin
+                /*
+                 * Invalidate the reservation if a regular store instruction writes to the reservation address.
+                 */
+                if (we_i && addr_i == reservation_addr) reservation_addr <= `INVALID_ADDR;
+            end
+
+            `ADDR_TAG_MODE_LRSC: begin
+                if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
+`ifdef D_RAM_BUS
+                    $display($time, " RAM_BUS:    >>>> Register reservation @[%h]", addr_i);
+`endif
+                    // Register the reservation for lr.w
+                    reservation_addr <= addr_i;
+                end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
+                    /*
+                     * Validate the reservation for sc.w. ram_stb_o stay low and ack is set above.
+                     */
+`ifdef D_RAM_BUS
+                    $display($time, " RAM_BUS:    <<<< Valid reservation: %h; release reservation @[%h]",
+                                addr_i == reservation_addr, addr_i);
+`endif
+                    /*
+                     * Regardless of success or failure, executing an sc.w instruction invalidates any
+                     * reservation held by this hart.
+                     */
+                    reservation_addr <= `INVALID_ADDR;
+                end
+            end
+
+            `ADDR_TAG_MODE_AMO: begin
+                if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
+                    if (reservation_addr == `INVALID_ADDR) begin
+`ifdef D_RAM_BUS
+                        $display($time, " RAM_BUS:    >>>> AMO lock @[%h]", addr_i);
+`endif
+                        reservation_addr <= addr_i;
+                    end else begin
+                        // Wait until the address is unlocked.
+                    end
+                end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
+`ifdef D_RAM_BUS
+                    $display($time, " RAM_BUS:    >>>> AMO unlock @[%h]", addr_i);
+`endif
+                    reservation_addr <= `INVALID_ADDR;
+                end
+            end
+
+            default: begin
+                // This is an invalid case
+                reservation_addr <= `INVALID_ADDR;
+            end
+        endcase
+    endtask
 `endif // ENABLE_RV32A_EXT
 endmodule

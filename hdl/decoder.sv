@@ -26,7 +26,6 @@
  * clk_i                -- The clock signal.
  * rst_i                -- Reset active high.
  * stb_i                -- The transaction starts on the posedge of this signal.
- * cyc_i                -- This signal is asserted for the duration of a cycle (same as stb_i).
  * instr_i              -- The 16/32 bit instruction to be decoded.
  * instr_op_type_o      -- The decoded instruction type.
  * instr_op_rd_o        -- Destination register for applicable instructions.
@@ -46,7 +45,6 @@ module decoder (
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     input logic [31:0] instr_i,
     output logic [6:0] instr_op_type_o,
     output logic [4:0] instr_op_rd_o,
@@ -57,31 +55,23 @@ module decoder (
     output logic ack_o,
     output logic err_o);
 
-    // Negate the ack_o as soon as the stb_i is deactivated.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
-    // Negate the err_o as soon as the stb_i is deactivated.
-    logic sync_err_o = 1'b0;
-    assign err_o = sync_err_o & stb_i;
-
     //==================================================================================================================
     // Decoder
     //==================================================================================================================
     always @(posedge clk_i) begin
         if (rst_i) begin
-            {sync_ack_o, sync_err_o} <= 2'b00;
+            {ack_o, err_o} <= 2'b00;
         end else begin
-            if (sync_ack_o) sync_ack_o <= stb_i;
-            if (sync_err_o) sync_err_o <= stb_i;
-
-            if (stb_i & cyc_i & ~sync_ack_o & ~sync_err_o) begin
-                // Assume success and set {sync_ack_o, sync_err_o} <= 2'b01 below if a decode error is encountered.
-                {sync_ack_o, sync_err_o} <= 2'b10;
+            if (stb_i) begin
+                // Assume success and set {ack_o, err_o} <= 2'b01 below if a decode error is encountered.
+                {ack_o, err_o} <= 2'b10;
 `ifdef ENABLE_RV32C_EXT
                 decode_compressed_task;
 `else // RV32C not supported
                 decode_uncompressed_task;
 `endif
+            end else begin
+                {ack_o, err_o} <= 2'b00;
             end
         end
     end
@@ -101,7 +91,7 @@ module decoder (
                     3'b101: instr_op_type_o <= `INSTR_TYPE_BGE;
                     3'b110: instr_op_type_o <= `INSTR_TYPE_BLTU;
                     3'b111: instr_op_type_o <= `INSTR_TYPE_BGEU;
-                    default:instr_op_type_o <= {sync_ack_o, sync_err_o} <= 2'b01;
+                    default:instr_op_type_o <= {ack_o, err_o} <= 2'b01;
                 endcase
 
                 instr_op_rd_o <= 0;
@@ -119,7 +109,7 @@ module decoder (
                     3'b010: instr_op_type_o <= `INSTR_TYPE_LW;
                     3'b100: instr_op_type_o <= `INSTR_TYPE_LBU;
                     3'b101: instr_op_type_o <= `INSTR_TYPE_LHU;
-                    default: {sync_ack_o, sync_err_o} <= 2'b01;
+                    default: {ack_o, err_o} <= 2'b01;
                 endcase
 
                 instr_op_rd_o <= instr_i[11:7];
@@ -134,7 +124,7 @@ module decoder (
                     3'b000: instr_op_type_o <= `INSTR_TYPE_SB;
                     3'b001: instr_op_type_o <= `INSTR_TYPE_SH;
                     3'b010: instr_op_type_o <= `INSTR_TYPE_SW;
-                    default: {sync_ack_o, sync_err_o} <= 2'b01;
+                    default: {ack_o, err_o} <= 2'b01;
                 endcase
 
                 instr_op_rd_o <= 0;
@@ -158,7 +148,7 @@ module decoder (
                         (* parallel_case, full_case *)
                         case (instr_i[31:25])
                             7'b0000000: instr_op_type_o <= `INSTR_TYPE_SLLI;
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -167,11 +157,11 @@ module decoder (
                         case (instr_i[31:25])
                             7'b0000000: instr_op_type_o <= `INSTR_TYPE_SRLI;
                             7'b0100000: instr_op_type_o <= `INSTR_TYPE_SRAI;
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
-                    default: {sync_ack_o, sync_err_o} <= 2'b01;
+                    default: {ack_o, err_o} <= 2'b01;
                 endcase
 
                 instr_op_rd_o <= instr_i[11:7];
@@ -191,7 +181,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_MUL;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -202,7 +192,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_MULH;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -213,7 +203,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_MULHSU;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -224,7 +214,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_MULHU;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -235,7 +225,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_DIV;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -247,7 +237,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_DIVU;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -258,7 +248,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_REM;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
@@ -269,7 +259,7 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_REMU;
 `endif
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
                 endcase
@@ -290,7 +280,7 @@ module decoder (
                             12'b0000000_00001: instr_op_type_o <= `INSTR_TYPE_EBREAK;
                             12'b0011000_00010: instr_op_type_o <= `INSTR_TYPE_MRET;
                             12'b0001000_00101: instr_op_type_o <= `INSTR_TYPE_WFI;
-                            default: {sync_ack_o, sync_err_o} <= 2'b01;
+                            default: {ack_o, err_o} <= 2'b01;
                         endcase
 
                         instr_op_rd_o <= 0;
@@ -349,7 +339,7 @@ module decoder (
                         instr_load_rs1_rs2_o <= 1'b0;
                     end
 `endif
-                    default: {sync_ack_o, sync_err_o} <= 2'b01;
+                    default: {ack_o, err_o} <= 2'b01;
                 endcase
             end
 
@@ -379,7 +369,7 @@ module decoder (
                 (* parallel_case, full_case *)
                 case (instr_i[14:12])
                     3'b000: instr_op_type_o <= `INSTR_TYPE_JALR;
-                    default: {sync_ack_o, sync_err_o} <= 2'b01;
+                    default: {ack_o, err_o} <= 2'b01;
                 endcase
 
                 instr_op_rd_o <= instr_i[11:7];
@@ -392,7 +382,7 @@ module decoder (
                 (* parallel_case, full_case *)
                 case (instr_i[14:12])
                     3'b000: instr_op_type_o <= `INSTR_TYPE_FENCE;
-                    default: {sync_ack_o, sync_err_o} <= 2'b01;
+                    default: {ack_o, err_o} <= 2'b01;
                 endcase
 
                 instr_op_rd_o <= instr_i[11:7];
@@ -417,7 +407,7 @@ module decoder (
                         5'b10100: instr_op_type_o <= `INSTR_TYPE_AMOMAX_W;
                         5'b11000: instr_op_type_o <= `INSTR_TYPE_AMOMINU_W;
                         5'b11100: instr_op_type_o <= `INSTR_TYPE_AMOMAXU_W;
-                        default: {sync_ack_o, sync_err_o} <= 2'b01;
+                        default: {ack_o, err_o} <= 2'b01;
                     endcase
 
                     instr_op_rd_o <= instr_i[11:7];
@@ -427,13 +417,13 @@ module decoder (
                     instr_op_imm_o <= instr_i[26:25];
                     instr_load_rs1_rs2_o <= 1'b1;
                 end else begin
-                    {sync_ack_o, sync_err_o} <= 2'b01;
+                    {ack_o, err_o} <= 2'b01;
                 end
             end
 `endif
 
             default: begin
-                {sync_ack_o, sync_err_o} <= 2'b01;
+                {ack_o, err_o} <= 2'b01;
             end
         endcase
 
@@ -478,7 +468,7 @@ module decoder (
                     end
 
                     default: begin
-                        {sync_ack_o, sync_err_o} <= 2'b01;
+                        {ack_o, err_o} <= 2'b01;
                     end
                 endcase
             end
@@ -588,7 +578,7 @@ module decoder (
                                     instr_op_imm_o <= 0;
                                     instr_load_rs1_rs2_o <= 1'b1;
                                 end else begin
-                                    {sync_ack_o, sync_err_o} <= 2'b01;
+                                    {ack_o, err_o} <= 2'b01;
                                 end
                             end
                         endcase
@@ -625,7 +615,7 @@ module decoder (
                     end
 
                     default: begin
-                        {sync_ack_o, sync_err_o} <= 2'b01;
+                        {ack_o, err_o} <= 2'b01;
                     end
                 endcase
             end
@@ -706,7 +696,7 @@ module decoder (
                     end
 
                     default: begin
-                        {sync_ack_o, sync_err_o} <= 2'b01;
+                        {ack_o, err_o} <= 2'b01;
                     end
                 endcase
             end

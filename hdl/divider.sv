@@ -21,7 +21,6 @@
  * clk_i        -- The clock signal.
  * rst_i        -- Reset active high.
  * stb_i        -- The transaction starts on the posedge of this signal.
- * cyc_i        -- This signal is asserted for the duration of a cycle (same as stb_i).
  * divident_i   -- The 32-bit number to divide.
  * divisor_i    -- The 32-bit number divisor_i,
  * is_signed_i  -- 1'b1 if the division is for signed numbers.
@@ -37,17 +36,12 @@ module divider (
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     input logic [31:0] divident_i,
     input logic [31:0] divisor_i,
     input logic is_signed_i,
     output logic [31:0] div_result_o,
     output logic [31:0] rem_result_o,
     output logic ack_o);
-
-    // Negate the ack_o as soon as the stb_i is deactivated.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
 
     // State machine
     localparam STATE_START  = 2'b00;
@@ -66,15 +60,15 @@ module divider (
     //==================================================================================================================
     always @(posedge clk_i) begin
         if (rst_i) begin
-            sync_ack_o <= 1'b0;
+            ack_o <= 1'b0;
             state_m <= STATE_START;
         end else begin
             (* parallel_case, full_case *)
             case (state_m)
                 STATE_START: begin
-                    if (sync_ack_o) sync_ack_o <= stb_i;
+                    ack_o <= 1'b0;
 
-                    if (stb_i & cyc_i & ~sync_ack_o) begin
+                    if (stb_i) begin
                         div_result_o <= is_signed_i & divident_i[31] ? ~divident_i + 1 : divident_i;
                         divisor_i_abs <= is_signed_i & divisor_i[31] ? ~divisor_i + 1 : divisor_i;
                         rem_result_o <= 0;
@@ -104,7 +98,7 @@ module divider (
                                                                     ~div_result_o + 1 : div_result_o;
                     rem_result_o <= (is_signed_i & divident_i[31]) ? ~rem_result_o + 1 : rem_result_o;
 
-                    sync_ack_o <= 1'b1;
+                    ack_o <= 1'b1;
                     state_m <= STATE_START;
                 end
             endcase

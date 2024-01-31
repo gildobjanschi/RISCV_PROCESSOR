@@ -21,7 +21,6 @@
  * clk_i        -- The clock signal.
  * rst_i        -- Reset active high.
  * stb_i        -- The transaction starts on the posedge of this signal.
- * cyc_i        -- The transaction starts on the posedge of this signal (same as stb_i).
  * data_i       -- The input data to write.
  * ack_o        -- The transaction completes successfully on the posedge of this signal.
  * uart_txd_o   -- The UART TX line.
@@ -33,15 +32,10 @@ module uart_tx #(parameter integer CLKS_PER_BIT = 62) (
     input logic clk_i,
     input logic rst_i,
     input logic stb_i,
-    input logic cyc_i,
     input logic [7:0] data_i,
     output logic ack_o,
     // The UART TX line
     output logic uart_txd_o);
-
-    // Negate the ack_o as soon as the stb_i is deactivated.
-    logic sync_ack_o = 1'b0;
-    assign ack_o = sync_ack_o & stb_i;
 
     // State machine
     localparam TX_IDLE      = 2'b00;
@@ -54,6 +48,7 @@ module uart_tx #(parameter integer CLKS_PER_BIT = 62) (
     logic [2:0] bit_index;
     logic [7:0] tx_byte_o;
     logic send_tx_byte;
+    logic stb_q;
 
     // TX FIFO
     localparam FIFO_BITS = 4;
@@ -102,18 +97,23 @@ module uart_tx #(parameter integer CLKS_PER_BIT = 62) (
 
             send_tx_byte <= 1'b0;
             uart_txd_o <= 1'b1;
-            sync_ack_o <= 1'b0;
+
+            ack_o <= 1'b0;
+            stb_q <= 1'b0;
         end else begin
-            if (sync_ack_o) sync_ack_o <= stb_i;
+            ack_o <= 1'b0;
+
+            if (stb_i) stb_q <= 1'b1;
 
             // Handle send requests
-            if (stb_i & cyc_i & ~sync_ack_o) begin
+            if ((stb_i | stb_q) & ~ack_o) begin
                 if (~tx_fifo_full) begin
                     // Write to the UART TX FIFO
                     tx_fifo[tx_fifo_wr_ptr] <= data_i;
                     tx_fifo_wr_ptr <= next_tx_fifo_wr_ptr;
 
-                    sync_ack_o <= 1'b1;
+                    ack_o <= 1'b1;
+                    stb_q <= 1'b0;
 `ifdef D_UART
                     $display($time, " UART: Write to Tx FIFO: %h", data_i);
 `endif

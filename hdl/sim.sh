@@ -21,11 +21,10 @@
 helpFunction()
 {
     echo ""
-    echo "Usage: $0 -u -w -p -s -m -h [-D <flag>]"
+    echo "Usage: $0 -u -w -p -m -h [-D <flag>]"
     echo "    -u: ULX3S board."
     echo "    -w: Blue Whale board."
-    echo "    -p: Run pipelined version."
-    echo "    -s: Run sequential version."
+    echo "    -p: Run RISC-V version."
     echo "    -m: Memory space test."
     echo "    -D: debug flags (e.g. -D D_CORE, -D D_EXEC, -D D_IO, -D BIN_FILE_NAME=\"<app_bin_file>\" ...)"
     echo "    -h: Help."
@@ -52,12 +51,11 @@ OUTPUT_FILE=out.sim
 RAM_FILE=""
 SIM_RAM_FILE=""
 
-while getopts 'uwpsmhD:' opt; do
+while getopts 'uwpmhD:' opt; do
     case "$opt" in
         u ) BOARD="BOARD_ULX3S" ;;
         w ) BOARD="BOARD_BLUE_WHALE" ;;
-        p ) APP_NAME="risc_p" ;;
-        s ) APP_NAME="risc_s" ;;
+        p ) APP_NAME="risc" ;;
         m ) APP_NAME="mem_space_test" ;;
         D ) OPTIONS="$OPTIONS -D ${OPTARG}" ;;
         h ) helpFunction ;;
@@ -94,18 +92,11 @@ if [ "$APP_NAME" = "mem_space_test" ] ; then
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi
-else if [ "$APP_NAME" = "risc_s" ] ; then
-    echo "Running sequential version."
-    iverilog -g2005-sv -D $BOARD $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_s.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_s.sv
-    if [ $? -eq 0 ]; then
-        vvp $OUTPUT_FILE
-    fi
-else if [ "$APP_NAME" = "risc_p" ] ; then
+else if [ "$APP_NAME" = "risc" ] ; then
     echo "Running pipeline version."
     iverilog -g2005-sv -D $BOARD $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi
-fi
 fi
 fi
