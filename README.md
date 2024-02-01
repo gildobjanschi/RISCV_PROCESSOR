@@ -30,14 +30,14 @@ Three scripts are available to simplify the use of the simulator as well as buil
 
 'tests.sh' runs a test for each one of the supported RISC-V instructions.
 
-'sim.sh' is used to simulate a Verilog design. It supports three designs at this time: the memory space test, the sequential processor and the pipelined processor.
+'sim.sh' is used to simulate a Verilog design. It supports two designs at this time: the memory space test and the pipelined processor.
 
 'fpga.sh' synthesizes a design, place and routes for the target FPGA, packs a bitstream and programs the FPGA for the aforementioned designs.
 
-The source code for the TestC, Console and Dhrystone RISC-V C code applications is also available in this repository. Here is a brief description of each application:
+The source code for the TestC, Console and Dhrystone RISC-V C applications is also available in this repository. Here is a brief description of each application:
 * TestC is a simple application that runs from RAM or flash and handles timer interrupts.
-* Console.bin: a UART console that allows you to communicate over USB with the serial port implemented in the processor. You can use any serial communication program configured for 3,000,000 baudrate in 8N1 mode for this purpose.
-* Dhrystone.bin: processor performance evaluation application that enables you to view printf output of this application with a serial communication program.
+* Console is a UART console that allows you to communicate over USB with the serial port implemented in the processor. You can use any serial communication program configured for 3,000,000 baudrate in 8N1 mode for this purpose.
+* Dhrystone is a performance evaluation application that enables you to view printf output of this application with a serial communication program.
 
 ### Simulation
 Before running the instructions test script you need to build the test binaries (over 95 .bin files):
@@ -66,15 +66,6 @@ Add the /bin folder of the xPack to your path and then build each one of the Con
 > cd apps/<name_of_the_app>/Release
 > make -f makefile_ulx3s clean
 > make -f makefile_ulx3s all
-```
-
-Run the TestC.bin application on the sequential processor:
-```
-> ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
-```
-Run the Dhrystone.bin application on the sequential processor:
-```
-> ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
 ```
 
 Run the TestC.bin application on the pipelined processor:
@@ -110,10 +101,6 @@ Run the memory space test:
 > [!Note]
 > The test runs continuously. When the test works the first 7 out of 8 LEDs will light up and the last LED will remain off. If a failure is detected the last LED will blink.
 
-TestC application running on the sequential RISC-V processor:
-```
-> ./fpga.sh -s -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
-```
 
 TestC application running on the pipelined RISC-V processor:
 ```
@@ -148,25 +135,25 @@ Running pipeline version.
                   10 CORE: Reset start.
                  810 CORE: Reset complete.
               200010 CORE: Starting execution @[00600000]...
-Microseconds for one run through Dhrystone: 164
-Dhrystones per Second:                      6075
-mcycle = 82545
-minstret = 5448
-             7760210 CORE: ------------- Halt: looping instruction @[800010c8]. -------------
-             7760210 CORE: Cycles:                 387969
-             7760210 CORE: Instructions retired:   34271
-             7760210 CORE: Instructions from ROM:  28
-             7760210 CORE: Instructions from RAM:  5953
-             7760210 CORE: I-Cache hits:           40558
-             7760210 CORE: Load from ROM:          2386
-             7760210 CORE: Load from RAM:          1693
-             7760210 CORE: Store to RAM:           6439
-             7760210 CORE: IO load:                0
-             7760210 CORE: IO store:               128
-             7760210 CORE: CSR load:               9
-             7760210 CORE: CSR store:              2
-             7760210 CORE: Timer interrupts:       0
-             7760210 CORE: External interrupts:    0
+Microseconds for one run through Dhrystone: 143
+Dhrystones per Second:                      6947
+mcycle = 72220
+minstret = 4354
+             7187430 CORE: ------------- Halt: looping instruction @[8000118c]. -------------
+             7187430 CORE: Cycles:                 359330
+             7187430 CORE: Instructions retired:   33532
+             7187430 CORE: Instructions from ROM:  28
+             7187430 CORE: Instructions from RAM:  6105
+             7187430 CORE: I-Cache hits:           39351
+             7187430 CORE: Load from ROM:          2434
+             7187430 CORE: Load from RAM:          1319
+             7187430 CORE: Store to RAM:           6501
+             7187430 CORE: IO load:                0
+             7187430 CORE: IO store:               128
+             7187430 CORE: CSR load:               9
+             7187430 CORE: CSR store:              2
+             7187430 CORE: Timer interrupts:       0
+             7187430 CORE: External interrupts:    0
 ```
 The numbers above yield a DMIPS of 6075 / 1757 = 3.45
 
@@ -187,8 +174,8 @@ Further removing the multiplication/division (ENABLE_RV32M_EXT) yields a maximum
 The code makes use of flags to turn on/off debug output in the simulator. Here are a few examples:
 * D_IO: enables output from the IO module (and therefore printf).
 * D_EXEC: enables output from the execution module with all details about each executing instruction.
-* D_CORE: Core debug output
-* D_CORE_FINE: Core detailed debug output (sequential/pipeline operations).
+* D_CORE: Core debug output.
+* D_CORE_FINE: Core detailed debug output.
 See a complete list in sim.sh.
 
 Here is a snippet of output when running an application with D_CORE and D_IO to view the application printf output.
@@ -275,7 +262,7 @@ Please see more detail on the project [wiki pages](https://github.com/gildobjans
 ## More work needed
 I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
 * Improve the performance of the multiplier and divider.
-* One of the performance bottlenecks is the instruction cache in mem_space.sv.
+* One of the performance bottlenecks is the instruction cache.
 * Increase the maximum frequency for the overall design with optimizations.
 
 ## Blue Whale Hardware
