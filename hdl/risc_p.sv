@@ -675,6 +675,38 @@ module risc_p (
     endtask
 
     //==================================================================================================================
+    // Exec pipeline task
+    //==================================================================================================================
+    task exec_pipeline_imm_task (input [PIPELINE_BITS-1:0] entry, logic [4:0] op_rd, logic [31:0] rd);
+        pipeline_entry_status[entry] <= PL_E_EXEC_PENDING;
+
+        exec_instr_addr_o <= pipeline_instr_addr[entry];
+        exec_instr_o <= pipeline_instr[entry];
+        exec_instr_is_compressed_o <= ~(pipeline_instr[entry][1:0] == 2'b11);
+        exec_op_type_o <= pipeline_op_type[entry];
+        exec_op_rd_o <= pipeline_op_rd[entry];
+        exec_op_rs1_o <= pipeline_op_rs1[entry];
+        exec_op_rs2_o <= pipeline_op_rs2[entry];
+        exec_op_imm_o <= pipeline_op_imm[entry];
+        exec_rs1_o <= (|op_rd & op_rd == pipeline_op_rs1[entry]) ? rd : pipeline_rs1[entry];
+        exec_rs2_o <= (|op_rd & op_rd == pipeline_op_rs2[entry]) ? rd : pipeline_rs2[entry];
+        exec_stb_o <= 1'b1;
+
+        // Exec LED on
+        led[3] <= 1'b1;
+        `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b1;`endif
+        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_op_type[entry];`endif
+
+`ifdef D_CORE_FINE
+        $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry,
+                    pipeline_instr_addr[entry]);
+`endif
+`ifdef D_STATS_FILE
+        stats_start_execution_time <= $time;
+`endif
+    endtask
+
+    //==================================================================================================================
     // Flush the pipeline (and optionally stall it)
     //==================================================================================================================
     task flush_pipeline_task (input stall);
@@ -1031,6 +1063,13 @@ module risc_p (
 `endif
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
+            /*
+             * 1. Timestamp of the start of the instruction.
+             * 2. The type of instruction from instructions.svh
+             * 3. The duration of the instruction execution.
+             * 4. The duration between the end of the previous instruction execution and the begining of this
+             *      instruction execution.
+             */
             $fdisplay(fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
                         ($time - stats_start_execution_time)/CLK_PERIOD_NS,
                         (stats_start_execution_time - stats_prev_end_execution_time)/CLK_PERIOD_NS);
@@ -1040,8 +1079,6 @@ module risc_p (
             pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EMPTY;
             pipeline_op_rs1[pipeline_rd_ptr] <= 0;
             pipeline_op_rs2[pipeline_rd_ptr] <= 0;
-            // Read the entry out of the pipeline
-            pipeline_rd_ptr <= next_pipeline_rd_ptr;
 
             if (|exec_op_rd_o) begin
                 // Write the destination register to the regfile
@@ -1136,9 +1173,11 @@ module risc_p (
                     // The program execution continues at exec_next_addr_i which is an incremental address (+2/+4)
                     led[5] <= 1'b0;
                     `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b0;`endif
-                    if (pipeline_entry_status[pipeline_rd_ptr] == PL_E_REGFILE_READ) begin
-                        exec_pipeline_task (next_pipeline_rd_ptr);
+                    if (pipeline_entry_status[next_pipeline_rd_ptr] == PL_E_REGFILE_READ) begin
+                        exec_pipeline_imm_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
                     end
+                    // Read the entry out of the pipeline
+                    pipeline_rd_ptr <= next_pipeline_rd_ptr;
                 end
             endcase
         end else if (exec_err_i) begin
@@ -1249,7 +1288,6 @@ module risc_p (
             led[4] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[4] <= 1'b0;`endif
         end
-
     endtask
 
     //==================================================================================================================
