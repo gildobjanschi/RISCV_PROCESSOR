@@ -532,7 +532,7 @@ module risc_p (
     //==================================================================================================================
     // Fetch instruction task
     //==================================================================================================================
-    task fetch_instruction_task();
+    task fetch_instruction_task;
         // Add a new entry to the pipeline
         pipeline_instr_addr[pipeline_wr_ptr] <= fetch_address;
         pipeline_wr_ptr <= next_pipeline_wr_ptr;
@@ -764,7 +764,7 @@ module risc_p (
                 if (core_cyc_o & core_stb_o & core_ack_i) begin
                     {core_stb_o, core_cyc_o} <= 2'b00;
 
-                    // For exceptions wite mtval; for interrupts there is no need to write mtval.
+                    // For exceptions write mtval; for interrupts there is no need to write mtval.
                     if (pipeline_trap_mcause[31]) trap_state_m <= TRAP_STATE_WRITE_MCAUSE;
                     else trap_state_m <= TRAP_STATE_WRITE_MTVAL;
                 end else if (core_cyc_o & core_stb_o & core_err_i) begin
@@ -945,7 +945,7 @@ module risc_p (
 `endif
             end
         end else if (~(core_stb_o & core_cyc_o) & ~pipeline_stall & ~pipeline_full) begin
-            fetch_instruction_task();
+            fetch_instruction_task;
         end
 
         // ------------------------------------ Handle decoder transactions --------------------------------------------
@@ -1046,8 +1046,6 @@ module risc_p (
             pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EMPTY;
             pipeline_op_rs1[pipeline_rd_ptr] <= 0;
             pipeline_op_rs2[pipeline_rd_ptr] <= 0;
-            // Read the entry out of the pipeline
-            pipeline_rd_ptr <= next_pipeline_rd_ptr;
 
             if (|exec_op_rd_o) begin
                 // Write the destination register to the regfile
@@ -1148,6 +1146,8 @@ module risc_p (
                     // The program execution continues at exec_next_addr_i which is an incremental address (+2/+4)
                     led[5] <= 1'b0;
                     `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b0;`endif
+                    // Advance in the pipeline
+                    pipeline_rd_ptr <= next_pipeline_rd_ptr;
                 end
             endcase
         end else if (exec_stb_o & exec_cyc_o & exec_err_i) begin
@@ -1155,6 +1155,12 @@ module risc_p (
             // Exec LED off
             led[3] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b0;`endif
+`ifdef D_STATS_FILE
+            stats_prev_end_execution_time <= $time;
+            $fdisplay(fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
+                        ($time - stats_start_execution_time)/CLK_PERIOD_NS,
+                        (stats_start_execution_time - stats_prev_end_execution_time)/CLK_PERIOD_NS);
+`endif
 
 `ifdef D_CORE_FINE
             $display($time, " CORE:    [%h] Execution exception: %h.", pipeline_rd_ptr, exec_trap_mcause_i);
