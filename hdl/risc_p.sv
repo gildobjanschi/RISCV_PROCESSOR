@@ -1168,10 +1168,6 @@ module risc_p (
                     if (exec_next_addr_i == exec_instr_addr_o) begin
                         looping_instruction <= 1'b1;
                         cpu_state_m <= STATE_HALTED;
-                    end else begin
-`ifdef D_CORE_FINE
-                        $display ($time, " CORE:        Jmp to @[%h].", exec_next_addr_i);
-`endif
                     end
 `endif // SIMULATION
                 end
