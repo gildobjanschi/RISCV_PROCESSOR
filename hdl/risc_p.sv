@@ -199,7 +199,7 @@ module risc_p (
     logic [31:0] core_addr_o;
     logic [31:0] core_data_i, core_data_o;
     logic [3:0] core_sel_o;
-    logic core_we_o, core_stb_o, core_ack_i, core_err_i;
+    logic core_we_o, core_stb_o, core_ack_i, core_err_i, core_data_tag_i;
     // Exec ports (we use the wire type to make it clear that this module is not using these signals)
     wire [31:0] data_addr_w, data_data_i_w, data_data_o_w;
     wire [3:0] data_sel_w;
@@ -240,6 +240,7 @@ module risc_p (
         .core_ack_o         (core_ack_i),
         .core_err_o         (core_err_i),
         .core_data_o        (core_data_i),
+        .core_data_tag_o    (core_data_tag_i),
         // Interface for reading and writing data
         .data_addr_i        (data_addr_w),
         .data_addr_tag_i    (data_addr_tag_w),
@@ -469,6 +470,7 @@ module risc_p (
     logic [31:0] i_cache_data[0:31];
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_addr[0:31];
+    logic [31:0]i_cache_compressed;
 
     logic [4:0] o_cache_index, i_cache_index, reset_cache_index;
     // This register content is valid only when an instruction is read from memory.
@@ -506,6 +508,7 @@ module risc_p (
                     pipeline_trap_mcause <= 0;
                     execute_trap <= 0;
                     reset_cache_index <= 5'd0;
+                    i_cache_compressed <= 0;
                 end else begin
                     // Back to zero to wait for PLL lock
                     reset_clks <= 0;
@@ -547,7 +550,6 @@ module risc_p (
     // Fetch instruction task
     //==================================================================================================================
     task fetch_instruction_task; begin
-        logic [31:0] cache_data;
         // Add a new entry to the pipeline
         pipeline_instr_addr[pipeline_wr_ptr] <= fetch_address;
         pipeline_wr_ptr <= next_pipeline_wr_ptr;
@@ -571,11 +573,10 @@ module risc_p (
             $display ($time, " CORE: Cache hit: @%h %0d", fetch_address, i_cache_index);
 `endif
             pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_FETCHED;
-            cache_data = i_cache_data[i_cache_index];
-            pipeline_instr[pipeline_wr_ptr] <= cache_data;
+            pipeline_instr[pipeline_wr_ptr] <= i_cache_data[i_cache_index];
 
             // Calculate the next fetch address
-            //fetch_address <= cache_data[1:0] == 2'b11 ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
+            fetch_address <= i_cache_compressed[i_cache_index] ? next_fetch_address_plus_2 : next_fetch_address_plus_4;
             // Set the cache LED
             `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b1;`endif
 
@@ -947,12 +948,13 @@ module risc_p (
             // Write the instruction into the cache.
             i_cache_addr[o_cache_index] <= core_addr_o;
             i_cache_data[o_cache_index] <= core_data_i;
+            i_cache_compressed[o_cache_index] <= ~core_data_tag_i;
 
             if (pipeline_entry_status[fetch_pending_entry] == PL_E_INSTR_FETCH_PENDING) begin
                 pipeline_entry_status[fetch_pending_entry] <= PL_E_INSTR_FETCHED;
                 pipeline_instr[fetch_pending_entry] <= core_data_i;
 
-                fetch_address <= core_data_i[1:0] == 2'b11 ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
+                fetch_address <= core_data_tag_i ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
             end else begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Ignoring fetch complete. Pipeline was flushed.", fetch_pending_entry);

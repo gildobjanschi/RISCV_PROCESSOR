@@ -42,6 +42,7 @@
  * core_ack_o           -- The core transaction completes successfully on the posedge of this signal.
  * core_err_o           -- The core transaction completes with an error on the posedge of this signal.
  * core_data_o          -- The data that was read.
+ * core_data_tag_o      -- The core data output tag
  * data_stb_i           -- The transaction starts on the posedge of this signal.
  * data_sel_i           -- The number of bytes to r/w (1 -> 4'b0001, 2 -> 4'b0011, 3 -> 4'b0111 or 4 bytes -> 4'b1111).
  * data_we_i            -- 1'b1 to write data, 0 to read.
@@ -82,6 +83,7 @@ module mem_space #(
     output logic core_ack_o,
     output logic core_err_o,
     output logic [31:0] core_data_o,
+    output logic core_data_tag_o,
     // Interface for reading and writing data from the execution module
     input logic data_stb_i,
     input logic [3:0] data_sel_i,
@@ -304,10 +306,45 @@ module mem_space #(
         {core_ack_o, core_err_o} <= 2'b00;
         {data_ack_o, data_err_o} <= 2'b00;
 
+        // --------------------------------- Handle flash transaction complete -----------------------------------------
+        if (flash_cyc_o & flash_stb_o & sync_flash_ack_i_pulse) begin
+            {flash_stb_o, flash_cyc_o} <= 2'b00;
+
+`ifdef D_MEM_SPACE
+            $display($time, " MEM_SPACE: Flash data @[%h]: %h", flash_addr_o, flash_data_i);
+`endif
+            if (core_access == ACCESS_FLASH) begin
+                core_data_o <= flash_data_i;
+                core_data_tag_o <= flash_data_i[1:0] == 2'b11;
+                {core_ack_o, core_err_o} <= 2'b10;
+
+                core_access <= ACCESS_NONE;
+
+                `ifdef BOARD_BLUE_WHALE led[1] <= 1'b0;`endif
+            end else begin
+                data_data_o <= flash_data_i;
+                {data_ack_o, data_err_o} <= 2'b10;
+
+                data_access <= ACCESS_NONE;
+
+                `ifdef BOARD_BLUE_WHALE led[9] <= 1'b0;`endif
+            end
+
+`ifdef ENABLE_HPM_COUNTERS
+            if (core_access == ACCESS_FLASH) begin
+                incr_internal_event_counters[`EVENT_INSTR_FROM_ROM] <= 1'b1;
+            end else begin
+                incr_internal_event_counters[`EVENT_LOAD_FROM_ROM] <= 1'b1;
+            end
+`endif
+        end
+
         // ----------------------------------- Handle RAM transaction complete -----------------------------------------
         if (ram_ack_i) begin
             if (core_access == ACCESS_RAM) begin
                 core_data_o <= ram_data_i;
+                core_data_tag_o <= ram_data_i[1:0] == 2'b11;
+
                 {core_ack_o, core_err_o} <= 2'b10;
 
                 core_access <= ACCESS_NONE;
@@ -629,38 +666,6 @@ module mem_space #(
                     {core_ack_o, core_err_o} <= 2'b01;
                 end
             endcase
-        end
-
-        // --------------------------------- Handle flash transaction complete -----------------------------------------
-        if (flash_cyc_o & flash_stb_o & sync_flash_ack_i_pulse) begin
-            {flash_stb_o, flash_cyc_o} <= 2'b00;
-
-`ifdef D_MEM_SPACE
-            $display($time, " MEM_SPACE: Flash data @[%h]: %h", flash_addr_o, flash_data_i);
-`endif
-            if (core_access == ACCESS_FLASH) begin
-                core_data_o <= flash_data_i;
-                {core_ack_o, core_err_o} <= 2'b10;
-
-                core_access <= ACCESS_NONE;
-
-                `ifdef BOARD_BLUE_WHALE led[1] <= 1'b0;`endif
-            end else begin
-                data_data_o <= flash_data_i;
-                {data_ack_o, data_err_o} <= 2'b10;
-
-                data_access <= ACCESS_NONE;
-
-                `ifdef BOARD_BLUE_WHALE led[9] <= 1'b0;`endif
-            end
-
-`ifdef ENABLE_HPM_COUNTERS
-            if (core_access == ACCESS_FLASH) begin
-                incr_internal_event_counters[`EVENT_INSTR_FROM_ROM] <= 1'b1;
-            end else begin
-                incr_internal_event_counters[`EVENT_LOAD_FROM_ROM] <= 1'b1;
-            end
-`endif
         end
     endtask
 
