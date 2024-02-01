@@ -447,16 +447,21 @@ module risc_p (
 
     integer i;
     logic [PIPELINE_BITS-1:0] fetch_pending_entry, decode_pending_entry, regfile_read_pending_entry;
-    logic [PIPELINE_BITS-1:0] decode_ptr, regfile_ptr;
+    logic [PIPELINE_BITS-1:0] decode_ptr, next_decode_ptr, regfile_read_ptr, next_regfile_read_ptr;
     logic [31:0] pipeline_trap_mcause, pipeline_trap_mepc, pipeline_trap_mtval;
 
     // This register content is valid only when an instruction is read from memory.
-    logic [31:0] next_fetch_address;
-    assign next_fetch_address = core_data_i[1:0] == 2'b11 ? fetch_address + 4 : fetch_address + 2;
+    logic [31:0] next_fetch_address_plus_2, next_fetch_address_plus_4;;
 
     always_comb begin
         next_pipeline_rd_ptr = pipeline_rd_ptr + 1;
         next_pipeline_wr_ptr = pipeline_wr_ptr + 1;
+
+        next_fetch_address_plus_2 = fetch_address + 2;
+        next_fetch_address_plus_4 = fetch_address + 4;
+
+        next_decode_ptr = decode_ptr + 1;
+        next_regfile_read_ptr = regfile_read_ptr + 1;
     end
 
     // Cache
@@ -570,7 +575,7 @@ module risc_p (
             pipeline_instr[pipeline_wr_ptr] <= cache_data;
 
             // Calculate the next fetch address
-            fetch_address <= cache_data[1:0] == 2'b11 ? fetch_address + 4 : fetch_address + 2;
+            //fetch_address <= cache_data[1:0] == 2'b11 ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
             // Set the cache LED
             `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b1;`endif
 
@@ -619,26 +624,26 @@ module risc_p (
     // Regfile pipeline read request
     //==================================================================================================================
     task regfile_read_pipeline_task;
-        if (pipeline_entry_status[regfile_ptr] == PL_E_INSTR_DECODED) begin
-            pipeline_entry_status[regfile_ptr] <= PL_E_REGFILE_READ_PENDING;
+        if (pipeline_entry_status[regfile_read_ptr] == PL_E_INSTR_DECODED) begin
+            pipeline_entry_status[regfile_read_ptr] <= PL_E_REGFILE_READ_PENDING;
 
-            regfile_op_rs1_o <= pipeline_op_rs1[regfile_ptr];
-            regfile_op_rs2_o <= pipeline_op_rs2[regfile_ptr];
+            regfile_op_rs1_o <= pipeline_op_rs1[regfile_read_ptr];
+            regfile_op_rs2_o <= pipeline_op_rs2[regfile_read_ptr];
             regfile_stb_read_o <= 1'b1;
 
-            regfile_read_pending_entry <= regfile_ptr;
+            regfile_read_pending_entry <= regfile_read_ptr;
 
             // Regfile LED on
             led[2] <= 1'b1;
             `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b1;`endif
 `ifdef D_CORE_FINE
             $display ($time, " CORE:    [%h] Regfile read rs1x%0d, rs2x%0d -> PL_E_REGFILE_READ_PENDING.",
-                                regfile_ptr, pipeline_op_rs1[regfile_ptr], pipeline_op_rs2[regfile_ptr]);
+                                regfile_read_ptr, pipeline_op_rs1[regfile_read_ptr], pipeline_op_rs2[regfile_read_ptr]);
 `endif
-            regfile_ptr <= regfile_ptr + 1;
-        end else if (pipeline_entry_status[regfile_ptr] >= PL_E_REGFILE_READ) begin
+            regfile_read_ptr <= next_regfile_read_ptr;
+        end else if (pipeline_entry_status[regfile_read_ptr] >= PL_E_REGFILE_READ) begin
             // Skip this entry (instruction did not need loading of registers)
-            regfile_ptr <= regfile_ptr + 1;
+            regfile_read_ptr <= next_regfile_read_ptr;
         end
     endtask
 
@@ -728,7 +733,7 @@ module risc_p (
         end
 
         decode_ptr <= 0;
-        regfile_ptr <= 0;
+        regfile_read_ptr <= 0;
 `ifdef D_CORE_FINE
         $display ($time, " CORE:        Pipeline flushed; stall: %h.", stall);
 `endif
@@ -947,7 +952,7 @@ module risc_p (
                 pipeline_entry_status[fetch_pending_entry] <= PL_E_INSTR_FETCHED;
                 pipeline_instr[fetch_pending_entry] <= core_data_i;
 
-                fetch_address <= next_fetch_address;
+                fetch_address <= core_data_i[1:0] == 2'b11 ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
             end else begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Ignoring fetch complete. Pipeline was flushed.", fetch_pending_entry);
@@ -1001,7 +1006,7 @@ module risc_p (
 
                 if (pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED) begin
                     decode_instruction_task (decode_ptr, pipeline_instr[decode_ptr]);
-                    decode_ptr <= decode_ptr + 1;
+                    decode_ptr <= next_decode_ptr;
                 end
             end else begin
 `ifdef D_CORE_FINE
@@ -1022,7 +1027,7 @@ module risc_p (
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
         end else if (~decoder_pending_o & (pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED)) begin
             decode_instruction_task (decode_ptr, pipeline_instr[decode_ptr]);
-            decode_ptr <= decode_ptr + 1;
+            decode_ptr <= next_decode_ptr;
         end
 
         // ------------------------------------ Handle regfile transactions --------------------------------------------
