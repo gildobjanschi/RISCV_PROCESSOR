@@ -479,9 +479,10 @@ module risc_p (
     logic [4:0] i_cache_decoder_op_rs2[0:31];
     logic [31:0] i_cache_decoder_imm[0:31];
     logic [31:0] i_cache_decoder_load_rs1_rs2;
+    logic [31:0] i_cache_has_decoded;
 
-    logic [4:0] i_cache_index, d_cache_index, reset_cache_index;
-
+    logic [4:0] o_cache_index, i_cache_index, d_cache_index, reset_cache_index;
+    assign o_cache_index = core_addr_o[5:1];
     assign i_cache_index = fetch_address[5:1];
 
     //==================================================================================================================
@@ -515,6 +516,7 @@ module risc_p (
                     execute_trap <= 0;
                     reset_cache_index <= 5'd0;
                     i_cache_compressed <= 0;
+                    i_cache_has_decoded <= 0;
                 end else begin
                     // Back to zero to wait for PLL lock
                     reset_clks <= 0;
@@ -574,18 +576,22 @@ module risc_p (
 `endif
             end
         end else if (i_cache_addr[i_cache_index] == fetch_address) begin
-            if (i_cache_decoder_load_rs1_rs2[i_cache_index]) begin
-                pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_DECODED;
+            if (i_cache_has_decoded[i_cache_index]) begin
+                if (i_cache_decoder_load_rs1_rs2[i_cache_index]) begin
+                    pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_DECODED;
 `ifdef D_CORE_FINE
-                $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_INSTR_DECODED.", pipeline_wr_ptr,
-                            fetch_address);
+                    $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_INSTR_DECODED.", pipeline_wr_ptr,
+                                fetch_address);
 `endif
-            end else begin // No need to read RS1 and RS2
-                pipeline_entry_status[pipeline_wr_ptr] <= PL_E_REGFILE_READ;
+                end else begin // No need to read RS1 and RS2
+                    pipeline_entry_status[pipeline_wr_ptr] <= PL_E_REGFILE_READ;
 `ifdef D_CORE_FINE
-                $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_REGFILE_READ.", pipeline_wr_ptr,
-                            fetch_address);
+                    $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_REGFILE_READ.", pipeline_wr_ptr,
+                                fetch_address);
 `endif
+                end
+            end else begin
+                pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_FETCHED;
             end
 
             pipeline_instr[pipeline_wr_ptr] <= i_cache_instr[i_cache_index];
@@ -972,6 +978,11 @@ module risc_p (
             // Fetch instruction LED off
             led[0] <= 1'b0;
 
+            i_cache_addr[o_cache_index] <= core_addr_o;
+            i_cache_instr[o_cache_index] <= core_data_i;
+            i_cache_compressed[o_cache_index] <= ~core_data_tag_i;
+            i_cache_has_decoded[o_cache_index] <= 1'b0;
+
             if (pipeline_entry_status[fetch_pending_entry] == PL_E_INSTR_FETCH_PENDING) begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Fetch complete @[%h] : %h.", fetch_pending_entry, core_addr_o,
@@ -1016,9 +1027,7 @@ module risc_p (
             led[1] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
             // Cache the decoder data
-            i_cache_addr[d_cache_index] <= pipeline_instr_addr[decode_pending_entry];
-            i_cache_instr[d_cache_index] <= decoder_instruction_o;
-            i_cache_compressed[d_cache_index] <= decoder_instruction_o[1:0] != 2'b11;
+            i_cache_has_decoded[d_cache_index] <= 1'b1;
             i_cache_decoder_op_type[d_cache_index] <= decoder_op_type_i;
             i_cache_decoder_op_rd[d_cache_index] <= decoder_op_rd_i;
             i_cache_decoder_op_rs1[d_cache_index] <= decoder_op_rs1_i;
