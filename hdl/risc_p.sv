@@ -452,7 +452,7 @@ module risc_p (
     logic [31:0] pipeline_trap_mcause, pipeline_trap_mepc, pipeline_trap_mtval;
 
     // This register content is valid only when an instruction is read from memory.
-    logic [31:0] next_fetch_address_plus_2, next_fetch_address_plus_4;;
+    logic [31:0] next_fetch_address_plus_2, next_fetch_address_plus_4;
 
     always_comb begin
         next_pipeline_rd_ptr = pipeline_rd_ptr + 1;
@@ -467,12 +467,20 @@ module risc_p (
 
     // Cache
     (* syn_ramstyle="auto" *)
-    logic [31:0] i_cache_data[0:31];
+    logic [31:0] i_cache_instr[0:31];
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_addr[0:31];
-    logic [31:0]i_cache_compressed;
+    logic [31:0] i_cache_compressed;
 
-    logic [4:0] o_cache_index, i_cache_index, reset_cache_index;
+    // Decoder cache
+    logic [6:0] i_cache_decoder_op_type[0:31];
+    logic [4:0] i_cache_decoder_op_rd[0:31];
+    logic [4:0] i_cache_decoder_op_rs1[0:31];
+    logic [4:0] i_cache_decoder_op_rs2[0:31];
+    logic [31:0] i_cache_decoder_imm[0:31];
+    logic [31:0] i_cache_decoder_load_rs1_rs2;
+
+    logic [4:0] o_cache_index, i_cache_index, d_cache_index, reset_cache_index;
     // This register content is valid only when an instruction is read from memory.
     assign o_cache_index = core_addr_o[5:1];
 
@@ -552,7 +560,6 @@ module risc_p (
     task fetch_instruction_task; begin
         // Add a new entry to the pipeline
         pipeline_instr_addr[pipeline_wr_ptr] <= fetch_address;
-        pipeline_wr_ptr <= next_pipeline_wr_ptr;
 
         if (fetch_address[0]) begin
             // This trap cannot overwrite an exiting trap since it is the earliest occurence in the pipeline.
@@ -569,11 +576,27 @@ module risc_p (
 `endif
             end
         end else if (i_cache_addr[i_cache_index] == fetch_address) begin
+            pipeline_instr[pipeline_wr_ptr] <= i_cache_instr[i_cache_index];
+
+            pipeline_op_type[pipeline_wr_ptr] <= i_cache_decoder_op_type[i_cache_index];
+            pipeline_op_rd[pipeline_wr_ptr] <= i_cache_decoder_op_rd[i_cache_index];
+            pipeline_op_rs1[pipeline_wr_ptr] <= i_cache_decoder_op_rs1[i_cache_index];
+            pipeline_op_rs2[pipeline_wr_ptr] <= i_cache_decoder_op_rs2[i_cache_index];
+            pipeline_op_imm[pipeline_wr_ptr] <= i_cache_decoder_imm[i_cache_index];
+
+            if (i_cache_decoder_load_rs1_rs2[i_cache_index]) begin
+                pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_DECODED;
 `ifdef D_CORE_FINE
-            $display ($time, " CORE: Cache hit: @%h %0d", fetch_address, i_cache_index);
+                $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_INSTR_DECODED.", pipeline_wr_ptr,
+                            fetch_address);
 `endif
-            pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_FETCHED;
-            pipeline_instr[pipeline_wr_ptr] <= i_cache_data[i_cache_index];
+            end else begin // No need to read RS1 and RS2
+                pipeline_entry_status[pipeline_wr_ptr] <= PL_E_REGFILE_READ;
+`ifdef D_CORE_FINE
+                $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_REGFILE_READ.", pipeline_wr_ptr,
+                            fetch_address);
+`endif
+            end
 
             // Calculate the next fetch address
             fetch_address <= i_cache_compressed[i_cache_index] ? next_fetch_address_plus_2 : next_fetch_address_plus_4;
@@ -600,25 +623,36 @@ module risc_p (
             $display ($time, " CORE:    [%h] Fetch @[%h] -> PL_E_INSTR_FETCH_PENDING.", pipeline_wr_ptr, fetch_address);
 `endif
         end
+
+        // Move the write pointer
+        pipeline_wr_ptr <= next_pipeline_wr_ptr;
     end endtask
 
     //==================================================================================================================
     // Decode instruction task
     //==================================================================================================================
-    task decode_instruction_task (input [PIPELINE_BITS-1:0] entry, input [31:0] instruction);
-        pipeline_entry_status[entry] <= PL_E_INSTR_DECODE_PENDING;
+    task decode_instruction_task;
+        if (pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED) begin
+            pipeline_entry_status[decode_ptr] <= PL_E_INSTR_DECODE_PENDING;
 
-        decoder_instruction_o <= instruction;
-        decoder_stb_o <= 1'b1;
+            decoder_instruction_o <= pipeline_instr[decode_ptr];
+            decoder_stb_o <= 1'b1;
 
-        decode_pending_entry <= entry;
+            decode_pending_entry <= decode_ptr;
 
-        // Decode LED on
-        led[1] <= 1'b1;
-        `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b1;`endif
+            // Decode LED on
+            led[1] <= 1'b1;
+            `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b1;`endif
 `ifdef D_CORE_FINE
-        $display ($time, " CORE:    [%h] Decode %h -> PL_E_INSTR_DECODE_PENDING.", entry, instruction);
+            $display ($time, " CORE:    [%h] Decode %h -> PL_E_INSTR_DECODE_PENDING.", decode_ptr,
+                        pipeline_instr[decode_ptr]);
 `endif
+            decode_ptr <= next_decode_ptr;
+            d_cache_index <= pipeline_instr_addr[decode_ptr][5:1];
+        end else if (pipeline_entry_status[decode_ptr] >= PL_E_INSTR_DECODED) begin
+            // Skip this entry (instruction did not need decoding)
+            decode_ptr <= next_decode_ptr;
+        end
     endtask
 
     //==================================================================================================================
@@ -672,7 +706,7 @@ module risc_p (
         `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_op_type[entry];`endif
 
 `ifdef D_CORE_FINE
-        $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry,
+        $display ($time, " CORE:    [%h] Execute instruction: @[%h] -> PL_E_EXEC_PENDING.", entry,
                     pipeline_instr_addr[entry]);
 `endif
 `ifdef D_STATS_FILE
@@ -688,7 +722,7 @@ module risc_p (
 
         exec_instr_addr_o <= pipeline_instr_addr[entry];
         exec_instr_o <= pipeline_instr[entry];
-        exec_instr_is_compressed_o <= ~(pipeline_instr[entry][1:0] == 2'b11);
+        exec_instr_is_compressed_o <= pipeline_instr[entry][1:0] != 2'b11;
         exec_op_type_o <= pipeline_op_type[entry];
         exec_op_rd_o <= pipeline_op_rd[entry];
         exec_op_rs1_o <= pipeline_op_rs1[entry];
@@ -945,14 +979,14 @@ module risc_p (
             $display ($time, " CORE:    [%h] Fetch complete @[%h] : %h.", fetch_pending_entry, core_addr_o,
                             core_data_i);
 `endif
-            // Write the instruction into the cache.
-            i_cache_addr[o_cache_index] <= core_addr_o;
-            i_cache_data[o_cache_index] <= core_data_i;
-            i_cache_compressed[o_cache_index] <= ~core_data_tag_i;
-
             if (pipeline_entry_status[fetch_pending_entry] == PL_E_INSTR_FETCH_PENDING) begin
                 pipeline_entry_status[fetch_pending_entry] <= PL_E_INSTR_FETCHED;
                 pipeline_instr[fetch_pending_entry] <= core_data_i;
+
+                // Write the instruction into the cache.
+                i_cache_addr[o_cache_index] <= core_addr_o;
+                i_cache_instr[o_cache_index] <= core_data_i;
+                i_cache_compressed[o_cache_index] <= ~core_data_tag_i;
 
                 fetch_address <= core_data_tag_i ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
             end else begin
@@ -993,6 +1027,15 @@ module risc_p (
 `ifdef D_CORE_FINE
             $display ($time, " CORE:    [%h] Decode complete.", decode_pending_entry);
 `endif
+
+            // Cache the decoder data
+            i_cache_decoder_op_type[d_cache_index] <= decoder_op_type_i;
+            i_cache_decoder_op_rd[d_cache_index] <= decoder_op_rd_i;
+            i_cache_decoder_op_rs1[d_cache_index] <= decoder_op_rs1_i;
+            i_cache_decoder_op_rs2[d_cache_index] <= decoder_op_rs2_i;
+            i_cache_decoder_imm[d_cache_index] <= decoder_op_imm_i;
+            i_cache_decoder_load_rs1_rs2[d_cache_index] <= decoder_load_rs1_rs2_i;
+
             if (pipeline_entry_status[decode_pending_entry] == PL_E_INSTR_DECODE_PENDING) begin
                 pipeline_op_type[decode_pending_entry] <= decoder_op_type_i;
                 pipeline_op_rd[decode_pending_entry] <= decoder_op_rd_i;
@@ -1006,10 +1049,7 @@ module risc_p (
                     pipeline_entry_status[decode_pending_entry] <= PL_E_REGFILE_READ;
                 end
 
-                if (pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED) begin
-                    decode_instruction_task (decode_ptr, pipeline_instr[decode_ptr]);
-                    decode_ptr <= next_decode_ptr;
-                end
+                decode_instruction_task;
             end else begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Ignoring decode complete. Pipeline was flushed.",
@@ -1027,9 +1067,8 @@ module risc_p (
             // This exception may overwrite a pipeline trap detected during fetch since the instruction is an older one.
             pipeline_trap_task (decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
-        end else if (~decoder_pending_o & (pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED)) begin
-            decode_instruction_task (decode_ptr, pipeline_instr[decode_ptr]);
-            decode_ptr <= next_decode_ptr;
+        end else if (~decoder_pending_o) begin
+            decode_instruction_task;
         end
 
         // ------------------------------------ Handle regfile transactions --------------------------------------------
@@ -1066,7 +1105,7 @@ module risc_p (
             `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b0;`endif
 
 `ifdef D_CORE_FINE
-            $display ($time, " CORE:    [%h] Execution complete", pipeline_rd_ptr);
+            $display ($time, " CORE:    [%h] Execution complete.", pipeline_rd_ptr);
 `endif
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;

@@ -1235,6 +1235,15 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
             end
 `endif // ENABLE_RV32A_EXT
+
+            default: begin
+`ifdef D_EXEC
+                $display($time, " EXEC: Instruction not handled %h", instr_op_type_i);
+`endif
+                trap_mcause_o[`EX_CODE_ILLEGAL_INSTRUCTION] <= 1'b1;
+                trap_mtval_o <= instr_i;
+                {ack_o, err_o} <= 2'b01;
+            end
         endcase
     endtask
 
