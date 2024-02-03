@@ -448,8 +448,6 @@ module risc_p (
     logic [PIPELINE_BITS-1:0] fetch_pending_entry, decode_pending_entry, regfile_read_pending_entry;
     logic [PIPELINE_BITS-1:0] decode_ptr, next_decode_ptr, regfile_read_ptr, next_regfile_read_ptr;
     logic [31:0] pipeline_trap_mcause, pipeline_trap_mepc, pipeline_trap_mtval;
-
-    // This register content is valid only when an instruction is read from memory.
     logic [31:0] next_fetch_address_plus_2, next_fetch_address_plus_4;
 
     always_comb begin
@@ -469,6 +467,14 @@ module risc_p (
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_addr[0:31];
     logic [31:0] i_cache_compressed;
+    // Decoder cache
+    logic [6:0] i_cache_decoder_op_type[0:31];
+    logic [4:0] i_cache_decoder_op_rd[0:31];
+    logic [4:0] i_cache_decoder_op_rs1[0:31];
+    logic [4:0] i_cache_decoder_op_rs2[0:31];
+    logic [31:0] i_cache_decoder_imm[0:31];
+    logic [31:0] i_cache_decoder_load_rs1_rs2;
+    logic [31:0] i_cache_has_decoded;
 
     logic [4:0] i_cache_index, o_cache_index, d_cache_index, reset_cache_index;
     assign i_cache_index = fetch_address[5:1];
@@ -489,7 +495,7 @@ module risc_p (
             0: begin
                 if (pll_locked) begin
 `ifdef D_CORE
-                    $display($time, " CORE: Reset start.");
+                    $display ($time, " CORE: Reset start.");
 `endif
                     // Reset your variables
                     {core_stb_o, core_cyc_o} <= 2'b00;
@@ -500,11 +506,12 @@ module risc_p (
 
                     writeback_op_rd <= 0;
 
-                    flush_pipeline_task(1'b0);
+                    flush_pipeline_task (1'b0);
                     pipeline_trap_mcause <= 0;
                     execute_trap <= 0;
                     reset_cache_index <= 5'd0;
                     i_cache_compressed <= 0;
+                    i_cache_has_decoded <= 0;
                 end else begin
                     // Back to zero to wait for PLL lock
                     reset_clks <= 0;
@@ -522,14 +529,14 @@ module risc_p (
                 // Reset is complete
                 reset <= 1'b0;
 `ifdef D_CORE
-                $display($time, " CORE: Reset complete.");
+                $display ($time, " CORE: Reset complete.");
 `endif
                 // Wait for the RAM to initialize (SDRAM 200μs)
             end
 
             RESET_CLKS: begin
 `ifdef D_CORE
-                $display($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
+                $display ($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
 `endif
                 fetch_address <= `ROM_BEGIN_ADDR;
 `ifdef D_STATS_FILE
@@ -554,24 +561,43 @@ module risc_p (
             // This trap cannot overwrite an exiting trap since it is the earliest occurence in the pipeline.
             if (~|pipeline_trap_mcause) begin
 `ifdef D_CORE
-                $display($time, " CORE:    [%h] Fetch address misaligned @[%h]. Stall the pipeline.",
+                $display ($time, " CORE:    [%h] Fetch address misaligned @[%h]. Stall the pipeline.",
                         pipeline_wr_ptr, fetch_address);
 `endif
-                pipeline_trap_task(pipeline_wr_ptr, 1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, fetch_address, 0);
+                pipeline_trap_task (pipeline_wr_ptr, 1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, fetch_address, 0);
             end else begin
 `ifdef D_CORE
-                $display($time, " CORE:        -- Instruction address misaligned %h; ignoring (have trap already). --",
+                $display ($time, " CORE:        -- Instruction address misaligned %h; ignoring (have trap already). --",
                             fetch_address);
 `endif
             end
         end else if (i_cache_addr[i_cache_index] == fetch_address) begin
+            if (i_cache_has_decoded[i_cache_index]) begin
+                if (i_cache_decoder_load_rs1_rs2[i_cache_index]) begin
+                    pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_DECODED;
 `ifdef D_CORE_FINE
-            $display($time, " CORE: Cache hit: @%h %0d", fetch_address, i_cache_index);
+                    $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_INSTR_DECODED.", pipeline_wr_ptr,
+                                fetch_address);
 `endif
-            pipeline_instr[pipeline_wr_ptr] <= i_cache_instr[i_cache_index];
-            pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_FETCHED;
+                end else begin // No need to read RS1 and RS2
+                    pipeline_entry_status[pipeline_wr_ptr] <= PL_E_REGFILE_READ;
+`ifdef D_CORE_FINE
+                    $display ($time, " CORE:    [%h] Cache hit @[%h] -> PL_E_REGFILE_READ.", pipeline_wr_ptr,
+                                fetch_address);
+`endif
+                end
+            end else begin
+                pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_FETCHED;
+            end
 
-            // Setup the next fetch
+            pipeline_instr[pipeline_wr_ptr] <= i_cache_instr[i_cache_index];
+            pipeline_op_type[pipeline_wr_ptr] <= i_cache_decoder_op_type[i_cache_index];
+            pipeline_op_rd[pipeline_wr_ptr] <= i_cache_decoder_op_rd[i_cache_index];
+            pipeline_op_rs1[pipeline_wr_ptr] <= i_cache_decoder_op_rs1[i_cache_index];
+            pipeline_op_rs2[pipeline_wr_ptr] <= i_cache_decoder_op_rs2[i_cache_index];
+            pipeline_op_imm[pipeline_wr_ptr] <= i_cache_decoder_imm[i_cache_index];
+
+            // Calculate the next fetch address
             fetch_address <= i_cache_compressed[i_cache_index] ? next_fetch_address_plus_2 : next_fetch_address_plus_4;
             // Set the cache LED
             `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b1;`endif
@@ -594,7 +620,7 @@ module risc_p (
             // Clear the cache LED
             `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b0;`endif
 `ifdef D_CORE_FINE
-            $display($time, " CORE:    [%h] Fetch @[%h] -> PL_E_INSTR_FETCH_PENDING.", pipeline_wr_ptr, address);
+            $display ($time, " CORE:    [%h] Fetch @[%h] -> PL_E_INSTR_FETCH_PENDING.", pipeline_wr_ptr, address);
 `endif
         end
     endtask
@@ -621,7 +647,7 @@ module risc_p (
             d_cache_index <= pipeline_instr_addr[decode_ptr][5:1];
             decode_ptr <= next_decode_ptr;
         end else if (pipeline_entry_status[decode_ptr] >= PL_E_INSTR_DECODED) begin
-            // Skip this entry (instruction did not need decoding)
+            // Skip this entry (instruction was found in the decoder cache).
             decode_ptr <= next_decode_ptr;
         end
     endtask
@@ -656,7 +682,7 @@ module risc_p (
     //==================================================================================================================
     // Exec task
     //==================================================================================================================
-    task exec_task( input [PIPELINE_BITS-1:0] entry,
+    task exec_task (input [PIPELINE_BITS-1:0] entry,
                     input [31:0] instr_addr,
                     input [31:0] instr,
                     input [6:0] instr_op_type,
@@ -687,7 +713,7 @@ module risc_p (
         `ifdef BOARD_BLUE_WHALE led_a[11:5] <= instr_op_type;`endif
 
 `ifdef D_CORE_FINE
-        $display($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry, instr_addr);
+        $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry, instr_addr);
 `endif
 `ifdef D_STATS_FILE
         stats_start_execution_time <= $time;
@@ -697,7 +723,7 @@ module risc_p (
     //==================================================================================================================
     // Flush the pipeline (and optionally stall it)
     //==================================================================================================================
-    task flush_pipeline_task(input stall);
+    task flush_pipeline_task (input stall);
         pipeline_stall <= stall;
 
         // Reset the pipeline
@@ -718,7 +744,7 @@ module risc_p (
         decode_ptr <= 0;
         regfile_read_ptr <= 0;
 `ifdef D_CORE_FINE
-        $display($time, " CORE:        Pipeline flushed; stall: %h.", stall);
+        $display ($time, " CORE:        Pipeline flushed; stall: %h.", stall);
 `endif
     endtask
 
@@ -728,7 +754,7 @@ module risc_p (
     // is marked as "ready for execution". We let the instructions in the pipeline execute normally until the pipeline
     // entry is encountered and then we handle the exception.
     //==================================================================================================================
-    task pipeline_trap_task(input [PIPELINE_BITS-1:0] entry, input [31:0] mcause, input [31:0] mepc,
+    task pipeline_trap_task (input [PIPELINE_BITS-1:0] entry, input [31:0] mcause, input [31:0] mepc,
                                 input [31:0] mtval);
         // Make this entry "ready for execution"
         pipeline_entry_status[entry] <= PL_E_REGFILE_READ;
@@ -747,7 +773,7 @@ module risc_p (
     //==================================================================================================================
     task enter_trap_task;
         // Flush the pipeline and stall it.
-        flush_pipeline_task(1'b1);
+        flush_pipeline_task (1'b1);
 
         cpu_state_m <= STATE_TRAP;
         trap_state_m <= TRAP_STATE_START;
@@ -768,7 +794,7 @@ module risc_p (
                     led[0] <= 1'b0;
                 end else if (~core_cyc_o & ~core_stb_o & ~core_ack_i & ~core_err_i) begin
 `ifdef D_CORE_FINE
-                    $display($time, " CORE:            Enter trap task; mcause = %h; mepc = %h; mtval: = %h.",
+                    $display ($time, " CORE:            Enter trap task; mcause = %h; mepc = %h; mtval: = %h.",
                                 pipeline_trap_mcause, pipeline_trap_mepc, pipeline_trap_mtval);
 `endif
                     led[6] <= 1'b1;
@@ -867,11 +893,11 @@ module risc_p (
                     if (core_data_i[1]) begin
                         if (pipeline_trap_mcause[31]) begin
 `ifdef D_CORE
-                            $display($time, " CORE:            Interrupt ignored: mtvec not set.");
+                            $display ($time, " CORE:            Interrupt ignored: mtvec not set.");
 `endif
                         end else begin
 `ifdef D_CORE
-                            $display($time, " CORE:    --- Halting CPU: mtvec not set for exception: %h. ---",
+                            $display ($time, " CORE:    --- Halting CPU: mtvec not set for exception: %h. ---",
                                         to_mcause_code(pipeline_trap_mcause));
 `endif
                             // The CPU is halted with the mcause that was set earlier.
@@ -881,7 +907,7 @@ module risc_p (
                         end
                     end else begin
 `ifdef D_CORE_FINE
-                        $display($time, " CORE:    Executing trap routine @[%h].", core_data_i);
+                        $display ($time, " CORE:    Executing trap routine @[%h].", core_data_i);
 `endif
 
                         execute_trap <= execute_trap + 1;
@@ -906,7 +932,7 @@ module risc_p (
             TRAP_STATE_ERROR: begin
                 // This cannot happen (r/w to basic CSR registers), but the code is here for completeness.
 `ifdef D_CORE
-                $display($time, " CORE:    --- Halting CPU: CSR error. ---");
+                $display ($time, " CORE:    --- Halting CPU: CSR error. ---");
 `endif
                 // A CSR error occured
                 pipeline_trap_mcause <= 1 << `EX_CODE_ILLEGAL_INSTRUCTION;
@@ -933,12 +959,13 @@ module risc_p (
             led[0] <= 1'b0;
 
 `ifdef D_CORE_FINE
-            $display($time, " CORE:    [%h] Fetch complete @[%h] : %h.", fetch_pending_entry, core_addr_o, core_data_i);
+            $display ($time, " CORE:    [%h] Fetch complete @[%h] : %h.", fetch_pending_entry, core_addr_o, core_data_i);
 `endif
             // Write the instruction into the cache.
             i_cache_addr[o_cache_index] <= core_addr_o;
             i_cache_instr[o_cache_index] <= core_data_i;
             i_cache_compressed[o_cache_index] <= ~core_data_tag_i;
+            i_cache_has_decoded[o_cache_index] <= 1'b0;
 
             if (pipeline_entry_status[fetch_pending_entry] == PL_E_INSTR_FETCH_PENDING) begin
                 pipeline_instr[fetch_pending_entry] <= core_data_i;
@@ -948,7 +975,7 @@ module risc_p (
                 fetch_address <= core_data_tag_i ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
             end else begin
 `ifdef D_CORE_FINE
-                $display($time, " CORE:    [%h] Ignoring fetch complete. Pipeline was flushed.", fetch_pending_entry);
+                $display ($time, " CORE:    [%h] Ignoring fetch complete. Pipeline was flushed.", fetch_pending_entry);
 `endif
             end
         end else if (core_stb_o & core_cyc_o & core_err_i) begin
@@ -957,18 +984,18 @@ module risc_p (
             led[0] <= 1'b0;
 
 `ifdef D_CORE
-            $display($time, " CORE:        Illegal instruction address @[%h].", core_addr_o);
+            $display ($time, " CORE:        Illegal instruction address @[%h].", core_addr_o);
 `endif
             // If a pipeline trap occurs during fetch we do not overwrite an existing trap (the instruction is latest).
             if (~|pipeline_trap_mcause) begin
 `ifdef D_CORE
-                $display($time, " CORE:        --- Invalid instruction address %h. Stall the pipeline. ---",
+                $display ($time, " CORE:        --- Invalid instruction address %h. Stall the pipeline. ---",
                             core_addr_o);
 `endif
-                pipeline_trap_task(fetch_pending_entry, 1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, core_addr_o, 0);
+                pipeline_trap_task (fetch_pending_entry, 1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, core_addr_o, 0);
             end else begin
 `ifdef D_CORE
-                $display($time, " CORE:        --- Invalid instruction address %h; ignoring (have trap already). ---",
+                $display ($time, " CORE:        --- Invalid instruction address %h; ignoring (have trap already). ---",
                                 core_addr_o);
 `endif
             end
@@ -983,8 +1010,17 @@ module risc_p (
             led[1] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
 
+            // Cache the decoder data
+            i_cache_has_decoded[d_cache_index] <= 1'b1;
+            i_cache_decoder_op_type[d_cache_index] <= decoder_op_type_i;
+            i_cache_decoder_op_rd[d_cache_index] <= decoder_op_rd_i;
+            i_cache_decoder_op_rs1[d_cache_index] <= decoder_op_rs1_i;
+            i_cache_decoder_op_rs2[d_cache_index] <= decoder_op_rs2_i;
+            i_cache_decoder_imm[d_cache_index] <= decoder_op_imm_i;
+            i_cache_decoder_load_rs1_rs2[d_cache_index] <= decoder_load_rs1_rs2_i;
+
 `ifdef D_CORE_FINE
-            $display($time, " CORE:    [%h] Decode complete.", decode_pending_entry);
+            $display ($time, " CORE:    [%h] Decode complete.", decode_pending_entry);
 `endif
             if (pipeline_entry_status[decode_pending_entry] == PL_E_INSTR_DECODE_PENDING) begin
                 pipeline_op_type[decode_pending_entry] <= decoder_op_type_i;
@@ -1000,7 +1036,7 @@ module risc_p (
                 end
             end else begin
 `ifdef D_CORE_FINE
-                $display($time, " CORE:    [%h] Ignoring decode complete. Pipeline was flushed.",
+                $display ($time, " CORE:    [%h] Ignoring decode complete. Pipeline was flushed.",
                                 decode_pending_entry);
 `endif
             end
@@ -1010,11 +1046,11 @@ module risc_p (
             led[1] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
 `ifdef D_CORE
-            $display($time, " CORE:        --- Illegal instruction %h @[%h]. Stall the pipeline. ---",
+            $display ($time, " CORE:        --- Illegal instruction %h @[%h]. Stall the pipeline. ---",
                         decoder_instruction_o, pipeline_instr_addr[decode_pending_entry]);
 `endif
             // This exception may overwrite a pipeline trap detected during fetch since the instruction is an older one.
-            pipeline_trap_task(decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
+            pipeline_trap_task (decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
         end else if (~(decoder_stb_o & decoder_cyc_o)) begin
             decode_instruction_task;
@@ -1028,7 +1064,7 @@ module risc_p (
             `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b0;`endif
 
 `ifdef D_CORE_FINE
-            $display($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h", regfile_read_pending_entry,
+            $display ($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h", regfile_read_pending_entry,
                             regfile_op_rs1_o, regfile_reg_rs1_i, regfile_op_rs2_o, regfile_reg_rs2_i);
 `endif
             if (pipeline_entry_status[regfile_read_pending_entry] == PL_E_REGFILE_READ_PENDING) begin
@@ -1038,7 +1074,7 @@ module risc_p (
                 pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
             end else begin
 `ifdef D_CORE_FINE
-                $display($time, " CORE:    [%h] Ignoring regfile read complete. Pipeline was flushed.",
+                $display ($time, " CORE:    [%h] Ignoring regfile read complete. Pipeline was flushed.",
                                 regfile_read_pending_entry);
 `endif
             end
@@ -1054,11 +1090,18 @@ module risc_p (
             `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b0;`endif
 
 `ifdef D_CORE_FINE
-            $display($time, " CORE:    [%h] Execution complete", pipeline_rd_ptr);
+            $display ($time, " CORE:    [%h] Execution complete", pipeline_rd_ptr);
 `endif
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
-            $fdisplay(fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
+            /*
+             * 1. Timestamp of the start of the instruction.
+             * 2. The type of instruction from instructions.svh
+             * 3. The duration of the instruction execution.
+             * 4. The duration between the end of the previous instruction execution and the begining of this
+             *      instruction execution.
+             */
+            $fdisplay (fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
                         ($time - stats_start_execution_time)/CLK_PERIOD_NS,
                         (stats_start_execution_time - stats_prev_end_execution_time)/CLK_PERIOD_NS);
 `endif
@@ -1071,7 +1114,7 @@ module risc_p (
             if (|exec_op_rd_o) begin
                 // Write the destination register to the regfile
 `ifdef D_CORE_FINE
-                $display($time, " CORE:    [%h] Writeback rdx%0d = %h.", pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
+                $display ($time, " CORE:    [%h] Writeback rdx%0d = %h.", pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
 `endif
                 regfile_op_rd_o <= exec_op_rd_o;
                 regfile_reg_rd_o <= exec_rd_i;
@@ -1116,7 +1159,7 @@ module risc_p (
                     execute_trap <= execute_trap - 1;
 
                     // Flush the pipeline
-                    flush_pipeline_task(1'b0);
+                    flush_pipeline_task (1'b0);
                     pipeline_trap_mcause <= 0;
 
                     fetch_address <= exec_next_addr_i;
@@ -1146,17 +1189,17 @@ module risc_p (
                         cpu_state_m <= STATE_HALTED;
                     end else begin
 `ifdef D_CORE_FINE
-                        $display($time, " CORE:        Jmp to @[%h].", exec_next_addr_i);
+                        $display ($time, " CORE:        Jmp to @[%h].", exec_next_addr_i);
 `endif
                         // Flush the pipeline
-                        flush_pipeline_task(1'b0);
+                        flush_pipeline_task (1'b0);
                         pipeline_trap_mcause <= 0;
 
                         fetch_address <= exec_next_addr_i;
                     end
 `else // SIMULATION
                     // Flush the pipeline
-                    flush_pipeline_task(1'b0);
+                    flush_pipeline_task (1'b0);
                     pipeline_trap_mcause <= 0;
 
                     fetch_address <= exec_next_addr_i;
@@ -1178,13 +1221,13 @@ module risc_p (
             `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b0;`endif
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
-            $fdisplay(fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
+            $fdisplay (fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
                         ($time - stats_start_execution_time)/CLK_PERIOD_NS,
                         (stats_start_execution_time - stats_prev_end_execution_time)/CLK_PERIOD_NS);
 `endif
 
 `ifdef D_CORE_FINE
-            $display($time, " CORE:    [%h] Execution exception: %h.", pipeline_rd_ptr, exec_trap_mcause_i);
+            $display ($time, " CORE:    [%h] Execution exception: %h.", pipeline_rd_ptr, exec_trap_mcause_i);
 `endif
             // If multiple exceptions were raised, process the highest priority one (see Table 8.7)
             case (1'b1)
@@ -1233,7 +1276,7 @@ module risc_p (
 
                 default: begin
 `ifdef D_CORE_FINE
-                    $display($time, " CORE:            Unsupported exception: %h.", exec_next_addr_i);
+                    $display ($time, " CORE:            Unsupported exception: %h.", exec_next_addr_i);
 `endif
                     // Break the execution.
                     pipeline_trap_mcause <= 1 << `EX_CODE_BREAKPOINT;
@@ -1260,16 +1303,16 @@ module risc_p (
 `ifdef D_CORE_FINE
                 if (writeback_op_rd) begin
                     if (writeback_op_rd == pipeline_op_rs1[pipeline_rd_ptr]) begin
-                        $display($time, " CORE:    [%h] Update rs1x%0d with writeback value %h.", pipeline_rd_ptr,
+                        $display ($time, " CORE:    [%h] Update rs1x%0d with writeback value %h.", pipeline_rd_ptr,
                                                     writeback_op_rd, writeback_rd);
                     end
                     if (writeback_op_rd == pipeline_op_rs2[pipeline_rd_ptr]) begin
-                        $display($time, " CORE:    [%h] Update rs2x%0d with writeback value %h.", pipeline_rd_ptr,
+                        $display ($time, " CORE:    [%h] Update rs2x%0d with writeback value %h.", pipeline_rd_ptr,
                                                     writeback_op_rd, writeback_rd);
                     end
                 end
 `endif
-                exec_task(  pipeline_rd_ptr,
+                exec_task ( pipeline_rd_ptr,
                             pipeline_instr_addr[pipeline_rd_ptr],
                             pipeline_instr[pipeline_rd_ptr],
                             pipeline_op_type[pipeline_rd_ptr],
@@ -1293,7 +1336,6 @@ module risc_p (
             led[4] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[4] <= 1'b0;`endif
         end
-
     endtask
 
     //==================================================================================================================
@@ -1327,10 +1369,6 @@ module risc_p (
                 STATE_HALTED: begin
                     led[7] <= 1'b1;
                     `ifdef BOARD_BLUE_WHALE led_a[15] <= 1'b1;`endif
-                end
-
-                default: begin
-                    // Invalid state machine
                 end
             endcase
         end
@@ -1405,66 +1443,66 @@ module risc_p (
             end else begin
                 if (execute_trap > 0) begin
                     if (looping_instruction) begin
-                        $display($time, " CORE: ------- Halt: looping instruction @[%h]; exception: %s --------",
+                        $display ($time, " CORE: ------- Halt: looping instruction @[%h]; exception: %s --------",
                                 exec_instr_addr_o, to_mcause_bits_string(1 << mem_space_m.csr_m.mcause));
                     end else begin
-                        $display($time, " CORE: ------- Halt: executing trap @[%h]. --------",  exec_instr_addr_o);
+                        $display ($time, " CORE: ------- Halt: executing trap @[%h]. --------",  exec_instr_addr_o);
                     end
                 end else begin
 `ifdef TEST_MODE
                     if (looping_instruction) begin
-                        $display($time, " CORE: ------- Pass -------");
+                        $display ($time, " CORE: ------- Pass -------");
                     end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                        $display($time, " CORE: !!!! Fail detected by test !!!!");
+                        $display ($time, " CORE: !!!! Fail detected by test !!!!");
                     end else begin
                         // Test ended in a trap
-                        $display($time, " CORE: !!!! Fail: Exception: %s !!!!",
+                        $display ($time, " CORE: !!!! Fail: Exception: %s !!!!",
                                     to_mcause_bits_string(pipeline_trap_mcause));
                     end
 `else
                     if (looping_instruction) begin
-                        $display($time, " CORE: ------------- Halt: looping instruction @[%h]. -------------",
+                        $display ($time, " CORE: ------------- Halt: looping instruction @[%h]. -------------",
                                     exec_instr_addr_o);
                     end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                        $display($time, " CORE: --------------------- Halt at breakpoint ----------------------");
+                        $display ($time, " CORE: --------------------- Halt at breakpoint ----------------------");
                     end else begin
-                        $display($time, " CORE: ---------------- Halt due to exception: %s --------------------",
+                        $display ($time, " CORE: ---------------- Halt due to exception: %s --------------------",
                                     to_mcause_bits_string(pipeline_trap_mcause));
                     end
 
 `ifdef ENABLE_HPM_COUNTERS
-                    $display($time, " CORE: Cycles:                 %0d",
+                    $display ($time, " CORE: Cycles:                 %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                    $display($time, " CORE: Instructions retired:   %0d",
+                    $display ($time, " CORE: Instructions retired:   %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
-                    $display($time, " CORE: Instructions from ROM:  %0d",
+                    $display ($time, " CORE: Instructions from ROM:  %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
-                    $display($time, " CORE: Instructions from RAM:  %0d",
+                    $display ($time, " CORE: Instructions from RAM:  %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
-                    $display($time, " CORE: I-Cache hits:           %0d",
+                    $display ($time, " CORE: I-Cache hits:           %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
-                    $display($time, " CORE: Load from ROM:          %0d",
+                    $display ($time, " CORE: Load from ROM:          %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
-                    $display($time, " CORE: Load from RAM:          %0d",
+                    $display ($time, " CORE: Load from RAM:          %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
-                    $display($time, " CORE: Store to RAM:           %0d",
+                    $display ($time, " CORE: Store to RAM:           %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
-                    $display($time, " CORE: IO load:                %0d",
+                    $display ($time, " CORE: IO load:                %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
-                    $display($time, " CORE: IO store:               %0d",
+                    $display ($time, " CORE: IO store:               %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
-                    $display($time, " CORE: CSR load:               %0d",
+                    $display ($time, " CORE: CSR load:               %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
-                    $display($time, " CORE: CSR store:              %0d",
+                    $display ($time, " CORE: CSR store:              %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
-                    $display($time, " CORE: Timer interrupts:       %0d",
+                    $display ($time, " CORE: Timer interrupts:       %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
-                    $display($time, " CORE: External interrupts:    %0d",
+                    $display ($time, " CORE: External interrupts:    %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
 `else // ENABLE_HPM_COUNTERS
-                    $display($time, " CORE: Cycles:                 %0d",
+                    $display ($time, " CORE: Cycles:                 %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                    $display($time, " CORE: Instructions:           %0d",
+                    $display ($time, " CORE: Instructions:           %0d",
                                                                 mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
 `endif // ENABLE_HPM_COUNTERS
 `endif // TEST_MODE
