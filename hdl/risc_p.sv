@@ -199,7 +199,7 @@ module risc_p (
     logic [31:0] core_addr_o;
     logic [31:0] core_data_i, core_data_o;
     logic [3:0] core_sel_o;
-    logic core_we_o, core_stb_o, core_cyc_o, core_ack_i, core_err_i;
+    logic core_we_o, core_stb_o, core_cyc_o, core_ack_i, core_err_i, core_data_tag_i;
     // Exec ports (we use the wire type to make it clear that this module is not using these signals)
     wire [31:0] data_addr_w, data_data_i_w, data_data_o_w;
     wire [3:0] data_sel_w;
@@ -242,6 +242,7 @@ module risc_p (
         .core_ack_o         (core_ack_i),
         .core_err_o         (core_err_i),
         .core_data_o        (core_data_i),
+        .core_data_tag_o    (core_data_tag_i),
         // Wishbone interface for reading and writing data
         .data_addr_i        (data_addr_w),
         .data_addr_tag_i    (data_addr_tag_w),
@@ -445,19 +446,30 @@ module risc_p (
 
     integer i;
     logic [PIPELINE_BITS-1:0] fetch_pending_entry, decode_pending_entry, regfile_read_pending_entry;
-    logic [PIPELINE_BITS-1:0] decode_ptr, regfile_ptr;
+    logic [PIPELINE_BITS-1:0] decode_ptr, next_decode_ptr, regfile_read_ptr, next_regfile_read_ptr;
     logic [31:0] pipeline_trap_mcause, pipeline_trap_mepc, pipeline_trap_mtval;
+
+    // This register content is valid only when an instruction is read from memory.
+    logic [31:0] next_fetch_address_plus_2, next_fetch_address_plus_4;
 
     always_comb begin
         next_pipeline_rd_ptr = pipeline_rd_ptr + 1;
         next_pipeline_wr_ptr = pipeline_wr_ptr + 1;
+
+        next_fetch_address_plus_2 = fetch_address + 2;
+        next_fetch_address_plus_4 = fetch_address + 4;
+
+        next_decode_ptr = decode_ptr + 1;
+        next_regfile_read_ptr = regfile_read_ptr + 1;
     end
 
     // Cache
     (* syn_ramstyle="auto" *)
-    logic [31:0] i_cache_data[0:31];
+    logic [31:0] i_cache_instr[0:31];
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_addr[0:31];
+    logic [31:0] i_cache_compressed;
+
     logic [4:0] i_cache_index, o_cache_index, reset_cache_index;
     assign i_cache_index = fetch_address[5:1];
     assign o_cache_index = core_addr_o[5:1];
@@ -492,6 +504,7 @@ module risc_p (
                     pipeline_trap_mcause <= 0;
                     execute_trap <= 0;
                     reset_cache_index <= 5'd0;
+                    i_cache_compressed <= 0;
                 end else begin
                     // Back to zero to wait for PLL lock
                     reset_clks <= 0;
@@ -555,11 +568,11 @@ module risc_p (
 `ifdef D_CORE_FINE
             $display($time, " CORE: Cache hit: @%h %0d", fetch_address, i_cache_index);
 `endif
-            pipeline_instr[pipeline_wr_ptr] <= i_cache_data[i_cache_index];
+            pipeline_instr[pipeline_wr_ptr] <= i_cache_instr[i_cache_index];
             pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_FETCHED;
 
             // Setup the next fetch
-            fetch_address <= i_cache_data[i_cache_index][1:0] == 2'b11 ? fetch_address + 4 : fetch_address + 2;
+            fetch_address <= i_cache_compressed[i_cache_index] ? next_fetch_address_plus_2 : next_fetch_address_plus_4;
             // Set the cache LED
             `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b1;`endif
 
@@ -689,7 +702,7 @@ module risc_p (
         end
 
         decode_ptr <= 0;
-        regfile_ptr <= 0;
+        regfile_read_ptr <= 0;
 `ifdef D_CORE_FINE
         $display($time, " CORE:        Pipeline flushed; stall: %h.", stall);
 `endif
@@ -910,14 +923,15 @@ module risc_p (
 `endif
             // Write the instruction into the cache.
             i_cache_addr[o_cache_index] <= core_addr_o;
-            i_cache_data[o_cache_index] <= core_data_i;
+            i_cache_instr[o_cache_index] <= core_data_i;
+            i_cache_compressed[o_cache_index] <= ~core_data_tag_i;
 
             if (pipeline_entry_status[fetch_pending_entry] == PL_E_INSTR_FETCH_PENDING) begin
                 pipeline_instr[fetch_pending_entry] <= core_data_i;
                 pipeline_entry_status[fetch_pending_entry] <= PL_E_INSTR_FETCHED;
 
                 // Setup the next fetch
-                fetch_address <= core_data_i[1:0] == 2'b11 ? fetch_address + 4 : fetch_address + 2;
+                fetch_address <= core_data_tag_i ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
             end else begin
 `ifdef D_CORE_FINE
                 $display($time, " CORE:    [%h] Ignoring fetch complete. Pipeline was flushed.", fetch_pending_entry);
@@ -990,7 +1004,7 @@ module risc_p (
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
         end else if (~(decoder_stb_o & decoder_cyc_o) & pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED) begin
             decode_instruction_task(decode_ptr, pipeline_instr[decode_ptr]);
-            decode_ptr <= decode_ptr + 1;
+            decode_ptr <= next_decode_ptr;
         end
 
         // ------------------------------------ Handle regfile transactions --------------------------------------------
@@ -1016,12 +1030,13 @@ module risc_p (
 `endif
             end
         end else if (~(regfile_stb_read_o & regfile_cyc_read_o)) begin
-            if (pipeline_entry_status[regfile_ptr] == PL_E_INSTR_DECODED) begin
-                regfile_read_task(regfile_ptr, pipeline_op_rs1[regfile_ptr], pipeline_op_rs2[regfile_ptr]);
-                regfile_ptr <= regfile_ptr + 1;
-            end else if (pipeline_entry_status[regfile_ptr] >= PL_E_REGFILE_READ) begin
+            if (pipeline_entry_status[regfile_read_ptr] == PL_E_INSTR_DECODED) begin
+                regfile_read_task(regfile_read_ptr, pipeline_op_rs1[regfile_read_ptr],
+                                    pipeline_op_rs2[regfile_read_ptr]);
+                regfile_read_ptr <= next_regfile_read_ptr;
+            end else if (pipeline_entry_status[regfile_read_ptr] >= PL_E_REGFILE_READ) begin
                 // Skip this entry (instruction did not need loading of registers)
-                regfile_ptr <= regfile_ptr + 1;
+                regfile_read_ptr <= next_regfile_read_ptr;
             end
         end
 

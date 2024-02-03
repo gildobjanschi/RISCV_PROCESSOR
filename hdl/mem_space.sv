@@ -40,6 +40,7 @@
  * core_we_i            -- 1 to write data, 0 to read.
  * core_addr_i          -- The address from where data is read/written.
  * core_data_i          -- The input data to write.
+ * core_data_tag_o      -- The core data output tag
  * core_ack_o           -- The core transaction completes successfully on the posedge of this signal.
  * core_err_o           -- The core transaction completes with an error on the posedge of this signal.
  * core_data_o          -- The data that was read.
@@ -85,6 +86,7 @@ module mem_space #(
     output logic core_ack_o,
     output logic core_err_o,
     output logic [31:0] core_data_o,
+    output logic core_data_tag_o,
     // Wishbone interface for reading and writing data from the execution module
     input logic data_stb_i,
     input logic data_cyc_i,
@@ -566,6 +568,7 @@ module mem_space #(
 `endif
             if (core_access == ACCESS_FLASH) begin
                 core_data_o <= flash_data_i;
+                core_data_tag_o <= flash_data_i[1:0] == 2'b11;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 
                 core_access <= ACCESS_NONE;
@@ -596,6 +599,7 @@ module mem_space #(
 
             if (core_access == ACCESS_RAM) begin
                 core_data_o <= ram_data_i;
+                core_data_tag_o <= ram_data_i[1:0] == 2'b11;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 
                 core_access <= ACCESS_NONE;
