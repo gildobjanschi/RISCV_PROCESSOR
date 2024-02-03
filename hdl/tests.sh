@@ -18,12 +18,11 @@ SIM_RAM_FILE=""
 # QPI_MODE:            Use quad SPI for flash.
 OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
-while getopts "uwpsh" flag; do
+while getopts "uwph" flag; do
 	case "${flag}" in
 		u ) BOARD="BOARD_ULX3S" ;;
 		w ) BOARD="BOARD_BLUE_WHALE" ;;
-		p ) echo "Running pipeline version."; APP_NAME="risc_p" ;;
-		s ) echo "Running sequential version."; APP_NAME="risc_s" ;;
+		p ) echo "Running RISC-V."; APP_NAME="risc_p" ;;
 		h ) helpFunction ;;
 		* ) helpFunction ;; #Invalid argument
 	esac
@@ -54,17 +53,11 @@ doFunction()
 		rm $OUTPUT_FILE
 	fi
 
-	if [ "$APP_NAME" = "risc_s" ] ; then
-		iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_s.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_s.sv
-		if [ $? -eq 0 ]; then
-			vvp $OUTPUT_FILE
-		fi
-	else if [ "$APP_NAME" = "risc_p" ] ; then
+	if [ "$APP_NAME" = "risc_p" ] ; then
 		iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
 		if [ $? -eq 0 ]; then
 			vvp $OUTPUT_FILE
 		fi
-	fi
 	fi
 }
 

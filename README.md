@@ -30,14 +30,14 @@ Three scripts are available to simplify the use of the simulator as well as buil
 
 'tests.sh' runs a test for each one of the supported RISC-V instructions.
 
-'sim.sh' is used to simulate a Verilog design. It supports three designs at this time: the memory space test, the sequential processor and the pipelined processor.
+'sim.sh' is used to simulate a Verilog design. It supports two designs at this time: the memory space test and the pipelined RISC-V processor.
 
 'fpga.sh' synthesizes a design, place and routes for the target FPGA, packs a bitstream and programs the FPGA for the aforementioned designs.
 
 The source code for the TestC, Console and Dhrystone RISC-V C code applications is also available in this repository. Here is a brief description of each application:
 * TestC is a simple application that runs from RAM or flash and handles timer interrupts.
-* Console.bin: a UART console that allows you to communicate over USB with the serial port implemented in the processor. You can use any serial communication program configured for 3,000,000 baudrate in 8N1 mode for this purpose.
-* Dhrystone.bin: processor performance evaluation application that enables you to view printf output of this application with a serial communication program.
+* Console is a UART console that allows you to communicate over USB with the serial port implemented in the processor. You can use any serial communication program configured for 3,000,000 baudrate in 8N1 mode for this purpose.
+* Dhrystone is a performance evaluation application that enables you to view printf output of this application with a serial communication program.
 
 ### Simulation
 Before running the instructions test script you need to build the test binaries (over 95 .bin files):
@@ -68,26 +68,17 @@ Add the /bin folder of the xPack to your path and then build each one of the Con
 > make -f makefile_ulx3s all
 ```
 
-Run the TestC.bin application on the sequential processor:
-```
-> ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
-```
-Run the Dhrystone.bin application on the sequential processor:
-```
-> ./sim.sh -s -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
-```
-
-Run the TestC.bin application on the pipelined processor:
+Run the TestC.bin application on the RISC-V processor:
 ```
 > ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
 
-Run the Dhrystone.bin application on the pipelined processor:
+Run the Dhrystone.bin application on the RISC-V processor:
 ```
 > ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
 ```
 
-Run the TestC.bin application on the pipelined processor and view executing instructions:
+Run the TestC.bin application on the RISC-V processor and view executing instructions:
 ```
 > ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
@@ -97,7 +88,7 @@ Write the output to a file to view it:
 > ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\" > out.txt
 ```
 
-Run the TestC.bin application on the pipelined processor, view executing instructions and view pipeline operations:
+Run the TestC.bin application on the processor, view executing instructions and view pipeline operations:
 ```
 > ./sim.sh -p -D D_CORE -D D_CORE_FINE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
@@ -110,17 +101,12 @@ Run the memory space test:
 > [!Note]
 > The test runs continuously. When the test works the first 7 out of 8 LEDs will light up and the last LED will remain off. If a failure is detected the last LED will blink.
 
-TestC application running on the sequential RISC-V processor:
-```
-> ./fpga.sh -s -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
-```
-
-TestC application running on the pipelined RISC-V processor:
+TestC application running on the RISC-V processor:
 ```
 > ./fpga.sh -p -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
 ```
 
-Dhrystone application running in the pipelined processor:
+Dhrystone application running in the RISC-V processor:
 ```
 > ./fpga.sh -p -D CLK_PERIOD_NS=20 -b ../apps/Dhrystone/Release/Dhrystone.bin
 ```
@@ -128,10 +114,10 @@ Dhrystone application running in the pipelined processor:
 To view the printf output for any of the above applications use a serial communication application on the host machine.
 After the serial application is running press the reset button on the board to view the output of printf. For example the Dhrsytone application will output:
 ```
-Microseconds for one run through Dhrystone: 164
-Dhrystones per Second:                      6075
-mcycle = 82545
-minstret = 5448
+Microseconds for one run through Dhrystone: 145
+Dhrystones per Second:                      6876
+mcycle = 72951
+minstret = 4414
 ```
 
 ## Performance
@@ -148,31 +134,31 @@ Running pipeline version.
                   10 CORE: Reset start.
                  810 CORE: Reset complete.
               200010 CORE: Starting execution @[00600000]...
-Microseconds for one run through Dhrystone: 164
-Dhrystones per Second:                      6075
-mcycle = 82545
-minstret = 5448
-             7760210 CORE: ------------- Halt: looping instruction @[800010c8]. -------------
-             7760210 CORE: Cycles:                 387969
-             7760210 CORE: Instructions retired:   34271
-             7760210 CORE: Instructions from ROM:  28
-             7760210 CORE: Instructions from RAM:  5953
-             7760210 CORE: I-Cache hits:           40558
-             7760210 CORE: Load from ROM:          2386
-             7760210 CORE: Load from RAM:          1693
-             7760210 CORE: Store to RAM:           6439
-             7760210 CORE: IO load:                0
-             7760210 CORE: IO store:               128
-             7760210 CORE: CSR load:               9
-             7760210 CORE: CSR store:              2
-             7760210 CORE: Timer interrupts:       0
-             7760210 CORE: External interrupts:    0
+Microseconds for one run through Dhrystone: 145
+Dhrystones per Second:                      6876
+mcycle = 72951
+minstret = 4414
+             7149610 CORE: ------------- Halt: looping instruction @[8000118c]. -------------
+             7149610 CORE: Cycles:                 357439
+             7149610 CORE: Instructions retired:   33589
+             7149610 CORE: Instructions from ROM:  28
+             7149610 CORE: Instructions from RAM:  6099
+             7149610 CORE: I-Cache hits:           39416
+             7149610 CORE: Load from ROM:          2434
+             7149610 CORE: Load from RAM:          1339
+             7149610 CORE: Store to RAM:           6510
+             7149610 CORE: IO load:                0
+             7149610 CORE: IO store:               128
+             7149610 CORE: CSR load:               9
+             7149610 CORE: CSR store:              2
+             7149610 CORE: Timer interrupts:       0
+             7149610 CORE: External interrupts:    0
 ```
-The numbers above yield a DMIPS of 6075 / 1757 = 3.45
+The numbers above yield a DMIPS of 6876 / 1757 = 3.91
 
-DMIPS/MHz = 3.1 / 50 = 0.0691
+DMIPS/MHz = 3.91 / 50 = 0.078
 
-CPI = 82545 / 5448 = 15.15
+CPI = 72951 / 4414 = 16.52
 
 The Dhrystone application on the FPGA and the simulator yield the same performace numbers.
 
@@ -183,12 +169,14 @@ Removing the High Performance Counters (remove -D ENABLE_HPM_COUNTERS) yields a 
 
 Further removing the multiplication/division (ENABLE_RV32M_EXT) yields a maximum frequency to 71MHz and the number of cells drops to 18,699.
 
+Please note that the above numbers are just aproximate numbers. The results vary with each change made to the code.
+
 ## Example usages
 The code makes use of flags to turn on/off debug output in the simulator. Here are a few examples:
 * D_IO: enables output from the IO module (and therefore printf).
 * D_EXEC: enables output from the execution module with all details about each executing instruction.
 * D_CORE: Core debug output
-* D_CORE_FINE: Core detailed debug output (sequential/pipeline operations).
+* D_CORE_FINE: Core detailed debug output.
 See a complete list in sim.sh.
 
 Here is a snippet of output when running an application with D_CORE and D_IO to view the application printf output.
@@ -275,7 +263,6 @@ Please see more detail on the project [wiki pages](https://github.com/gildobjans
 ## More work needed
 I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
 * Improve the performance of the multiplier and divider.
-* One of the performance bottlenecks is the instruction cache in mem_space.sv.
 * Increase the maximum frequency for the overall design with optimizations.
 
 ## Blue Whale Hardware
