@@ -682,29 +682,29 @@ module risc_p (
     //==================================================================================================================
     // Exec task
     //==================================================================================================================
-    task exec_task (input [PIPELINE_BITS-1:0] entry,
-                    input [31:0] instr_addr,
-                    input [31:0] instr,
-                    input [6:0] instr_op_type,
-                    input [4:0] instr_op_rd,
-                    input [4:0] instr_op_rs1,
-                    input [4:0] instr_op_rs2,
-                    input [31:0] instr_op_imm,
-                    input [31:0] rs1,
-                    input [31:0] rs2);
+    task exec_task;
+        pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EXEC_PENDING;
 
-        pipeline_entry_status[entry] <= PL_E_EXEC_PENDING;
+        exec_instr_addr_o <= pipeline_instr_addr[pipeline_rd_ptr];
+        exec_instr_o <= pipeline_instr[pipeline_rd_ptr];
+        exec_instr_is_compressed_o <= pipeline_instr[pipeline_rd_ptr][1:0] != 2'b11;
+        exec_op_type_o <= pipeline_op_type[pipeline_rd_ptr];
+        exec_op_rd_o <= pipeline_op_rd[pipeline_rd_ptr];
+        exec_op_rs1_o <= pipeline_op_rs1[pipeline_rd_ptr];
+        exec_op_rs2_o <= pipeline_op_rs2[pipeline_rd_ptr];
+        exec_op_imm_o <= pipeline_op_imm[pipeline_rd_ptr];
+        /*
+         * The writeback is handled also just before executing the next instruction. This is because
+         * if a regfile read completed in the same cycle as the execution of the instruction that caused the
+         * writeback there was no opportunity to update the register with the writeback value.
+         */
+        exec_rs1_o <= writeback_op_rd == pipeline_op_rs1[pipeline_rd_ptr] ?
+                                                                    writeback_rd : pipeline_rs1[pipeline_rd_ptr];
+        exec_rs2_o <= writeback_op_rd == pipeline_op_rs2[pipeline_rd_ptr] ?
+                                                                    writeback_rd : pipeline_rs2[pipeline_rd_ptr];
 
-        exec_instr_addr_o <= instr_addr;
-        exec_instr_o <= instr;
-        exec_instr_is_compressed_o <= ~(instr[1:0] == 2'b11);
-        exec_op_type_o <= instr_op_type;
-        exec_op_rd_o <= instr_op_rd;
-        exec_op_rs1_o <= instr_op_rs1;
-        exec_op_rs2_o <= instr_op_rs2;
-        exec_op_imm_o <= instr_op_imm;
-        exec_rs1_o <= rs1;
-        exec_rs2_o <= rs2;
+        writeback_op_rd <= 0;
+        writeback_rd <= 0;
         {exec_stb_o, exec_cyc_o} <= 2'b11;
 
         // Exec LED on
@@ -1287,37 +1287,7 @@ module risc_p (
                  */
                 enter_trap_task;
             end else begin
-                /*
-                 * The writeback is handled also just before executing the next instruction. This is because
-                 * if a regfile read completed in the same cycle as the execution of the instruction that caused the
-                 * writeback there was no opportunity to update the register with the writeback value.
-                 */
-`ifdef D_CORE_FINE
-                if (writeback_op_rd) begin
-                    if (writeback_op_rd == pipeline_op_rs1[pipeline_rd_ptr]) begin
-                        $display ($time, " CORE:    [%h] Update rs1x%0d with writeback value %h.", pipeline_rd_ptr,
-                                                    writeback_op_rd, writeback_rd);
-                    end
-                    if (writeback_op_rd == pipeline_op_rs2[pipeline_rd_ptr]) begin
-                        $display ($time, " CORE:    [%h] Update rs2x%0d with writeback value %h.", pipeline_rd_ptr,
-                                                    writeback_op_rd, writeback_rd);
-                    end
-                end
-`endif
-                exec_task ( pipeline_rd_ptr,
-                            pipeline_instr_addr[pipeline_rd_ptr],
-                            pipeline_instr[pipeline_rd_ptr],
-                            pipeline_op_type[pipeline_rd_ptr],
-                            pipeline_op_rd[pipeline_rd_ptr],
-                            pipeline_op_rs1[pipeline_rd_ptr],
-                            pipeline_op_rs2[pipeline_rd_ptr],
-                            pipeline_op_imm[pipeline_rd_ptr],
-                            writeback_op_rd == pipeline_op_rs1[pipeline_rd_ptr] ?
-                                                                    writeback_rd : pipeline_rs1[pipeline_rd_ptr],
-                            writeback_op_rd == pipeline_op_rs2[pipeline_rd_ptr] ?
-                                                                    writeback_rd : pipeline_rs2[pipeline_rd_ptr]);
-                writeback_op_rd <= 0;
-                writeback_rd <= 0;
+                exec_task;
             end
         end
 
