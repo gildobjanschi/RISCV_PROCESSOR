@@ -470,7 +470,7 @@ module risc_p (
     logic [31:0] i_cache_addr[0:31];
     logic [31:0] i_cache_compressed;
 
-    logic [4:0] i_cache_index, o_cache_index, reset_cache_index;
+    logic [4:0] i_cache_index, o_cache_index, d_cache_index, reset_cache_index;
     assign i_cache_index = fetch_address[5:1];
     assign o_cache_index = core_addr_o[5:1];
 
@@ -602,41 +602,55 @@ module risc_p (
     //==================================================================================================================
     // Decode instruction task
     //==================================================================================================================
-    task decode_instruction_task(input [PIPELINE_BITS-1:0] entry, input [31:0] instruction);
-        pipeline_entry_status[entry] <= PL_E_INSTR_DECODE_PENDING;
+    task decode_instruction_task;
+        if (pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED) begin
+            pipeline_entry_status[decode_ptr] <= PL_E_INSTR_DECODE_PENDING;
 
-        decoder_instruction_o <= instruction;
-        {decoder_stb_o, decoder_cyc_o} <= 2'b11;
+            decoder_instruction_o <= pipeline_instr[decode_ptr];
+            {decoder_stb_o, decoder_cyc_o} <= 2'b11;
 
-        decode_pending_entry <= entry;
+            decode_pending_entry <= decode_ptr;
 
-        // Decode LED on
-        led[1] <= 1'b1;
-        `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b1;`endif
+            // Decode LED on
+            led[1] <= 1'b1;
+            `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b1;`endif
 `ifdef D_CORE_FINE
-        $display($time, " CORE:    [%h] Decode %h -> PL_E_INSTR_DECODE_PENDING.", entry, instruction);
+            $display ($time, " CORE:    [%h] Decode %h -> PL_E_INSTR_DECODE_PENDING.", decode_ptr,
+                        pipeline_instr[decode_ptr]);
 `endif
+            d_cache_index <= pipeline_instr_addr[decode_ptr][5:1];
+            decode_ptr <= next_decode_ptr;
+        end else if (pipeline_entry_status[decode_ptr] >= PL_E_INSTR_DECODED) begin
+            // Skip this entry (instruction did not need decoding)
+            decode_ptr <= next_decode_ptr;
+        end
     endtask
 
     //==================================================================================================================
     // Regfile read request
     //==================================================================================================================
-    task regfile_read_task(input [PIPELINE_BITS-1:0] entry, input [4:0] op_rs1, input [4:0] op_rs2);
-        pipeline_entry_status[entry] <= PL_E_REGFILE_READ_PENDING;
+    task regfile_read_task;
+        if (pipeline_entry_status[regfile_read_ptr] == PL_E_INSTR_DECODED) begin
+            pipeline_entry_status[regfile_read_ptr] <= PL_E_REGFILE_READ_PENDING;
 
-        regfile_op_rs1_o <= op_rs1;
-        regfile_op_rs2_o <= op_rs2;
-        {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b11;
+            regfile_op_rs1_o <= pipeline_op_rs1[regfile_read_ptr];
+            regfile_op_rs2_o <= pipeline_op_rs2[regfile_read_ptr];
+            {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b11;
 
-        regfile_read_pending_entry <= entry;
+            regfile_read_pending_entry <= regfile_read_ptr;
 
-        // Regfile LED on
-        led[2] <= 1'b1;
-        `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b1;`endif
+            // Regfile LED on
+            led[2] <= 1'b1;
+            `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b1;`endif
 `ifdef D_CORE_FINE
-        $display($time, " CORE:    [%h] Regfile read rs1x%0d, rs2x%0d -> PL_E_REGFILE_READ_PENDING.",
-                            entry, op_rs1, op_rs2);
+            $display ($time, " CORE:    [%h] Regfile read rs1x%0d, rs2x%0d -> PL_E_REGFILE_READ_PENDING.",
+                                regfile_read_ptr, pipeline_op_rs1[regfile_read_ptr], pipeline_op_rs2[regfile_read_ptr]);
 `endif
+            regfile_read_ptr <= next_regfile_read_ptr;
+        end else if (pipeline_entry_status[regfile_read_ptr] >= PL_E_REGFILE_READ) begin
+            // Skip this entry (instruction did not need loading of registers)
+            regfile_read_ptr <= next_regfile_read_ptr;
+        end
     endtask
 
     //==================================================================================================================
@@ -1002,9 +1016,8 @@ module risc_p (
             // This exception may overwrite a pipeline trap detected during fetch since the instruction is an older one.
             pipeline_trap_task(decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
-        end else if (~(decoder_stb_o & decoder_cyc_o) & pipeline_entry_status[decode_ptr] == PL_E_INSTR_FETCHED) begin
-            decode_instruction_task(decode_ptr, pipeline_instr[decode_ptr]);
-            decode_ptr <= next_decode_ptr;
+        end else if (~(decoder_stb_o & decoder_cyc_o)) begin
+            decode_instruction_task;
         end
 
         // ------------------------------------ Handle regfile transactions --------------------------------------------
@@ -1030,14 +1043,7 @@ module risc_p (
 `endif
             end
         end else if (~(regfile_stb_read_o & regfile_cyc_read_o)) begin
-            if (pipeline_entry_status[regfile_read_ptr] == PL_E_INSTR_DECODED) begin
-                regfile_read_task(regfile_read_ptr, pipeline_op_rs1[regfile_read_ptr],
-                                    pipeline_op_rs2[regfile_read_ptr]);
-                regfile_read_ptr <= next_regfile_read_ptr;
-            end else if (pipeline_entry_status[regfile_read_ptr] >= PL_E_REGFILE_READ) begin
-                // Skip this entry (instruction did not need loading of registers)
-                regfile_read_ptr <= next_regfile_read_ptr;
-            end
+            regfile_read_task;
         end
 
         // -------------------------------------- Handle exec transactions ---------------------------------------------
