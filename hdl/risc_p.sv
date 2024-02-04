@@ -724,7 +724,8 @@ module risc_p (
         `ifdef BOARD_BLUE_WHALE led_a[11:5] <= instr_op_type;`endif
 
 `ifdef D_CORE_FINE
-        $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry, instr_addr);
+        $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", pipeline_rd_ptr,
+                        pipeline_instr_addr[pipeline_rd_ptr]);
 `endif
 `ifdef D_STATS_FILE
         stats_start_execution_time <= $time;
