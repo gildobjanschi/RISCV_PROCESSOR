@@ -568,7 +568,7 @@ module mem_space #(
 `endif
             if (core_access == ACCESS_FLASH) begin
                 core_data_o <= flash_data_i;
-                core_data_tag_o <= flash_data_i[1:0] == 2'b11;
+                core_data_tag_o <= flash_data_i[1:0] != 2'b11;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 
                 core_access <= ACCESS_NONE;
@@ -599,7 +599,7 @@ module mem_space #(
 
             if (core_access == ACCESS_RAM) begin
                 core_data_o <= ram_data_i;
-                core_data_tag_o <= ram_data_i[1:0] == 2'b11;
+                core_data_tag_o <= ram_data_i[1:0] != 2'b11;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 
                 core_access <= ACCESS_NONE;
