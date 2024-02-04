@@ -419,9 +419,7 @@ module risc_p (
     localparam PIPELINE_SIZE = 2 ** PIPELINE_BITS;
 
     logic [PIPELINE_BITS-1:0] pipeline_rd_ptr, pipeline_wr_ptr, next_pipeline_rd_ptr, next_pipeline_wr_ptr;
-    // Pipeline stall means that no new instructions will enter the pipeline. Instructions already in the pipeline
-    // will still be processed.
-    logic pipeline_full, pipeline_stall;
+    logic pipeline_full, pipeline_fill;
     assign pipeline_full = next_pipeline_wr_ptr == pipeline_rd_ptr;
 
     // The pipeline entry state
@@ -517,7 +515,7 @@ module risc_p (
 
                         writeback_op_rd <= 0;
 
-                        flush_pipeline_task (1'b0);
+                        flush_pipeline_task (1'b1);
                         pipeline_trap_mcause <= 0;
                         execute_trap <= 0;
 
@@ -576,7 +574,7 @@ module risc_p (
             // This trap cannot overwrite an exiting trap since it is the earliest occurence in the pipeline.
             if (~|pipeline_trap_mcause) begin
 `ifdef D_CORE
-                $display ($time, " CORE:    [%h] Fetch address misaligned @[%h]. Stall the pipeline.",
+                $display ($time, " CORE:    [%h] Fetch address misaligned @[%h]. Stop filling the pipeline.",
                         pipeline_wr_ptr, fetch_address);
 `endif
                 pipeline_trap_task (pipeline_wr_ptr, 1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, fetch_address, 0);
@@ -761,10 +759,10 @@ module risc_p (
     endtask
 
     //==================================================================================================================
-    // Flush the pipeline (and optionally stall it)
+    // Flush the pipeline (and optionally stop filling it)
     //==================================================================================================================
-    task flush_pipeline_task (input stall);
-        pipeline_stall <= stall;
+    task flush_pipeline_task (input fill);
+        pipeline_fill <= fill;
 
         // Reset the pipeline
         pipeline_rd_ptr <= 0;
@@ -784,7 +782,7 @@ module risc_p (
         decode_ptr <= 0;
         regfile_read_ptr <= 0;
 `ifdef D_CORE_FINE
-        $display ($time, " CORE:        Pipeline flushed; stall: %h.", stall);
+        $display ($time, " CORE:        Pipeline flushed; fill: %h.", fill);
 `endif
     endtask
 
@@ -804,16 +802,16 @@ module risc_p (
         pipeline_trap_mcause <= mcause;
         pipeline_trap_mepc <= mepc;
         pipeline_trap_mtval <= mtval;
-        // Stall the pipeline
-        pipeline_stall <= 1'b1;
+        // Stop filling the pipeline until we learn the trap address
+        pipeline_fill <= 1'b0;
     endtask
 
     //==================================================================================================================
     // Handle interrupts and exceptions
     //==================================================================================================================
     task enter_trap_task;
-        // Flush the pipeline and stall it.
-        flush_pipeline_task (1'b1);
+        // Flush the pipeline and stop filling it.
+        flush_pipeline_task (1'b0);
 
         cpu_state_m <= STATE_TRAP;
         trap_state_m <= TRAP_STATE_START;
@@ -950,8 +948,8 @@ module risc_p (
                 pipeline_trap_mcause <= 0;
 
                 fetch_address <= core_data_i[1] ? pipeline_trap_mepc : core_data_i;
-                // Restart the pipeline
-                pipeline_stall <= 1'b0;
+                // Resume filling the pipeline
+                pipeline_fill <= 1'b1;
                 cpu_state_m <= STATE_RUNNING;
             end
 
@@ -1018,7 +1016,7 @@ module risc_p (
             // If a pipeline trap occurs during fetch we do not overwrite an existing trap (the instruction is latest).
             if (~|pipeline_trap_mcause) begin
 `ifdef D_CORE
-                $display ($time, " CORE:        --- Invalid instruction address %h. Stall the pipeline. ---",
+                $display ($time, " CORE:        --- Invalid instruction address %h. Stop filling the pipeline. ---",
                             core_addr_o);
 `endif
                 pipeline_trap_task (fetch_pending_entry, 1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, core_addr_o, 0);
@@ -1028,7 +1026,7 @@ module risc_p (
                                 core_addr_o);
 `endif
             end
-        end else if (~core_pending_o & ~pipeline_stall & ~pipeline_full) begin
+        end else if (~core_pending_o & pipeline_fill & ~pipeline_full) begin
             fetch_instruction_task;
         end
 
@@ -1073,7 +1071,7 @@ module risc_p (
             led[1] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
 `ifdef D_CORE
-            $display ($time, " CORE:        --- Illegal instruction %h @[%h]. Stall the pipeline. ---",
+            $display ($time, " CORE:        --- Illegal instruction %h @[%h]. Stop filling the pipeline. ---",
                         decoder_instruction_o, pipeline_instr_addr[decode_pending_entry]);
 `endif
             // This exception may overwrite a pipeline trap detected during fetch since the instruction is an older one.
@@ -1188,7 +1186,7 @@ module risc_p (
                     execute_trap <= execute_trap - 1;
 
                     // Flush the pipeline
-                    flush_pipeline_task (1'b0);
+                    flush_pipeline_task (1'b1);
                     pipeline_trap_mcause <= 0;
 
                     fetch_address <= exec_next_addr_i;
@@ -1213,7 +1211,7 @@ module risc_p (
                     led[5] <= 1'b1;
                     `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b1;`endif
                     // Flush the pipeline
-                    flush_pipeline_task (1'b0);
+                    flush_pipeline_task (1'b1);
                     pipeline_trap_mcause <= 0;
 
                     fetch_address <= exec_next_addr_i;
