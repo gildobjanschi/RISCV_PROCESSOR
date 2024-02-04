@@ -989,7 +989,7 @@ module risc_p (
 
             i_cache_addr[o_cache_index] <= core_addr_o;
             i_cache_instr[o_cache_index] <= core_data_i;
-            i_cache_compressed[o_cache_index] <= ~core_data_tag_i;
+            i_cache_compressed[o_cache_index] <= core_data_tag_i;
             i_cache_has_decoded[o_cache_index] <= 1'b0;
 
             if (pipeline_entry_status[fetch_pending_entry] == PL_E_INSTR_FETCH_PENDING) begin
@@ -1000,7 +1000,7 @@ module risc_p (
                 pipeline_entry_status[fetch_pending_entry] <= PL_E_INSTR_FETCHED;
                 pipeline_instr[fetch_pending_entry] <= core_data_i;
 
-                fetch_address <= core_data_tag_i ? next_fetch_address_plus_4 : next_fetch_address_plus_2;
+                fetch_address <= core_data_tag_i ? next_fetch_address_plus_2 : next_fetch_address_plus_4;
             end else begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Ignoring fetch complete @[%h].", fetch_pending_entry, core_addr_o);
