@@ -500,9 +500,9 @@ module risc_p (
             case (reset_clks)
                 0: begin
                     if (pll_locked) begin
-    `ifdef D_CORE
+`ifdef D_CORE
                         $display ($time, " CORE: Reset start.");
-    `endif
+`endif
                         // Reset your variables
                         {core_stb_o, core_cyc_o} <= 2'b00;
                         {decoder_stb_o, decoder_cyc_o} <= 2'b00;
@@ -529,21 +529,21 @@ module risc_p (
                 40: begin
                     // Reset is complete
                     reset <= 1'b0;
-    `ifdef D_CORE
+`ifdef D_CORE
                     $display ($time, " CORE: Reset complete.");
-    `endif
+`endif
                     // Wait for the RAM to initialize (SDRAM 200μs)
                 end
 
                 RESET_CLKS: begin
-    `ifdef D_CORE
+`ifdef D_CORE
                     $display ($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
-    `endif
+`endif
                     fetch_address <= `ROM_BEGIN_ADDR;
-    `ifdef D_STATS_FILE
+`ifdef D_STATS_FILE
                     stats_start_execution_time <= $time;
                     stats_prev_end_execution_time <= $time;
-    `endif
+`endif
 
                     cpu_state_m <= STATE_RUNNING;
                 end
