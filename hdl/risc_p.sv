@@ -462,23 +462,25 @@ module risc_p (
     end
 
     // Cache
+    localparam CACHE_BITS = 5;
+    localparam CACHE_SIZE = 2 ** CACHE_BITS;
     (* syn_ramstyle="auto" *)
-    logic [31:0] i_cache_instr[0:31];
+    logic [31:0] i_cache_instr[0:CACHE_SIZE-1];
     (* syn_ramstyle="auto" *)
-    logic [31:0] i_cache_addr[0:31];
-    logic [31:0] i_cache_compressed;
+    logic [31:0] i_cache_addr[0:CACHE_SIZE-1];
+    logic [CACHE_SIZE-1:0] i_cache_compressed;
     // Decoder cache
-    logic [6:0] i_cache_decoder_op_type[0:31];
-    logic [4:0] i_cache_decoder_op_rd[0:31];
-    logic [4:0] i_cache_decoder_op_rs1[0:31];
-    logic [4:0] i_cache_decoder_op_rs2[0:31];
-    logic [31:0] i_cache_decoder_imm[0:31];
-    logic [31:0] i_cache_decoder_load_rs1_rs2;
-    logic [31:0] i_cache_has_decoded;
+    logic [6:0] i_cache_decoder_op_type[0:CACHE_SIZE-1];
+    logic [4:0] i_cache_decoder_op_rd[0:CACHE_SIZE-1];
+    logic [4:0] i_cache_decoder_op_rs1[0:CACHE_SIZE-1];
+    logic [4:0] i_cache_decoder_op_rs2[0:CACHE_SIZE-1];
+    logic [31:0] i_cache_decoder_imm[0:CACHE_SIZE-1];
+    logic [CACHE_SIZE-1:0] i_cache_decoder_load_rs1_rs2;
+    logic [CACHE_SIZE-1:0] i_cache_has_decoded;
 
-    logic [4:0] i_cache_index, o_cache_index, d_cache_index, reset_cache_index;
-    assign i_cache_index = fetch_address[5:1];
-    assign o_cache_index = core_addr_o[5:1];
+    logic [CACHE_BITS-1:0] i_cache_index, o_cache_index, d_cache_index, reset_cache_index;
+    assign i_cache_index = fetch_address[CACHE_BITS:1];
+    assign o_cache_index = core_addr_o[CACHE_BITS:1];
 
     //==================================================================================================================
     // The reset task
@@ -487,66 +489,75 @@ module risc_p (
     localparam RESET_CLKS = 200000 / CLK_PERIOD_NS;
     // Number of clock periods that we stay in the reset state
     logic [15:0] reset_clks = 0;
+    localparam RESET_STATE_ACTIVE   = 1'b0;
+    localparam RESET_STATE_CACHE    = 1'b1;
+    logic reset_state_m = RESET_STATE_ACTIVE;
 
     task reset_task;
-        reset_clks <= reset_clks + 16'h1;
+        if (reset_state_m == RESET_STATE_ACTIVE) begin
+            reset_clks <= reset_clks + 16'h1;
 
-        casex (reset_clks)
-            0: begin
-                if (pll_locked) begin
-`ifdef D_CORE
-                    $display ($time, " CORE: Reset start.");
-`endif
-                    // Reset your variables
-                    {core_stb_o, core_cyc_o} <= 2'b00;
-                    {decoder_stb_o, decoder_cyc_o} <= 2'b00;
-                    {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b00;
-                    {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b00;
-                    {exec_stb_o, exec_cyc_o} <= 2'b00;
+            case (reset_clks)
+                0: begin
+                    if (pll_locked) begin
+    `ifdef D_CORE
+                        $display ($time, " CORE: Reset start.");
+    `endif
+                        // Reset your variables
+                        {core_stb_o, core_cyc_o} <= 2'b00;
+                        {decoder_stb_o, decoder_cyc_o} <= 2'b00;
+                        {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b00;
+                        {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b00;
+                        {exec_stb_o, exec_cyc_o} <= 2'b00;
 
-                    writeback_op_rd <= 0;
+                        writeback_op_rd <= 0;
 
-                    flush_pipeline_task (1'b0);
-                    pipeline_trap_mcause <= 0;
-                    execute_trap <= 0;
-                    reset_cache_index <= 5'd0;
-                    i_cache_compressed <= 0;
-                    i_cache_has_decoded <= 0;
-                end else begin
-                    // Back to zero to wait for PLL lock
-                    reset_clks <= 0;
+                        flush_pipeline_task (1'b0);
+                        pipeline_trap_mcause <= 0;
+                        execute_trap <= 0;
+
+                        reset_cache_index <= 0;
+                        reset_state_m <= RESET_STATE_CACHE;
+                    end else begin
+                        // Back to zero to wait for PLL lock
+                        reset_clks <= 0;
+                    end
                 end
-            end
 
-            16'b0000_0000_000x_xxxx, 16'b0000_0000_0010_0000: begin // [1:32]
-                i_cache_addr[reset_cache_index] <= `INVALID_ADDR;
-                reset_cache_index <= reset_cache_index + 5'd1;
-            end
+                // Set the case value below to configure the duration of the reset assertion.
+                // We must account for the slowest clock.
+                40: begin
+                    // Reset is complete
+                    reset <= 1'b0;
+    `ifdef D_CORE
+                    $display ($time, " CORE: Reset complete.");
+    `endif
+                    // Wait for the RAM to initialize (SDRAM 200μs)
+                end
 
-            // Set the case value below to configure the duration of the reset assertion.
-            // We must account for the slowest clock.
-            40: begin
-                // Reset is complete
-                reset <= 1'b0;
-`ifdef D_CORE
-                $display ($time, " CORE: Reset complete.");
-`endif
-                // Wait for the RAM to initialize (SDRAM 200μs)
-            end
+                RESET_CLKS: begin
+    `ifdef D_CORE
+                    $display ($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
+    `endif
+                    fetch_address <= `ROM_BEGIN_ADDR;
+    `ifdef D_STATS_FILE
+                    stats_start_execution_time <= $time;
+                    stats_prev_end_execution_time <= $time;
+    `endif
 
-            RESET_CLKS: begin
-`ifdef D_CORE
-                $display ($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
-`endif
-                fetch_address <= `ROM_BEGIN_ADDR;
-`ifdef D_STATS_FILE
-                stats_start_execution_time <= $time;
-                stats_prev_end_execution_time <= $time;
-`endif
+                    cpu_state_m <= STATE_RUNNING;
+                end
+            endcase
+        end else if (reset_state_m == RESET_STATE_CACHE) begin
+            i_cache_addr[reset_cache_index] <= `INVALID_ADDR;
+            reset_cache_index <= reset_cache_index + 1;
 
-                cpu_state_m <= STATE_RUNNING;
+            if (reset_cache_index == CACHE_SIZE - 1) begin
+                i_cache_compressed <= 0;
+                i_cache_has_decoded <= 0;
+                reset_state_m <= RESET_STATE_ACTIVE;
             end
-        endcase
+        end
     endtask
 
     //==================================================================================================================
@@ -644,7 +655,7 @@ module risc_p (
             $display ($time, " CORE:    [%h] Decode %h -> PL_E_INSTR_DECODE_PENDING.", decode_ptr,
                         pipeline_instr[decode_ptr]);
 `endif
-            d_cache_index <= pipeline_instr_addr[decode_ptr][5:1];
+            d_cache_index <= pipeline_instr_addr[decode_ptr][CACHE_BITS:1];
             decode_ptr <= next_decode_ptr;
         end else if (pipeline_entry_status[decode_ptr] >= PL_E_INSTR_DECODED) begin
             // Skip this entry (instruction was found in the decoder cache).
@@ -1306,6 +1317,7 @@ module risc_p (
     always @(posedge clk) begin
         if (reset_btn) begin
             reset_clks <= 0;
+            reset_state_m <= RESET_STATE_ACTIVE;
             reset <= 1'b1;
             led <= 0;
             `ifdef BOARD_BLUE_WHALE led_a <= 16'h0;`endif
