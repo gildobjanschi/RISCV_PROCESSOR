@@ -35,7 +35,7 @@ copy_rom_to_ram_words:
 
 	/* Decrement the number of words */
 	addi t5, t5, -1
-	bne t5, zero, copy_rom_to_ram_done
+	bne t5, zero, copy_rom_to_ram_words
 
 copy_rom_to_ram_done:
 	/* Reset the argc argv at the end of RAM - 8*/

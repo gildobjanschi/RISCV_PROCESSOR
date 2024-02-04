@@ -41,8 +41,8 @@
 	/* The address in ROM where RAM data is located. */
 	lui t2, %hi(_rom_copy_to_ram_begin)       ;\
 	addi t2, t2, %lo(_rom_copy_to_ram_begin)  ;\
-copy_rom_to_ram_h_words:                    ;\
 	beq t5, zero, copy_rom_done               ;\
+copy_rom_to_ram_words:                      ;\
 	/* Load word from ROM */
 	lw t4, 0(t2)                              ;\
 	addi t2, t2, 4                            ;\
@@ -51,7 +51,7 @@ copy_rom_to_ram_h_words:                    ;\
 	addi t0, t0, 4                            ;\
 	/* Decrement the number of words */
 	addi t5, t5, -1                           ;\
-	j copy_rom_to_ram_h_words                 ;\
+	bne t5, zero, copy_rom_to_ram_words       ;\
 copy_rom_done:                              ;\
 
 //RV_COMPLIANCE_DATA_BEGIN
