@@ -895,7 +895,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_MRET: begin
 `ifdef D_EXEC
-                $display($time, " [%h]: %h mret; load @[%h]", instr_addr_i, instr_i, CSR_BEGIN_ADDR + `CSR_EXIT_TRAP);
+                $display($time, " [%h]: %h mret; load @[%h] ...", instr_addr_i, instr_i,
+                                CSR_BEGIN_ADDR + `CSR_EXIT_TRAP);
 `endif
                 load_task (CSR_BEGIN_ADDR + `CSR_EXIT_TRAP, `ADDR_TAG_MODE_NONE, 4'b1111);
             end
@@ -1003,6 +1004,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_DIVU: begin
                 if (rs2_i) begin
+`ifdef D_EXEC
+                    $display($time, " [%h]: %h divu rdx%0d[%h], rs1x%0d[%h], rs2x%0d[%h] ...", instr_addr_i,
+                                instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i);
+`endif
                     divident_o <= rs1_i;
                     divisor_o <= rs2_i;
                     div_is_signed_o <= 1'b0;
@@ -1326,8 +1331,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_MRET: begin
 `ifdef D_EXEC
-                $display($time, "           :          @[%h] -> %h; load @[%h] ...", data_addr_o, data_data_i,
-                                CSR_BEGIN_ADDR + `CSR_EXIT_TRAP);
+                $display($time, "           :          @[%h] -> %h; PC: [%h]", data_addr_o, data_data_i, data_data_i);
 `endif
                 next_addr_o <= data_data_i;
                 jmp_o <= 1'b1;
