@@ -909,7 +909,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_MRET: begin
 `ifdef D_EXEC
-                $display($time, " [%h]: %h mret; load @[%h]", instr_addr_i, instr_i, CSR_BEGIN_ADDR + `CSR_EXIT_TRAP);
+                $display($time, " [%h]: %h mret; load @[%h] ...", instr_addr_i, instr_i,
+                                CSR_BEGIN_ADDR + `CSR_EXIT_TRAP);
 `endif
                 load_task (CSR_BEGIN_ADDR + `CSR_EXIT_TRAP, `ADDR_TAG_MODE_NONE, 4'b1111);
             end
@@ -1331,8 +1332,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_MRET: begin
 `ifdef D_EXEC
-                $display($time, "           :          @[%h] -> %h; load @[%h] ...", data_addr_o, data_data_i,
-                                CSR_BEGIN_ADDR + `CSR_EXIT_TRAP);
+                $display($time, "           :          @[%h] -> %h.", data_addr_o, data_data_i);
 `endif
                 next_addr_o <= data_data_i;
                 jmp_o <= 1'b1;
