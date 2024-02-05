@@ -708,8 +708,8 @@ module risc_p (
         exec_op_rs1_o <= pipeline_op_rs1[pipeline_rd_ptr];
         exec_op_rs2_o <= pipeline_op_rs2[pipeline_rd_ptr];
         exec_op_imm_o <= pipeline_op_imm[pipeline_rd_ptr];
-        exec_rs1_o <= writeback_op_rd == pipeline_op_rs1[pipeline_rd_ptr] ? writeback_rd : pipeline_rs1[pipeline_rd_ptr];
-        exec_rs2_o <= writeback_op_rd == pipeline_op_rs2[pipeline_rd_ptr] ? writeback_rd : pipeline_rs2[pipeline_rd_ptr];
+        exec_rs1_o <= pipeline_rs1[pipeline_rd_ptr];
+        exec_rs2_o <= pipeline_rs2[pipeline_rd_ptr];
         exec_stb_o <= 1'b1;
 
         // Exec LED on
@@ -772,7 +772,7 @@ module risc_p (
         // pending status of the corresponding pipeline entry. If the status is not PL_E_INSTR_FETCH_PENDING,
         // PL_E_INSTR_DECODE_PENDING or PL_E_REGFILE_READ_PENDING respectively it means that the pipeline was flushed
         // while these operations were pending.
-        for (i=0; i<PIPELINE_SIZE; i = i + 1) begin
+        for (i = 0; i < PIPELINE_SIZE; i = i + 1) begin
             pipeline_entry_status[i] <= PL_E_EMPTY;
             pipeline_op_rs1[i] <= 0;
             pipeline_op_rs2[i] <= 0;
@@ -1095,8 +1095,36 @@ module risc_p (
 `endif
                 pipeline_entry_status[regfile_read_pending_entry] <= PL_E_REGFILE_READ;
 
-                pipeline_rs1[regfile_read_pending_entry] <= regfile_reg_rs1_i;
-                pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
+                if (writeback_op_rd != 0) begin
+`ifdef D_CORE_FINE
+                    $display ($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h. Update x%0d to %h",
+                                regfile_read_pending_entry, regfile_op_rs1_o, regfile_reg_rs1_i,
+                                regfile_op_rs2_o, regfile_reg_rs2_i, writeback_op_rd, writeback_rd);
+`endif
+                    // Do not use the read values if they match the latest writeback register.
+                    if (writeback_op_rd != regfile_op_rs1_o) begin
+                        pipeline_rs1[regfile_read_pending_entry] <= regfile_reg_rs1_i;
+                    end else begin
+                        pipeline_rs1[regfile_read_pending_entry] <= writeback_rd;
+                    end
+
+                    if (writeback_op_rd != regfile_op_rs2_o) begin
+                        pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
+                    end else begin
+                        pipeline_rs2[regfile_read_pending_entry] <= writeback_rd;
+                    end
+
+                    writeback_op_rd <= 0;
+                    writeback_rd <= 0;
+                end else begin
+`ifdef D_CORE_FINE
+                    $display ($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h",
+                                regfile_read_pending_entry, regfile_op_rs1_o, regfile_reg_rs1_i,
+                                regfile_op_rs2_o, regfile_reg_rs2_i);
+`endif
+                    pipeline_rs1[regfile_read_pending_entry] <= regfile_reg_rs1_i;
+                    pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
+                end
 
                 regfile_read_pipeline_task;
             end else begin
@@ -1151,17 +1179,13 @@ module risc_p (
                 writeback_op_rd <= exec_op_rd_o;
                 writeback_rd <= exec_rd_i;
 
-                for (i=0; i<PIPELINE_SIZE; i = i + 1) begin
+                for (i = 0; i < PIPELINE_SIZE; i = i + 1) begin
                     /*
                      * If the status < PL_E_INSTR_DECODE_PENDING rs1 and rs2 are not yet known.
                      * If the status == PL_E_INSTR_DECODED, the correct rs1 and rs2 will read from regfile.
                      * If the status == PL_E_REGFILE_READ_PENDING the registers will be updated upon completion
-                     * with the saved writeback_op_rd and writeback_rd... with one exception: the regfile read
-                     * completed in the the current clock cycle so the status is not yet reflected in
-                     * pipeline_entry_status (it is still PL_E_REGFILE_READ_PENDING).
-                     * If the status == PL_E_REGFILE_READ update the registers. Note that there could be two
-                     * entries with a status of PL_E_REGFILE_READ if an instruction takes a relatively long time to
-                     * execute (eg. memory access).
+                     * with the saved writeback_op_rd and writeback_rd.
+                     * If the status == PL_E_REGFILE_READ update the registers.
                      *
                      * The pipeline entry status is not checked here since it won't give any added benefit.
                      */
@@ -1315,8 +1339,6 @@ module risc_p (
                 enter_trap_task;
             end else begin
                 exec_pipeline_task;
-                writeback_op_rd <= 0;
-                writeback_rd <= 0;
             end
         end
 
