@@ -686,6 +686,8 @@ module risc_p (
             // Skip this entry (instruction did not need loading of registers)
             regfile_read_ptr <= next_regfile_read_ptr;
         end
+
+        writeback_op_rd <= 0;
     endtask
 
     //==================================================================================================================
@@ -1067,33 +1069,35 @@ module risc_p (
             if (pipeline_entry_status[regfile_read_pending_entry] == PL_E_REGFILE_READ_PENDING) begin
                 pipeline_entry_status[regfile_read_pending_entry] <= PL_E_REGFILE_READ;
 
-                if (writeback_op_rd != 0) begin
 `ifdef D_CORE_FINE
-                    $display ($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h. Update x%0d to %h",
+                $display ($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h.",
                                 regfile_read_pending_entry, regfile_op_rs1_o, regfile_reg_rs1_i,
-                                regfile_op_rs2_o, regfile_reg_rs2_i, writeback_op_rd, writeback_rd);
+                                regfile_op_rs2_o, regfile_reg_rs2_i);
 `endif
+                if (writeback_op_rd != 0) begin
                     // Do not use the read values if they match the latest writeback register.
                     if (writeback_op_rd != regfile_op_rs1_o) begin
                         pipeline_rs1[regfile_read_pending_entry] <= regfile_reg_rs1_i;
                     end else begin
                         pipeline_rs1[regfile_read_pending_entry] <= writeback_rd;
+`ifdef D_CORE_FINE
+                        $display ($time, " CORE:        [%h] Update rs1x%0d with writeback: %h.",
+                                regfile_read_pending_entry, regfile_op_rs1_o, writeback_rd);
+`endif
                     end
 
                     if (writeback_op_rd != regfile_op_rs2_o) begin
                         pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
                     end else begin
                         pipeline_rs2[regfile_read_pending_entry] <= writeback_rd;
+`ifdef D_CORE_FINE
+                        $display ($time, " CORE:        [%h] Update rs2x%0d with writeback: %h.",
+                                regfile_read_pending_entry, regfile_op_rs2_o, writeback_rd);
+`endif
                     end
 
                     writeback_op_rd <= 0;
-                    writeback_rd <= 0;
                 end else begin
-`ifdef D_CORE_FINE
-                    $display ($time, " CORE:    [%h] Regfile read complete rs1x%0d: %h, rs2x%0d: %h",
-                                regfile_read_pending_entry, regfile_op_rs1_o, regfile_reg_rs1_i,
-                                regfile_op_rs2_o, regfile_reg_rs2_i);
-`endif
                     pipeline_rs1[regfile_read_pending_entry] <= regfile_reg_rs1_i;
                     pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
                 end
