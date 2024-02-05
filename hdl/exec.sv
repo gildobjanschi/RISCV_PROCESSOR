@@ -1021,7 +1021,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     divident_o <= rs1_i;
                     divisor_o <= rs2_i;
                     div_is_signed_o <= 1'b0;
-
+`ifdef D_EXEC
+                    $display($time, " [%h]: %h divu rdx%0d[%h], rs1x%0d[%h], rs2x%0d[%h] ...", instr_addr_i,
+                                instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i);
+`endif
                     {div_stb_o, div_cyc_o} <= 2'b11;
                     state_m <= STATE_DIV_PENDING;
                 end else begin
