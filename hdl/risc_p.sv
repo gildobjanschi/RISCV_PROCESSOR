@@ -670,7 +670,7 @@ module risc_p (
     //==================================================================================================================
     // Regfile pipeline read request
     //==================================================================================================================
-    task regfile_read_pipeline_task;
+    task regfile_read_task;
         if (pipeline_entry_status[regfile_read_ptr] == PL_E_INSTR_DECODED) begin
             pipeline_entry_status[regfile_read_ptr] <= PL_E_REGFILE_READ_PENDING;
 
@@ -697,7 +697,7 @@ module risc_p (
     //==================================================================================================================
     // Exec pipeline task
     //==================================================================================================================
-    task exec_pipeline_task;
+    task exec_task;
         pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EXEC_PENDING;
 
         exec_instr_addr_o <= pipeline_instr_addr[pipeline_rd_ptr];
@@ -729,7 +729,7 @@ module risc_p (
     //==================================================================================================================
     // Exec pipeline task
     //==================================================================================================================
-    task exec_pipeline_imm_task (input [PIPELINE_BITS-1:0] entry, logic [4:0] op_rd, logic [31:0] rd);
+    task exec_imm_task (input [PIPELINE_BITS-1:0] entry, logic [4:0] op_rd, logic [31:0] rd);
         pipeline_entry_status[entry] <= PL_E_EXEC_PENDING;
 
         exec_instr_addr_o <= pipeline_instr_addr[entry];
@@ -1126,14 +1126,14 @@ module risc_p (
                     pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
                 end
 
-                regfile_read_pipeline_task;
+                regfile_read_task;
             end else begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Ignoring regfile read complete.", regfile_read_pending_entry);
 `endif
             end
         end else if (~(regfile_read_pending_o)) begin
-            regfile_read_pipeline_task;
+            regfile_read_task;
         end
 
         // -------------------------------------- Handle exec transactions ---------------------------------------------
@@ -1252,7 +1252,7 @@ module risc_p (
                     led[5] <= 1'b0;
                     `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b0;`endif
                     if (pipeline_entry_status[next_pipeline_rd_ptr] == PL_E_REGFILE_READ) begin
-                        exec_pipeline_imm_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
+                        exec_imm_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
                     end
                     // Read the entry out of the pipeline
                     pipeline_rd_ptr <= next_pipeline_rd_ptr;
@@ -1338,7 +1338,7 @@ module risc_p (
                  */
                 enter_trap_task;
             end else begin
-                exec_pipeline_task;
+                exec_task;
             end
         end
 
