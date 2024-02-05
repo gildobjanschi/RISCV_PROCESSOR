@@ -697,29 +697,29 @@ module risc_p (
     //==================================================================================================================
     // Exec pipeline task
     //==================================================================================================================
-    task exec_pipeline_task (input [PIPELINE_BITS-1:0] entry);
-        pipeline_entry_status[entry] <= PL_E_EXEC_PENDING;
+    task exec_pipeline_task;
+        pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EXEC_PENDING;
 
-        exec_instr_addr_o <= pipeline_instr_addr[entry];
-        exec_instr_o <= pipeline_instr[entry];
-        exec_instr_is_compressed_o <= ~(pipeline_instr[entry][1:0] == 2'b11);
-        exec_op_type_o <= pipeline_op_type[entry];
-        exec_op_rd_o <= pipeline_op_rd[entry];
-        exec_op_rs1_o <= pipeline_op_rs1[entry];
-        exec_op_rs2_o <= pipeline_op_rs2[entry];
-        exec_op_imm_o <= pipeline_op_imm[entry];
-        exec_rs1_o <= writeback_op_rd == pipeline_op_rs1[entry] ? writeback_rd : pipeline_rs1[entry];
-        exec_rs2_o <= writeback_op_rd == pipeline_op_rs2[entry] ? writeback_rd : pipeline_rs2[entry];
+        exec_instr_addr_o <= pipeline_instr_addr[pipeline_rd_ptr];
+        exec_instr_o <= pipeline_instr[pipeline_rd_ptr];
+        exec_instr_is_compressed_o <= ~(pipeline_instr[pipeline_rd_ptr][1:0] == 2'b11);
+        exec_op_type_o <= pipeline_op_type[pipeline_rd_ptr];
+        exec_op_rd_o <= pipeline_op_rd[pipeline_rd_ptr];
+        exec_op_rs1_o <= pipeline_op_rs1[pipeline_rd_ptr];
+        exec_op_rs2_o <= pipeline_op_rs2[pipeline_rd_ptr];
+        exec_op_imm_o <= pipeline_op_imm[pipeline_rd_ptr];
+        exec_rs1_o <= writeback_op_rd == pipeline_op_rs1[pipeline_rd_ptr] ? writeback_rd : pipeline_rs1[pipeline_rd_ptr];
+        exec_rs2_o <= writeback_op_rd == pipeline_op_rs2[pipeline_rd_ptr] ? writeback_rd : pipeline_rs2[pipeline_rd_ptr];
         exec_stb_o <= 1'b1;
 
         // Exec LED on
         led[3] <= 1'b1;
         `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b1;`endif
-        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_op_type[entry];`endif
+        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_op_type[pipeline_rd_ptr];`endif
 
 `ifdef D_CORE_FINE
-        $display ($time, " CORE:    [%h] Execute instruction: @[%h] -> PL_E_EXEC_PENDING.", entry,
-                    pipeline_instr_addr[entry]);
+        $display ($time, " CORE:    [%h] Execute instruction: @[%h] -> PL_E_EXEC_PENDING.", pipeline_rd_ptr,
+                    pipeline_instr_addr[pipeline_rd_ptr]);
 `endif
 `ifdef D_STATS_FILE
         stats_start_execution_time <= $time;
@@ -1314,24 +1314,7 @@ module risc_p (
                  */
                 enter_trap_task;
             end else begin
-                /*
-                 * The writeback is handled also just before executing the next instruction. This is because
-                 * if a regfile read completed in the same cycle as the execution of the instruction that caused the
-                 * writeback there was no opportunity to update the register with the writeback value.
-                 */
-`ifdef D_CORE_FINE
-                if (writeback_op_rd) begin
-                    if (writeback_op_rd == pipeline_op_rs1[pipeline_rd_ptr]) begin
-                        $display ($time, " CORE:    [%h] Update rs1x%0d with writeback value %h.", pipeline_rd_ptr,
-                                                    writeback_op_rd, writeback_rd);
-                    end
-                    if (writeback_op_rd == pipeline_op_rs2[pipeline_rd_ptr]) begin
-                        $display ($time, " CORE:    [%h] Update rs2x%0d with writeback value %h.", pipeline_rd_ptr,
-                                                    writeback_op_rd, writeback_rd);
-                    end
-                end
-`endif
-                exec_pipeline_task (pipeline_rd_ptr);
+                exec_pipeline_task;
                 writeback_op_rd <= 0;
                 writeback_rd <= 0;
             end
