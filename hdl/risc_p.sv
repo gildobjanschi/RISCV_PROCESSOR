@@ -712,7 +712,7 @@ module risc_p (
         // Exec LED on
         led[3] <= 1'b1;
         `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b1;`endif
-        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= instr_op_type;`endif
+        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_op_type[pipeline_rd_ptr];`endif
 
 `ifdef D_CORE_FINE
         $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", pipeline_rd_ptr,
