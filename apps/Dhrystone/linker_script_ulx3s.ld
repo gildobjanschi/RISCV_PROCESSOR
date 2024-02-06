@@ -18,7 +18,7 @@ MEMORY
 
 SECTIONS
 {
-	PROVIDE( _ram_data_begin = ORIGIN(RAM));
+	PROVIDE( _rom_begin = ORIGIN(ROM));
 	.pretext :
 	{
    		*(.pretext)
@@ -52,6 +52,7 @@ SECTIONS
 	} > ROM
 
 	/* ---- ROM address where RAM data begins ----- */
+	PROVIDE( _ram_data_begin = ORIGIN(RAM));
 	PROVIDE( _rom_copy_to_ram_begin = .);
 	.text :
 	{
@@ -60,7 +61,7 @@ SECTIONS
 		*(.text.*)
 		. = ALIGN(4);
     	PROVIDE(_text_end = .);
-	} > RAM AT > ROM 
+	} > RAM AT > ROM
 
 	.rodata :
 	{
@@ -91,7 +92,7 @@ SECTIONS
 
 	PROVIDE( __global_pointer$ = . + 0x800);
 	.sdata :
-	{ 
+	{
 		__sdata_start = .;
 		KEEP (*(.sdata))
 		KEEP (*(.sdata.*))
@@ -107,24 +108,24 @@ SECTIONS
 	    _tdata_end = .;
 		. = ALIGN(4);
 	} > RAM AT > ROM
+
+	.sbss :
+	{
+		__sbss_start = .;
+        *(.sbss .sbss.* .gnu.linkonce.sb.*)
+		*(.scommon)
+		. = ALIGN(4);
+		__sbss_end = .;
+	} > RAM
 	PROVIDE( _ram_data_end = .);
 
 	.bss :
-	{ 
+	{
 		_bss_start = .;
 		KEEP (*(.bss))
 		KEEP (*(.bss.*))
 		. = ALIGN(4);
 		_bss_end = .;
-	} > RAM
-
-	.sbss :
-	{ 
-		__sbss_start = .;
-	    *(.sbss .sbss.* .gnu.linkonce.sb.*)
-		*(.scommon)
-		. = ALIGN(4);
-		__sbss_end = .;
 	} > RAM
 
 	.tbss :

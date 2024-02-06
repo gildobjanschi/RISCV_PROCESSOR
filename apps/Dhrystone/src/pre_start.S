@@ -17,12 +17,20 @@ _pre_start:
 
 	/* Calculate the number of bytes to copy */
 	sub t1, t3, t0
-	/* Calculate the number of words */
-	srli t5, t1, 2
+
+	lui t4, %hi(_rom_begin)
+	addi t4, t4, %lo(_rom_begin)
 
 	/* The address in ROM where RAM data is located. */
 	lui t2, %hi(_rom_copy_to_ram_begin)
 	addi t2, t2, %lo(_rom_copy_to_ram_begin)
+
+	sub t4, t2, t4
+
+	sub t1, t1, t4
+
+	/* Calculate the number of words */
+	srli t5, t1, 2
 
 	beq t5, zero, copy_rom_to_ram_done
 copy_rom_to_ram_words:
