@@ -1,5 +1,5 @@
 OUTPUT_ARCH( "riscv" )
-ENTRY(rvtest_entry_point)
+ENTRY(_start)
 
 MEMORY
 {
@@ -9,11 +9,15 @@ MEMORY
 
 SECTIONS
 {
-    .text.init : { *(.text.init) } > ROM
+    .text : { *(.text) } > ROM
     . = ALIGN(0x1000);
-    .data : { *(.data) } > RAM AT > ROM
     .tohost : { *(.tohost) } > RAM AT > ROM
     . = ALIGN(0x1000);
+    .page_table : { *(.page_table) } > RAM AT > ROM
+    .data : { *(.data) } > RAM AT > ROM
+    .user_stack : { *(.user_stack) } > RAM AT > ROM
+    .kernel_data : { *(.kernel_data) } > RAM AT > ROM
+    .kernel_stack : { *(.kernel_stack) } > RAM AT > ROM
     .bss : { *(.bss) } > RAM AT > ROM
     _end = .;
 }

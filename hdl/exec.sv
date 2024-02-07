@@ -869,7 +869,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_ECALL: begin
                 /*
-                 * ECALL and EBREAK cause the receiving privilege mode’s einstr_addr_i register to be set to the address
+                 * ECALL and EBREAK cause the receiving privilege mode’s instr_addr_i register to be set to the address
                  * of the ECALL or EBREAK instruction itself, not the address of the following instruction.
                  */
 `ifdef D_EXEC
@@ -886,7 +886,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_EBREAK: begin
                 /*
-                 * ECALL and EBREAK cause the receiving privilege mode’s einstr_addr_i register to be set to the address
+                 * ECALL and EBREAK cause the receiving privilege mode’s instr_addr_i register to be set to the address
                  * of the ECALL or EBREAK instruction itself, not the address of the following instruction.
                  */
 `ifdef D_EXEC
@@ -916,7 +916,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 
             `INSTR_TYPE_WFI: begin
-                /* The purpose of the WFI instruction is to provide a hint to the implementation, and so a legal
+                /*
+                 * The purpose of the WFI instruction is to provide a hint to the implementation, and so a legal
                  * implementation is to simply implement WFI as a NOP.
                  */
 `ifdef D_EXEC
@@ -927,6 +928,19 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `endif
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
+
+`ifdef ENABLE_ZIFENCEI_EXT
+            `INSTR_TYPE_FENCE_I: begin
+`ifdef D_EXEC
+                next_addr_o = instr_addr_i + 4;
+                $display($time, " [%h]: %h fence.i imm: %h; PC: [%h]", instr_addr_i, instr_i, instr_op_imm_i[31:20],
+                                next_addr_o);
+`else
+                next_addr_o <= instr_addr_i + 4;
+`endif
+                {sync_ack_o, sync_err_o} <= 2'b10;
+            end
+`endif // ENABLE_ZIFENCEI_EXT
 
 `ifdef ENABLE_RV32M_EXT
             `INSTR_TYPE_MUL: begin

@@ -21,6 +21,7 @@
  * # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
  * # ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
  * #                          implementation useless.
+ * # ENABLE_ZIFENCEI_EXT: Zifencei extension
  * # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
  * # ENABLE_RV32A_EXT:    Atomic instructions support.
  **********************************************************************************************************************/
@@ -67,6 +68,10 @@
 `define INSTR_TYPE_EBREAK   7'd40
 `define INSTR_TYPE_MRET     7'd41
 `define INSTR_TYPE_WFI      7'd42
+
+`ifdef ENABLE_ZIFENCEI_EXT
+`define INSTR_TYPE_FENCE_I  7'd43
+`endif
 
 // RV32M instructions
 `ifdef ENABLE_RV32M_EXT

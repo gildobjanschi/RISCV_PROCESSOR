@@ -400,7 +400,6 @@ module risc_p (
     logic [7:0] execute_trap;
 
     // Reset button meta stability handling
-    logic reset = 1'b1;
     logic reset_btn;
 `ifdef BOARD_BLUE_WHALE
     // Button on the FPGA board
@@ -459,7 +458,9 @@ module risc_p (
         next_regfile_read_ptr = regfile_read_ptr + 1;
     end
 
-    // Cache
+    //==================================================================================================================
+    // Instructions cache
+    //==================================================================================================================
     localparam CACHE_BITS = 5;
     localparam CACHE_SIZE = 2 ** CACHE_BITS;
     (* syn_ramstyle="auto" *)
@@ -483,6 +484,7 @@ module risc_p (
     //==================================================================================================================
     // The reset task
     //==================================================================================================================
+    logic reset = 1'b1;
     // We need to stay minimum 100μs in reset for the benefit of the SDRAM. We wait 200μs.
     localparam RESET_CLKS = 200000 / CLK_PERIOD_NS;
     // Number of clock periods that we stay in the reset state
@@ -523,14 +525,13 @@ module risc_p (
                 end
 
                 // Set the case value below to configure the duration of the reset assertion.
-                // We must account for the slowest clock.
                 40: begin
                     // Reset is complete
                     reset <= 1'b0;
 `ifdef D_CORE
                     $display ($time, " CORE: Reset complete.");
 `endif
-                    // Wait for the RAM to initialize (SDRAM 200μs)
+                    // Wait for the slow devices to initialize (SDRAM 200μs)
                 end
 
                 RESET_CLKS: begin
@@ -1183,7 +1184,11 @@ module risc_p (
                         `ifdef BOARD_BLUE_WHALE led_a[13] <= 1'b0;`endif
                         `ifdef BOARD_BLUE_WHALE led_a[14] <= 1'b0;`endif
                     end
-                    execute_trap <= execute_trap - 1;
+                    /*
+                     * Some tests use mret instructions without entering an interrupt and we need to account
+                     * for this case otherwise execute_trap would go negative.
+                     */
+                    if (execute_trap != 0) execute_trap <= execute_trap - 1;
 
                     // Flush the pipeline
                     flush_pipeline_task (1'b1);
@@ -1430,6 +1435,7 @@ module risc_p (
                 finish_simulation <= finish_simulation - 4'h1;
             end else begin
                 if (execute_trap > 0) begin
+                    $display ($time, " CORE: Trap count: %0d", execute_trap);
                     if (looping_instruction) begin
                         $display ($time, " CORE: ------- Halt: looping instruction @[%h]; exception: %s --------",
                                 exec_instr_addr_o, to_mcause_bits_string(1 << mem_space_m.csr_m.mcause));

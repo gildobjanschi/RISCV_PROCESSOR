@@ -22,6 +22,7 @@
  *      3. RV32C 2.0 The C (compression) extension
  *      4. RV32A 2.1 The A (atomic) extension
  *      5. Zicsr 2.0 extension
+ *      6. Zifencei 2.0 extension
  *
  * clk_i                -- The clock signal.
  * rst_i                -- Reset active high.
@@ -392,6 +393,7 @@ module decoder (
                 (* parallel_case, full_case *)
                 case (instr_i[14:12])
                     3'b000: instr_op_type_o <= `INSTR_TYPE_FENCE;
+                    3'b001: instr_op_type_o <= `INSTR_TYPE_FENCE_I;
                     default: {sync_ack_o, sync_err_o} <= 2'b01;
                 endcase
 
