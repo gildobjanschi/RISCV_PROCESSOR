@@ -29,30 +29,6 @@
   self_loop:  j self_loop;
 
 #define RVMODEL_BOOT
-	/* Copy RAM data if any */
-	lui t0, %hi(_ram_data_begin)              ;\
-	addi t0, t0, %lo(_ram_data_begin)         ;\
-	lui t3, %hi(_ram_data_end)                ;\
-	addi t3, t3, %lo(_ram_data_end)           ;\
-	/* Calculate the number of bytes to copy */
-	sub t1, t3, t0                            ;\
-	/* Calculate the number of words */
-	srli t5, t1, 2                            ;\
-	/* The address in ROM where RAM data is located. */
-	lui t2, %hi(_rom_copy_to_ram_begin)       ;\
-	addi t2, t2, %lo(_rom_copy_to_ram_begin)  ;\
-	beq t5, zero, copy_rom_done               ;\
-copy_rom_to_ram_words:                      ;\
-	/* Load word from ROM */
-	lw t4, 0(t2)                              ;\
-	addi t2, t2, 4                            ;\
-	/* Store word in RAM */
-	sw t4, 0(t0)                              ;\
-	addi t0, t0, 4                            ;\
-	/* Decrement the number of words */
-	addi t5, t5, -1                           ;\
-	bne t5, zero, copy_rom_to_ram_words       ;\
-copy_rom_done:                              ;\
 
 //RV_COMPLIANCE_DATA_BEGIN
 #define RVMODEL_DATA_BEGIN                                              \

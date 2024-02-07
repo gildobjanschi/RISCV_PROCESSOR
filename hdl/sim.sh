@@ -24,8 +24,8 @@ helpFunction()
     echo "Usage: $0 -u -w -p -m -h [-D <flag>]"
     echo "    -u: ULX3S board."
     echo "    -w: Blue Whale board."
-    echo "    -p: Run RISC-V version."
-    echo "    -m: Memory space test."
+    echo "    -p: Run RISC-V."
+    echo "    -m: Run memory space test."
     echo "    -D: debug flags (e.g. -D D_CORE, -D D_EXEC, -D D_IO, -D BIN_FILE_NAME=\"<app_bin_file>\" ...)"
     echo "    -h: Help."
     exit 1
@@ -39,11 +39,12 @@ helpFunction()
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
+# ENABLE_ZIFENCEI_EXT: Zifencei extension
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
 # ENABLE_HPM_COUNTERS: Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D D_CORE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
+OPTIONS="-D SIMULATION -D D_CORE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
 BOARD=""
 APP_NAME=""
@@ -55,7 +56,7 @@ while getopts 'uwpmhD:' opt; do
     case "$opt" in
         u ) BOARD="BOARD_ULX3S" ;;
         w ) BOARD="BOARD_BLUE_WHALE" ;;
-        p ) APP_NAME="risc" ;;
+        p ) APP_NAME="risc_p" ;;
         m ) APP_NAME="mem_space_test" ;;
         D ) OPTIONS="$OPTIONS -D ${OPTARG}" ;;
         h ) helpFunction ;;
@@ -92,8 +93,8 @@ if [ "$APP_NAME" = "mem_space_test" ] ; then
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi
-else if [ "$APP_NAME" = "risc" ] ; then
-    echo "Running pipeline version."
+else if [ "$APP_NAME" = "risc_p" ] ; then
+    echo "Running RISC-V."
     iverilog -g2005-sv -D $BOARD $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE

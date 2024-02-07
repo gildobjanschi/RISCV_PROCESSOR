@@ -22,11 +22,12 @@ BOARD=""
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
+# ENABLE_ZIFENCEI_EXT: Zifencei extension
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
 # ENABLE_HPM_COUNTERS: Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
-OPTIONS="-D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
+OPTIONS="-D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
 APP_NAME=""
 BIN_FILE=""
@@ -38,7 +39,7 @@ while getopts "uwpmhb:D:" flag; do
     case "${flag}" in
         u ) BOARD="BOARD_ULX3S" ;;
         w ) BOARD="BOARD_BLUE_WHALE" ;;
-        p ) echo "Running pipeline version."; APP_NAME="risc" ;;
+        p ) echo "Running RISC-V."; APP_NAME="risc_p" ;;
         m ) echo "Running memory space test."; APP_NAME="mem_space_test" ;;
         D ) OPTIONS="$OPTIONS -D ${OPTARG}" ;;
         h ) helpFunction ;;
@@ -87,7 +88,7 @@ if [ "$APP_NAME" = "mem_space_test" ] ; then
     nextpnr-ecp5 --package CABGA381 --speed $SPEED --85k --freq 62.50 --json out.json --lpf $LPF_FILE --textcfg out.config
     ecppack --db ../prjtrellis-db out.config out.bit
     openFPGALoader -b ulx3s out.bit
-else if [ "$APP_NAME" = "risc" ] ; then
+else if [ "$APP_NAME" = "risc_p" ] ; then
     if test ! -z "$BIN_FILE"; then
         echo "Flashing bin file: $BIN_FILE ..."
         openFPGALoader --board ulx3s --file-type bin -o 0x600000 --unprotect-flash --write-flash $BIN_FILE

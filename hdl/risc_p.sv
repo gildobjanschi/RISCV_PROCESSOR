@@ -692,6 +692,8 @@ module risc_p (
             // Skip this entry (instruction did not need loading of registers)
             regfile_read_ptr <= next_regfile_read_ptr;
         end
+
+        writeback_op_rd <= 0;
     endtask
 
     //==================================================================================================================
@@ -1207,7 +1209,7 @@ module risc_p (
                         `ifdef BOARD_BLUE_WHALE led_a[13] <= 1'b0;`endif
                         `ifdef BOARD_BLUE_WHALE led_a[14] <= 1'b0;`endif
                     end
-                    execute_trap <= execute_trap - 1;
+                    if (execute_trap != 0) execute_trap <= execute_trap - 1;
 
                     // Flush the pipeline
                     flush_pipeline_task (1'b1);

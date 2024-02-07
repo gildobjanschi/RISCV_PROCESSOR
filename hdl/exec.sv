@@ -914,6 +914,19 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 {ack_o, err_o} <= 2'b10;
             end
 
+`ifdef ENABLE_ZIFENCEI_EXT
+            `INSTR_TYPE_FENCE_I: begin
+`ifdef D_EXEC
+                next_addr_o = instr_addr_i + 4;
+                $display($time, " [%h]: %h fence.i imm: %h; PC: [%h]", instr_addr_i, instr_i, instr_op_imm_i[31:20],
+                                next_addr_o);
+`else
+                next_addr_o <= instr_addr_i + 4;
+`endif
+                {ack_o, err_o} <= 2'b10;
+            end
+`endif // ENABLE_ZIFENCEI_EXT
+
 `ifdef ENABLE_RV32M_EXT
             `INSTR_TYPE_MUL: begin
 `ifdef D_EXEC
