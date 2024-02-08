@@ -393,7 +393,9 @@ module decoder (
                 (* parallel_case, full_case *)
                 case (instr_i[14:12])
                     3'b000: instr_op_type_o <= `INSTR_TYPE_FENCE;
+`ifdef ENABLE_ZIFENCEI_EXT
                     3'b001: instr_op_type_o <= `INSTR_TYPE_FENCE_I;
+`endif
                     default: {sync_ack_o, sync_err_o} <= 2'b01;
                 endcase
 

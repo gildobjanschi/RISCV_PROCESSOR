@@ -223,7 +223,8 @@ module risc_p (
     logic [31:0] regfile_reg_rs1_i, regfile_reg_rs2_i, regfile_reg_rd_o;
 
     // Exec ports
-    logic exec_stb_o, exec_cyc_o, exec_instr_is_compressed_o, exec_ack_i, exec_err_i, exec_jmp_i, exec_mret_i;
+    logic exec_stb_o, exec_cyc_o, exec_instr_is_compressed_o, exec_ack_i, exec_err_i;
+    logic exec_jmp_i, exec_mret_i, exec_fencei_i;
     logic [31:0] exec_instr_addr_o, exec_instr_o, exec_op_imm_o, exec_rs1_o, exec_rs2_o, exec_rd_i, exec_next_addr_i;
     logic [31:0] exec_trap_mcause_i, exec_trap_mtval_i;
     logic [6:0] exec_op_type_o;
@@ -351,6 +352,7 @@ module risc_p (
         .err_o              (exec_err_i),
         .jmp_o              (exec_jmp_i),
         .mret_o             (exec_mret_i),
+        .fencei_o           (exec_fencei_i),
         .next_addr_o        (exec_next_addr_i),
         .rd_o               (exec_rd_i),
         // Trap ports
@@ -467,17 +469,18 @@ module risc_p (
     logic [31:0] i_cache_instr[0:CACHE_SIZE-1];
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_addr[0:CACHE_SIZE-1];
-    logic [CACHE_SIZE-1:0] i_cache_compressed;
     // Decoder cache
     logic [6:0] i_cache_decoder_op_type[0:CACHE_SIZE-1];
     logic [4:0] i_cache_decoder_op_rd[0:CACHE_SIZE-1];
     logic [4:0] i_cache_decoder_op_rs1[0:CACHE_SIZE-1];
     logic [4:0] i_cache_decoder_op_rs2[0:CACHE_SIZE-1];
     logic [31:0] i_cache_decoder_imm[0:CACHE_SIZE-1];
-    logic [CACHE_SIZE-1:0] i_cache_decoder_load_rs1_rs2;
+    logic [CACHE_SIZE-1:0] i_cache_has_instr;
+    logic [CACHE_SIZE-1:0] i_cache_compressed;
     logic [CACHE_SIZE-1:0] i_cache_has_decoded;
+    logic [CACHE_SIZE-1:0] i_cache_decoder_load_rs1_rs2;
 
-    logic [CACHE_BITS-1:0] i_cache_index, o_cache_index, d_cache_index, reset_cache_index;
+    logic [CACHE_BITS-1:0] i_cache_index, o_cache_index, d_cache_index;
     assign i_cache_index = fetch_address[CACHE_BITS:1];
     assign o_cache_index = core_addr_o[CACHE_BITS:1];
 
@@ -489,74 +492,61 @@ module risc_p (
     localparam RESET_CLKS = 200000 / CLK_PERIOD_NS;
     // Number of clock periods that we stay in the reset state
     logic [15:0] reset_clks = 0;
-    localparam RESET_STATE_ACTIVE   = 1'b0;
-    localparam RESET_STATE_CACHE    = 1'b1;
-    logic reset_state_m = RESET_STATE_ACTIVE;
 
     task reset_task;
-        if (reset_state_m == RESET_STATE_ACTIVE) begin
-            reset_clks <= reset_clks + 16'h1;
+        reset_clks <= reset_clks + 16'h1;
 
-            case (reset_clks)
-                0: begin
-                    if (pll_locked) begin
+        case (reset_clks)
+            0: begin
+                if (pll_locked) begin
 `ifdef D_CORE
-                        $display ($time, " CORE: Reset start.");
+                    $display ($time, " CORE: Reset start.");
 `endif
-                        // Reset your variables
-                        {core_stb_o, core_cyc_o} <= 2'b00;
-                        {decoder_stb_o, decoder_cyc_o} <= 2'b00;
-                        {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b00;
-                        {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b00;
-                        {exec_stb_o, exec_cyc_o} <= 2'b00;
+                    // Reset your variables
+                    {core_stb_o, core_cyc_o} <= 2'b00;
+                    {decoder_stb_o, decoder_cyc_o} <= 2'b00;
+                    {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b00;
+                    {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b00;
+                    {exec_stb_o, exec_cyc_o} <= 2'b00;
 
-                        writeback_op_rd <= 0;
+                    writeback_op_rd <= 0;
 
-                        flush_pipeline_task (1'b1);
-                        pipeline_trap_mcause <= 0;
-                        execute_trap <= 0;
+                    flush_pipeline_task (1'b1);
+                    pipeline_trap_mcause <= 0;
+                    // Reset the cache
+                    i_cache_has_instr <= 0;
+                    i_cache_has_decoded <= 0;
 
-                        reset_cache_index <= 0;
-                        reset_state_m <= RESET_STATE_CACHE;
-                    end else begin
-                        // Back to zero to wait for PLL lock
-                        reset_clks <= 0;
-                    end
+                    execute_trap <= 0;
+                end else begin
+                    // Back to zero to wait for PLL lock
+                    reset_clks <= 0;
                 end
-
-                // Set the case value below to configure the duration of the reset assertion.
-                40: begin
-                    // Reset is complete
-                    reset <= 1'b0;
-`ifdef D_CORE
-                    $display ($time, " CORE: Reset complete.");
-`endif
-                    // Wait for the slow devices to initialize (SDRAM 200μs)
-                end
-
-                RESET_CLKS: begin
-`ifdef D_CORE
-                    $display ($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
-`endif
-                    fetch_address <= `ROM_BEGIN_ADDR;
-`ifdef D_STATS_FILE
-                    stats_start_execution_time <= $time;
-                    stats_prev_end_execution_time <= $time;
-`endif
-
-                    cpu_state_m <= STATE_RUNNING;
-                end
-            endcase
-        end else if (reset_state_m == RESET_STATE_CACHE) begin
-            i_cache_addr[reset_cache_index] <= `INVALID_ADDR;
-            reset_cache_index <= reset_cache_index + 1;
-
-            if (reset_cache_index == CACHE_SIZE - 1) begin
-                i_cache_compressed <= 0;
-                i_cache_has_decoded <= 0;
-                reset_state_m <= RESET_STATE_ACTIVE;
             end
-        end
+
+            // Set the case value below to configure the duration of the reset assertion.
+            40: begin
+                // Reset is complete
+                reset <= 1'b0;
+`ifdef D_CORE
+                $display ($time, " CORE: Reset complete.");
+`endif
+                // Wait for the slow devices to initialize (SDRAM 200μs)
+            end
+
+            RESET_CLKS: begin
+`ifdef D_CORE
+                $display ($time, " CORE: Starting execution @[%h]...", `ROM_BEGIN_ADDR);
+`endif
+                fetch_address <= `ROM_BEGIN_ADDR;
+`ifdef D_STATS_FILE
+                stats_start_execution_time <= $time;
+                stats_prev_end_execution_time <= $time;
+`endif
+
+                cpu_state_m <= STATE_RUNNING;
+            end
+        endcase
     endtask
 
     //==================================================================================================================
@@ -581,7 +571,7 @@ module risc_p (
                             fetch_address);
 `endif
             end
-        end else if (i_cache_addr[i_cache_index] == fetch_address) begin
+        end else if (i_cache_has_instr[i_cache_index] & i_cache_addr[i_cache_index] == fetch_address) begin
             if (i_cache_has_decoded[i_cache_index]) begin
                 if (i_cache_decoder_load_rs1_rs2[i_cache_index]) begin
                     pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_DECODED;
@@ -966,6 +956,7 @@ module risc_p (
             i_cache_addr[o_cache_index] <= core_addr_o;
             i_cache_instr[o_cache_index] <= core_data_i;
             i_cache_compressed[o_cache_index] <= core_data_tag_i;
+            i_cache_has_instr[o_cache_index] <= 1'b1;
             i_cache_has_decoded[o_cache_index] <= 1'b0;
 
             if (pipeline_entry_status[fetch_pending_entry] == PL_E_INSTR_FETCH_PENDING) begin
@@ -1197,6 +1188,22 @@ module risc_p (
                     fetch_address <= exec_next_addr_i;
                 end
 
+                exec_jmp_i: begin
+                    led[5] <= 1'b1;
+                    `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b1;`endif
+                    // Flush the pipeline
+                    flush_pipeline_task (1'b1);
+                    pipeline_trap_mcause <= 0;
+
+                    fetch_address <= exec_next_addr_i;
+`ifdef SIMULATION
+                    if (exec_next_addr_i == exec_instr_addr_o) begin
+                        looping_instruction <= 1'b1;
+                        cpu_state_m <= STATE_HALTED;
+                    end
+`endif // SIMULATION
+                end
+
                 // Handle interrupts in the order of priority
                 io_interrupts_i[`IRQ_EXTERNAL]: begin
                     pipeline_trap_mcause <= 32'h8000_0000 | 1 << `IRQ_EXTERNAL;
@@ -1212,20 +1219,19 @@ module risc_p (
                     enter_trap_task;
                 end
 
-                exec_jmp_i: begin
-                    led[5] <= 1'b1;
-                    `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b1;`endif
+                exec_fencei_i: begin
+                    // The program execution continues at exec_next_addr_i which is an incremental address (+2/+4)
+                    led[5] <= 1'b0;
+                    /*
+                     * A simple implementation can flush the local instruction cache and the instruction pipeline when
+                     * the FENCE.I is executed.
+                     */
                     // Flush the pipeline
                     flush_pipeline_task (1'b1);
                     pipeline_trap_mcause <= 0;
 
-                    fetch_address <= exec_next_addr_i;
-`ifdef SIMULATION
-                    if (exec_next_addr_i == exec_instr_addr_o) begin
-                        looping_instruction <= 1'b1;
-                        cpu_state_m <= STATE_HALTED;
-                    end
-`endif // SIMULATION
+                    i_cache_has_instr <= 0;
+                    i_cache_has_decoded <= 0;
                 end
 
                 default: begin
@@ -1336,7 +1342,6 @@ module risc_p (
     always @(posedge clk) begin
         if (reset_btn) begin
             reset_clks <= 0;
-            reset_state_m <= RESET_STATE_ACTIVE;
             reset <= 1'b1;
             led <= 0;
             `ifdef BOARD_BLUE_WHALE led_a <= 16'h0;`endif
@@ -1435,7 +1440,6 @@ module risc_p (
                 finish_simulation <= finish_simulation - 4'h1;
             end else begin
                 if (execute_trap > 0) begin
-                    $display ($time, " CORE: Trap count: %0d", execute_trap);
                     if (looping_instruction) begin
                         $display ($time, " CORE: ------- Halt: looping instruction @[%h]; exception: %s --------",
                                 exec_instr_addr_o, to_mcause_bits_string(1 << mem_space_m.csr_m.mcause));

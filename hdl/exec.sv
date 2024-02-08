@@ -37,6 +37,7 @@
  * err_o                    -- The transaction completes with an error on the posedge of this signal.
  * jmp_o                    -- 1'b1 if next_addr_o is an instruction address due to a jump.
  * mret_o                   -- 1'b1 if returning from an interrupt.
+ * fencei_o                 -- 1'b1 if a fence.i was executed.
  * next_addr_o              -- The address of the next instruction to be executed.
  * rd_o                     -- The destination register value to be written to the regfile (the value of instr_op_rd_i).
  *  --- Trap ports
@@ -84,6 +85,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     output logic err_o,
     output logic jmp_o,
     output logic mret_o,
+    output logic fencei_o,
     output logic [31:0] next_addr_o,
     output logic [31:0] rd_o,
     // Trap ports
@@ -137,6 +139,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     task exec_task;
         jmp_o <= 1'b0;
         mret_o <= 1'b0;
+        fencei_o <= 1'b0;
         trap_mcause_o <= 0;
 
         (* parallel_case, full_case *)
@@ -938,6 +941,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 next_addr_o <= instr_addr_i + 4;
 `endif
+                fencei_o <= 1'b1;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 `endif // ENABLE_ZIFENCEI_EXT
