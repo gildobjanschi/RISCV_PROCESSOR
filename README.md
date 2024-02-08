@@ -17,7 +17,7 @@ The RISC-V application binaries are compiled using the GNU toolchain for RISC-V.
 ## How to get started?
 My development was done entirely on Linux (Ubuntu 22.04).
 
-The simplest way to install the tools you will need is to use [apio](https://pypi.org/project/apio/). 
+The simplest way to install the tools you will need is to use [apio](https://pypi.org/project/apio/).
 Run apio to install oss-cad-suite:
 ```
 > ./apio install oss-cad-suite
@@ -26,7 +26,7 @@ Run apio to install oss-cad-suite:
 You also need to install the [Project Trellis database](https://github.com/YosysHQ/prjtrellis-db).
 
 ### Using scripts to run the simulator and/or program the FPGA
-Three scripts are available to simplify the use of the simulator as well as building and flashing the FPGA. 
+Three scripts are available to simplify the use of the simulator as well as building and flashing the FPGA.
 
 'tests.sh' runs a test for each one of the supported RISC-V instructions.
 
@@ -40,17 +40,23 @@ The source code for the TestC, Console and Dhrystone RISC-V C code applications 
 * Dhrystone is a performance evaluation application that enables you to view printf output of this application with a serial communication program.
 
 ### Simulation
-Before running the instructions test script you need to build the test binaries (over 95 .bin files):
+Before running the instructions test script you need to build the test binaries (over 100 .bin files).
+Build the [RISC V architecture tests](https://github.com/riscv-non-isa/riscv-arch-test):
 
 ```
 > cd apps/TestCompliance/Release
+> ./build.sh
+```
+Build the [Google random tests](https://github.com/chipsalliance/riscv-dv):
+```
+> cd apps/RandomTest/Release
 > ./build.sh
 ```
 
 Run all the instruction tests in the pipelined processor:
 ```
 > cd hdl
-> ./tests.sh -p 
+> ./tests.sh -p
 ```
 
 To test the memory space (RAM, flash, IO, CSR and interrupts):
@@ -58,8 +64,8 @@ To test the memory space (RAM, flash, IO, CSR and interrupts):
 > ./sim.sh -m
 ```
 
-To run the processor either in the simulator or on the FPGA you need to build the RISC-V sample apps first. 
-Ensure that the [GNU toolchain for RISC-V xPack](https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases) is installed. 
+To run the processor either in the simulator or on the FPGA you need to build the RISC-V sample apps first.
+Ensure that the [GNU toolchain for RISC-V xPack](https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases) is installed.
 Add the /bin folder of the xPack to your path and then build each one of the Console, TestC and the Dhrystone applications:
 
 ```
