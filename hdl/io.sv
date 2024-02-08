@@ -72,15 +72,15 @@ module io #(parameter [31:0] CLK_PERIOD_NS = 20,
 
     // The timer module uses the timer clock (timer_clk_i) and it is asynchronous to the main clock.
     logic sync_timer_ack_i, sync_timer_ack_i_pulse;
-    DFF_META dff_ack_meta (.reset(rst_i), .D(timer_ack_i), .clk(clk_i), .Q(sync_timer_ack_i),
+    DFF_METAP dff_ack_meta (.reset(rst_i), .D(timer_ack_i), .clk(clk_i), .Q(sync_timer_ack_i),
                                     .Q_pulse(sync_timer_ack_i_pulse));
 
     logic sync_timer_irq, sync_timer_irq_pulse;
-    DFF_META dff_timer_irq_meta (.reset(rst_i), .D(timer_irq_i), .clk(clk_i), .Q(sync_timer_irq),
+    DFF_METAP dff_timer_irq_meta (.reset(rst_i), .D(timer_irq_i), .clk(clk_i), .Q(sync_timer_irq),
                                     .Q_pulse(sync_timer_irq_pulse));
 
     logic sync_external_irq_pulse;
-    DFF_META dff_ext_irq_meta (.reset(rst_i), .D(external_irq_i), .clk(clk_i), .Q_pulse(sync_external_irq_pulse));
+    DFF_METAP dff_ext_irq_meta (.reset(rst_i), .D(external_irq_i), .clk(clk_i), .Q_pulse(sync_external_irq_pulse));
 
     logic new_transaction;
     assign new_transaction = stb_i & cyc_i & ~sync_ack_o & ~sync_err_o;

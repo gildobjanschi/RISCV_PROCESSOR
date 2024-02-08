@@ -76,27 +76,27 @@ Add the /bin folder of the xPack to your path and then build each one of the Con
 
 Run the TestC.bin application on the RISC-V processor:
 ```
-> ./sim.sh -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+> ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
 
 Run the Dhrystone.bin application on the RISC-V processor:
 ```
-> ./sim.sh -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
+> ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
 ```
 
 Run the TestC.bin application on the RISC-V processor and view executing instructions:
 ```
-> ./sim.sh -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+> ./sim.sh -m -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
 
 Write the output to a file to view it:
 ```
-> ./sim.sh -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\" > out.txt
+> ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\" > out.txt
 ```
 
 Run the TestC.bin application on the processor, view executing instructions and view pipeline operations:
 ```
-> ./sim.sh -D D_CORE -D D_CORE_FINE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+> ./sim.sh -p -D D_CORE -D D_CORE_FINE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
 
 ### FPGA
@@ -109,12 +109,12 @@ Run the memory space test:
 
 TestC application running on the RISC-V processor:
 ```
-> ./fpga.sh -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
+> ./fpga.sh -p -D CLK_PERIOD_NS=16 -b ../apps/TestC/Release/TestC.bin
 ```
 
 Dhrystone application running in the RISC-V processor:
 ```
-> ./fpga.sh -D CLK_PERIOD_NS=20 -b ../apps/Dhrystone/Release/Dhrystone.bin
+> ./fpga.sh -p -D CLK_PERIOD_NS=20 -b ../apps/Dhrystone/Release/Dhrystone.bin
 ```
 
 To view the printf output for any of the above applications use a serial communication application on the host machine.
@@ -130,7 +130,7 @@ minstret = 4414
 Running Dhrystone in the simulator yields the following output.
 
 ```
-> ./sim.sh -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
+> ./sim.sh -p -D D_IO -D BIN_FILE_NAME=\"../apps/Dhrystone/Release/Dhrystone.bin\"
 Running on ULX3S.
 Running pipeline version.
                    0 INITIAL: Loading .bin file: ../apps/Dhrystone/Release/Dhrystone.bin...
@@ -188,7 +188,7 @@ See a complete list in sim.sh.
 Here is a snippet of output when running an application with D_CORE and D_IO to view the application printf output.
 
 ```
-> ./sim.sh -D D_CORE -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+> ./sim.sh -p -D D_CORE -D D_IO -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 Running on ULX3S.
 Running pipeline version.
                    0 INITIAL: Loading .bin file: ../apps/TestC/Release/TestC.bin...
@@ -225,7 +225,7 @@ Hello RISC-V on FPGA!
 
 The output snippet below is from an application running with D_EXEC flag to view each instruction executed by the processor.
 ```
-> ./sim.sh -D D_CORE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+> ./sim.sh -p -D D_CORE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 Running on ULX3S.
 Running pipeline version.
                    0 INITIAL: Loading .bin file: ../apps/TestC/Release/TestC.bin...
