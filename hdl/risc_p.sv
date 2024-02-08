@@ -1230,6 +1230,8 @@ module risc_p (
                     flush_pipeline_task (1'b1);
                     pipeline_trap_mcause <= 0;
 
+                    fetch_address <= exec_next_addr_i;
+
                     i_cache_has_instr <= 0;
                     i_cache_has_decoded <= 0;
                 end
