@@ -1109,6 +1109,8 @@ module risc_p (
             led[3] <= 1'b0;
             `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b0;`endif
 
+            incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
+
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
             /*
@@ -1166,28 +1168,7 @@ module risc_p (
 `endif
             end
 
-            incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-
             case (1'b1)
-                exec_mret_i: begin
-                    if (execute_trap == 1) begin
-                        led[6] <= 1'b0;
-                        `ifdef BOARD_BLUE_WHALE led_a[13] <= 1'b0;`endif
-                        `ifdef BOARD_BLUE_WHALE led_a[14] <= 1'b0;`endif
-                    end
-                    /*
-                     * Some tests use mret instructions without entering an interrupt and we need to account
-                     * for this case otherwise execute_trap would go negative.
-                     */
-                    if (execute_trap != 0) execute_trap <= execute_trap - 1;
-
-                    // Flush the pipeline
-                    flush_pipeline_task (1'b1);
-                    pipeline_trap_mcause <= 0;
-
-                    fetch_address <= exec_next_addr_i;
-                end
-
                 exec_jmp_i: begin
                     led[5] <= 1'b1;
                     `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b1;`endif
@@ -1196,6 +1177,20 @@ module risc_p (
                     pipeline_trap_mcause <= 0;
 
                     fetch_address <= exec_next_addr_i;
+
+                    if (exec_mret_i) begin
+                        if (execute_trap == 1) begin
+                            led[6] <= 1'b0;
+                            `ifdef BOARD_BLUE_WHALE led_a[13] <= 1'b0;`endif
+                            `ifdef BOARD_BLUE_WHALE led_a[14] <= 1'b0;`endif
+                        end
+                        /*
+                        * Some tests use mret instructions without entering an interrupt and we need to account
+                        * for this case otherwise execute_trap would go negative.
+                        */
+                        if (execute_trap != 0) execute_trap <= execute_trap - 1;
+                    end
+
 `ifdef SIMULATION
                     if (exec_next_addr_i == exec_instr_addr_o) begin
                         looping_instruction <= 1'b1;
