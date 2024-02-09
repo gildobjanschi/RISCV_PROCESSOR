@@ -436,11 +436,8 @@ module risc_p (
 
     logic [31:0] pipeline_instr_addr[0:PIPELINE_SIZE-1];
     logic [31:0] pipeline_instr[0:PIPELINE_SIZE-1];
-    logic [7:0] pipeline_op_type[0:PIPELINE_SIZE-1];
-    logic [4:0] pipeline_op_rd[0:PIPELINE_SIZE-1];
-    logic [4:0] pipeline_op_rs1[0:PIPELINE_SIZE-1];
-    logic [4:0] pipeline_op_rs2[0:PIPELINE_SIZE-1];
-    logic [31:0] pipeline_op_imm[0:PIPELINE_SIZE-1];
+    // [53:22] imm; [21:15] op_type; [14:10] op_rd; [9:5] op_rs1; [4:0] op_rs2
+    logic [53:0] pipeline_decoder_op[0:PIPELINE_SIZE-1];
     logic [31:0] pipeline_rs1[0:PIPELINE_SIZE-1];
     logic [31:0] pipeline_rs2[0:PIPELINE_SIZE-1];
     logic pipeline_trap[0:PIPELINE_SIZE-1];
@@ -472,11 +469,8 @@ module risc_p (
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_addr[0:CACHE_SIZE-1];
     // Decoder cache
-    logic [6:0] i_cache_decoder_op_type[0:CACHE_SIZE-1];
-    logic [4:0] i_cache_decoder_op_rd[0:CACHE_SIZE-1];
-    logic [4:0] i_cache_decoder_op_rs1[0:CACHE_SIZE-1];
-    logic [4:0] i_cache_decoder_op_rs2[0:CACHE_SIZE-1];
-    logic [31:0] i_cache_decoder_imm[0:CACHE_SIZE-1];
+    // [53:22] imm; [21:15] op_type; [14:10] op_rd; [9:5] op_rs1; [4:0] op_rs2
+    logic [53:0] i_cache_decoder_op[0:CACHE_SIZE-1];
     logic [CACHE_SIZE-1:0] i_cache_has_instr;
     logic [CACHE_SIZE-1:0] i_cache_compressed;
     logic [CACHE_SIZE-1:0] i_cache_has_decoded;
@@ -592,11 +586,7 @@ module risc_p (
             end
 
             pipeline_instr[pipeline_wr_ptr] <= i_cache_instr[i_cache_index];
-            pipeline_op_type[pipeline_wr_ptr] <= i_cache_decoder_op_type[i_cache_index];
-            pipeline_op_rd[pipeline_wr_ptr] <= i_cache_decoder_op_rd[i_cache_index];
-            pipeline_op_rs1[pipeline_wr_ptr] <= i_cache_decoder_op_rs1[i_cache_index];
-            pipeline_op_rs2[pipeline_wr_ptr] <= i_cache_decoder_op_rs2[i_cache_index];
-            pipeline_op_imm[pipeline_wr_ptr] <= i_cache_decoder_imm[i_cache_index];
+            pipeline_decoder_op[pipeline_wr_ptr] <= i_cache_decoder_op[i_cache_index];
 
             // Calculate the next fetch address
             fetch_address <= i_cache_compressed[i_cache_index] ? next_fetch_address_plus_2 : next_fetch_address_plus_4;
@@ -662,8 +652,8 @@ module risc_p (
         if (pipeline_entry_status[regfile_read_ptr] == PL_E_INSTR_DECODED) begin
             pipeline_entry_status[regfile_read_ptr] <= PL_E_REGFILE_READ_PENDING;
 
-            regfile_op_rs1_o <= pipeline_op_rs1[regfile_read_ptr];
-            regfile_op_rs2_o <= pipeline_op_rs2[regfile_read_ptr];
+            regfile_op_rs1_o <= pipeline_decoder_op[regfile_read_ptr][9:5];
+            regfile_op_rs2_o <= pipeline_decoder_op[regfile_read_ptr][4:0];
             regfile_stb_read_o <= 1'b1;
 
             regfile_read_pending_entry <= regfile_read_ptr;
@@ -673,7 +663,8 @@ module risc_p (
             `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b1;`endif
 `ifdef D_CORE_FINE
             $display ($time, " CORE:    [%h] Regfile read rs1x%0d, rs2x%0d -> PL_E_REGFILE_READ_PENDING.",
-                                regfile_read_ptr, pipeline_op_rs1[regfile_read_ptr], pipeline_op_rs2[regfile_read_ptr]);
+                                regfile_read_ptr, pipeline_decoder_op[regfile_read_ptr][9:5],
+                                pipeline_decoder_op[regfile_read_ptr][4:0]);
 `endif
             regfile_read_ptr <= next_regfile_read_ptr;
         end else if (pipeline_entry_status[regfile_read_ptr] >= PL_E_REGFILE_READ) begin
@@ -693,11 +684,11 @@ module risc_p (
         exec_instr_addr_o <= pipeline_instr_addr[pipeline_rd_ptr];
         exec_instr_o <= pipeline_instr[pipeline_rd_ptr];
         exec_instr_is_compressed_o <= ~(pipeline_instr[pipeline_rd_ptr][1:0] == 2'b11);
-        exec_op_type_o <= pipeline_op_type[pipeline_rd_ptr];
-        exec_op_rd_o <= pipeline_op_rd[pipeline_rd_ptr];
-        exec_op_rs1_o <= pipeline_op_rs1[pipeline_rd_ptr];
-        exec_op_rs2_o <= pipeline_op_rs2[pipeline_rd_ptr];
-        exec_op_imm_o <= pipeline_op_imm[pipeline_rd_ptr];
+        exec_op_imm_o <= pipeline_decoder_op[pipeline_rd_ptr][53:22];
+        exec_op_type_o <= pipeline_decoder_op[pipeline_rd_ptr][21:15];
+        exec_op_rd_o <= pipeline_decoder_op[pipeline_rd_ptr][14:10];
+        exec_op_rs1_o <= pipeline_decoder_op[pipeline_rd_ptr][9:5];
+        exec_op_rs2_o <= pipeline_decoder_op[pipeline_rd_ptr][4:0];
         exec_rs1_o <= pipeline_rs1[pipeline_rd_ptr];
         exec_rs2_o <= pipeline_rs2[pipeline_rd_ptr];
         exec_stb_o <= 1'b1;
@@ -705,7 +696,7 @@ module risc_p (
         // Exec LED on
         led[3] <= 1'b1;
         `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b1;`endif
-        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_op_type[pipeline_rd_ptr];`endif
+        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_decoder_op[pipeline_rd_ptr][21:15];`endif
 
 `ifdef D_CORE_FINE
         $display ($time, " CORE:    [%h] Execute instruction: @[%h] -> PL_E_EXEC_PENDING.", pipeline_rd_ptr,
@@ -725,19 +716,19 @@ module risc_p (
         exec_instr_addr_o <= pipeline_instr_addr[entry];
         exec_instr_o <= pipeline_instr[entry];
         exec_instr_is_compressed_o <= pipeline_instr[entry][1:0] != 2'b11;
-        exec_op_type_o <= pipeline_op_type[entry];
-        exec_op_rd_o <= pipeline_op_rd[entry];
-        exec_op_rs1_o <= pipeline_op_rs1[entry];
-        exec_op_rs2_o <= pipeline_op_rs2[entry];
-        exec_op_imm_o <= pipeline_op_imm[entry];
-        exec_rs1_o <= (|op_rd & op_rd == pipeline_op_rs1[entry]) ? rd : pipeline_rs1[entry];
-        exec_rs2_o <= (|op_rd & op_rd == pipeline_op_rs2[entry]) ? rd : pipeline_rs2[entry];
+        exec_op_imm_o <= pipeline_decoder_op[entry][53:22];
+        exec_op_type_o <= pipeline_decoder_op[entry][21:15];
+        exec_op_rd_o <= pipeline_decoder_op[entry][14:10];
+        exec_op_rs1_o <= pipeline_decoder_op[entry][9:5];
+        exec_op_rs2_o <= pipeline_decoder_op[entry][4:0];
+        exec_rs1_o <= (|op_rd & op_rd == pipeline_decoder_op[entry][9:5]) ? rd : pipeline_rs1[entry];
+        exec_rs2_o <= (|op_rd & op_rd == pipeline_decoder_op[entry][4:0]) ? rd : pipeline_rs2[entry];
         exec_stb_o <= 1'b1;
 
         // Exec LED on
         led[3] <= 1'b1;
         `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b1;`endif
-        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_op_type[entry];`endif
+        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_decoder_op[entry][21:15];`endif
 
 `ifdef D_CORE_FINE
         $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry,
@@ -764,8 +755,7 @@ module risc_p (
         // while these operations were pending.
         for (i = 0; i < PIPELINE_SIZE; i = i + 1) begin
             pipeline_entry_status[i] <= PL_E_EMPTY;
-            pipeline_op_rs1[i] <= 0;
-            pipeline_op_rs2[i] <= 0;
+            pipeline_decoder_op[i] <= 0;
             pipeline_trap[i] <= 1'b0;
         end
 
@@ -1028,22 +1018,16 @@ module risc_p (
             `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
             // Cache the decoder data
             i_cache_has_decoded[d_cache_index] <= 1'b1;
-            i_cache_decoder_op_type[d_cache_index] <= decoder_op_type_i;
-            i_cache_decoder_op_rd[d_cache_index] <= decoder_op_rd_i;
-            i_cache_decoder_op_rs1[d_cache_index] <= decoder_op_rs1_i;
-            i_cache_decoder_op_rs2[d_cache_index] <= decoder_op_rs2_i;
-            i_cache_decoder_imm[d_cache_index] <= decoder_op_imm_i;
+            i_cache_decoder_op[d_cache_index] <= {decoder_op_imm_i, decoder_op_type_i, decoder_op_rd_i,
+                                                        decoder_op_rs1_i, decoder_op_rs2_i};
             i_cache_decoder_load_rs1_rs2[d_cache_index] <= decoder_load_rs1_rs2_i;
 
             if (pipeline_entry_status[decode_pending_entry] == PL_E_INSTR_DECODE_PENDING) begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Decode complete.", decode_pending_entry);
 `endif
-                pipeline_op_type[decode_pending_entry] <= decoder_op_type_i;
-                pipeline_op_rd[decode_pending_entry] <= decoder_op_rd_i;
-                pipeline_op_rs1[decode_pending_entry] <= decoder_op_rs1_i;
-                pipeline_op_rs2[decode_pending_entry] <= decoder_op_rs2_i;
-                pipeline_op_imm[decode_pending_entry] <= decoder_op_imm_i;
+                pipeline_decoder_op[decode_pending_entry] <= {decoder_op_imm_i, decoder_op_type_i, decoder_op_rd_i,
+                                                        decoder_op_rs1_i, decoder_op_rs2_i};
 
                 if (decoder_load_rs1_rs2_i) begin
                     pipeline_entry_status[decode_pending_entry] <= PL_E_INSTR_DECODED;
@@ -1149,8 +1133,7 @@ module risc_p (
 
             // Invalidate the pipeline entry
             pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EMPTY;
-            pipeline_op_rs1[pipeline_rd_ptr] <= 0;
-            pipeline_op_rs2[pipeline_rd_ptr] <= 0;
+            pipeline_decoder_op[pipeline_rd_ptr] <= 0;
 
             if (|exec_op_rd_o) begin
                 // Write the destination register to the regfile
@@ -1180,8 +1163,8 @@ module risc_p (
                      *
                      * The pipeline entry status is not checked here since it won't give any added benefit.
                      */
-                    if (pipeline_op_rs1[i] == exec_op_rd_o) pipeline_rs1[i] <= exec_rd_i;
-                    if (pipeline_op_rs2[i] == exec_op_rd_o) pipeline_rs2[i] <= exec_rd_i;
+                    if (pipeline_decoder_op[i][9:5] == exec_op_rd_o) pipeline_rs1[i] <= exec_rd_i;
+                    if (pipeline_decoder_op[i][4:0] == exec_op_rd_o) pipeline_rs2[i] <= exec_rd_i;
                 end
             end else begin
 `ifdef D_CORE_FINE
