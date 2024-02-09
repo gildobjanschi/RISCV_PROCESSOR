@@ -23,7 +23,16 @@ Run apio to install oss-cad-suite:
 > ./apio install oss-cad-suite
 ```
 
-You also need to install the [Project Trellis database](https://github.com/YosysHQ/prjtrellis-db).
+Ensure that you have version oss-cad-suite 0.1.0 or later.
+```
+> ./apio install --list
+Installed packages:
+
+----------------------------------------------------------
+Name        Description                    Version
+----------------------------------------------------------
+oss-cad-suite YosysHQ/oss-cad-suite          0.1.0
+```
 
 ### Using scripts to run the simulator and/or program the FPGA
 Three scripts are available to simplify the use of the simulator as well as building and flashing the FPGA.
@@ -99,7 +108,12 @@ Run the TestC.bin application on the processor, view executing instructions and 
 > ./sim.sh -p -D D_CORE -D D_CORE_FINE -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
 
-### FPGA
+### Running on the FPGA
+Before you can program the FPGA with the help of the fpga.sh script you need to set the TRELLISD_DB in the script to the correct path to the Trellis database which is included in the oss-cad-suite package.
+```
+TRELLISD_DB="~/.apio/packages/tools-oss-cad-suite/share/trellis/database"
+```
+
 Run the memory space test:
 ```
 > ./fpga.sh -m -D CLK_PERIOD_NS=16
