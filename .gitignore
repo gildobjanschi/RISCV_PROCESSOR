@@ -1,10 +1,5 @@
 /hdl/abc.history
-/hdl/out.config
-/hdl/out.bit
-/hdl/out.json
-/hdl/out.sim
-/hdl/out.txt
-/hdl/out.csv
+/hdl/out.*
 /hdl/*.kate-swp
 
 /apps/Console/Release/*.bin
@@ -31,5 +26,9 @@
 /apps/TestCompliance/Release/*.map
 /apps/TestCompliance/Release/src/*
 
-/prjtrellis-db
+/apps/RandomTest/Release/*.bin
+/apps/RandomTest/Release/*.elf
+/apps/RandomTest/Release/*.lst
+/apps/RandomTest/Release/*.map
+/apps/RandomTest/Release/src/*
 
