@@ -438,7 +438,7 @@ module risc_p (
     logic [53:0] pipeline_decoder_op[0:PIPELINE_SIZE-1];
     logic [31:0] pipeline_rs1[0:PIPELINE_SIZE-1];
     logic [31:0] pipeline_rs2[0:PIPELINE_SIZE-1];
-    logic pipeline_trap[0:PIPELINE_SIZE-1];
+    logic [PIPELINE_SIZE-1:0] pipeline_trap;
 
     integer i;
     logic [PIPELINE_BITS-1:0] fetch_pending_entry, decode_pending_entry, regfile_read_pending_entry;
@@ -722,8 +722,8 @@ module risc_p (
         for (i=0; i<PIPELINE_SIZE; i = i + 1) begin
             pipeline_entry_status[i] <= PL_E_EMPTY;
             pipeline_decoder_op[i] <= 0;
-            pipeline_trap[i] <= 1'b0;
         end
+        pipeline_trap <= 0;
 
         decode_ptr <= 0;
         regfile_read_ptr <= 0;
