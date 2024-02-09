@@ -56,7 +56,7 @@ module timer #(parameter [31:0] TIMER_PERIOD_NS = 100) (
     DFF_META dff_meta_rst (.reset(1'b0), .D(rst_i), .clk(clk_i), .Q(sync_rst_i));
     DFF_META dff_meta_stb (.reset(sync_rst_i), .D(stb_i), .clk(clk_i), .Q(sync_stb_i));
     DFF_META dff_meta_cyc (.reset(sync_rst_i), .D(cyc_i), .clk(clk_i), .Q(sync_cyc_i));
-    DFF_METAP dff_meta_irq (.reset(sync_rst_i), .D(clr_irq_i), .clk(clk_i), .Q_pulse(sync_clr_irq_i_pulse));
+    DFF_META dff_meta_irq (.reset(sync_rst_i), .D(clr_irq_i), .clk(clk_i), .Q_pulse(sync_clr_irq_i_pulse));
 
     logic [63:0] mtime, mtimecmp;
 

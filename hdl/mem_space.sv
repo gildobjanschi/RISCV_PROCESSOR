@@ -172,7 +172,7 @@ module mem_space #(
     logic [31:0] incr_internal_event_counters;
     // Wishbone flip flop for handling cross domain flash ack
     logic sync_flash_ack_i, sync_flash_ack_i_pulse;
-    DFF_METAP dff_meta_flash_ack (.reset(rst_i), .D(flash_ack_i), .clk(clk_i), .Q(sync_flash_ack_i),
+    DFF_META dff_meta_flash_ack (.reset(rst_i), .D(flash_ack_i), .clk(clk_i), .Q(sync_flash_ack_i),
                             .Q_pulse(sync_flash_ack_i_pulse));
 
     //==================================================================================================================

@@ -18,23 +18,7 @@
 //==================================================================================================================
 // Metastability flip-flop
 //==================================================================================================================
-module DFF_META (input logic reset, input logic D, input logic clk, output logic Q);
-    logic Q_pipe = 1'b0;
-    always @(posedge clk) begin
-        if (reset) begin
-            Q <= 1'b0;
-            Q_pipe <= 1'b0;
-        end else begin
-            Q_pipe <= D;
-            Q <= Q_pipe;
-        end
-    end
-endmodule
-
-//==================================================================================================================
-// Metastability flip-flop
-//==================================================================================================================
-module DFF_METAP (input logic reset, input logic D, input logic clk, output logic Q, output logic Q_pulse);
+module DFF_META (input logic reset, input logic D, input logic clk, output logic Q, output logic Q_pulse);
     logic Q_pipe = 1'b0;
     always @(posedge clk) begin
         if (reset) begin
