@@ -111,7 +111,7 @@ Run the TestC.bin application on the processor, view executing instructions and 
 ### Running on the FPGA
 Before you can program the FPGA with the help of the fpga.sh script you need to set the TRELLISD_DB in the script to the correct path to the Trellis database which is included in the oss-cad-suite package.
 ```
-TRELLISD_DB="~/.apio/packages/tools-oss-cad-suite/share/trellis/database"
+TRELLISD_DB="/home/virgild/.apio/packages/tools-oss-cad-suite/share/trellis/database"
 ```
 
 Run the memory space test:
