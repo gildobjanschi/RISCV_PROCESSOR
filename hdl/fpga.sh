@@ -27,6 +27,8 @@ BOARD=""
 # ENABLE_RV32A_EXT:    Atomic instructions support.
 # ENABLE_HPM_COUNTERS: Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
+# ENABLE_LED_BASE      Enable LEDs on ULX3S or the ones on the BLUE_WHALE base board.
+# ENABLE_LED_EXT       Enable LEDs on the BLUE_WHALE extension board,
 OPTIONS="-D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
 APP_NAME=""

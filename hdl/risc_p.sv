@@ -590,7 +590,7 @@ module risc_p (
             // Calculate the next fetch address
             fetch_address <= i_cache_compressed[i_cache_index] ? next_fetch_address_plus_2 : next_fetch_address_plus_4;
             // Set the cache LED
-            `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b1;`endif
+            `ifdef ENABLE_LED_EXT led_a[0] <= 1'b1; `endif
 
 `ifdef ENABLE_HPM_COUNTERS
             incr_event_counters_o[`EVENT_I_CACHE_HIT] <= 1'b1;
@@ -606,9 +606,9 @@ module risc_p (
             fetch_pending_entry <= pipeline_wr_ptr;
 
             // Fetch LED on
-            led[0] <= 1'b1;
+            `ifdef ENABLE_LED_BASE led[0] <= 1'b1; `endif
             // Clear the cache LED
-            `ifdef BOARD_BLUE_WHALE led_a[0] <= 1'b0;`endif
+            `ifdef ENABLE_LED_EXT led_a[0] <= 1'b0; `endif
 `ifdef D_CORE_FINE
             $display ($time, " CORE:    [%h] Fetch @[%h] -> PL_E_INSTR_FETCH_PENDING.", pipeline_wr_ptr, fetch_address);
 `endif
@@ -628,8 +628,8 @@ module risc_p (
             decode_pending_entry <= decode_ptr;
 
             // Decode LED on
-            led[1] <= 1'b1;
-            `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b1;`endif
+            `ifdef ENABLE_LED_BASE led[1] <= 1'b1; `endif
+            `ifdef ENABLE_LED_EXT led_a[1] <= 1'b1; `endif
 `ifdef D_CORE_FINE
             $display ($time, " CORE:    [%h] Decode %h -> PL_E_INSTR_DECODE_PENDING.", decode_ptr,
                         pipeline_instr[decode_ptr]);
@@ -656,8 +656,8 @@ module risc_p (
             regfile_read_pending_entry <= regfile_read_ptr;
 
             // Regfile LED on
-            led[2] <= 1'b1;
-            `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b1;`endif
+            `ifdef ENABLE_LED_BASE led[2] <= 1'b1; `endif
+            `ifdef ENABLE_LED_EXT led_a[2] <= 1'b1; `endif
 `ifdef D_CORE_FINE
             $display ($time, " CORE:    [%h] Regfile read rs1x%0d, rs2x%0d -> PL_E_REGFILE_READ_PENDING.",
                                 regfile_read_ptr, pipeline_decoder_op[regfile_read_ptr][9:5],
@@ -692,9 +692,9 @@ module risc_p (
         {exec_stb_o, exec_cyc_o} <= 2'b11;
 
         // Exec LED on
-        led[3] <= 1'b1;
-        `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b1;`endif
-        `ifdef BOARD_BLUE_WHALE led_a[11:5] <= pipeline_decoder_op[pipeline_rd_ptr][21:15];`endif
+        `ifdef ENABLE_LED_BASE led[3] <= 1'b1; `endif
+        `ifdef ENABLE_LED_EXT led_a[3] <= 1'b1; `endif
+        `ifdef ENABLE_LED_EXT led_a[11:5] <= pipeline_decoder_op[pipeline_rd_ptr][21:15]; `endif
 
 `ifdef D_CORE_FINE
         $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", pipeline_rd_ptr,
@@ -775,15 +775,15 @@ module risc_p (
                 if (core_cyc_o & core_stb_o & (core_ack_i | core_err_i)) begin
                     {core_stb_o, core_cyc_o} <= 2'b00;
                     // Fetch instruction LED off
-                    led[0] <= 1'b0;
+                    `ifdef ENABLE_LED_BASE led[0] <= 1'b0; `endif
                 end else if (~core_cyc_o & ~core_stb_o & ~core_ack_i & ~core_err_i) begin
 `ifdef D_CORE_FINE
                     $display ($time, " CORE:            Enter trap task; mcause = %h; mepc = %h; mtval: = %h.",
                                 pipeline_trap_mcause, pipeline_trap_mepc, pipeline_trap_mtval);
 `endif
-                    led[6] <= 1'b1;
-                    `ifdef BOARD_BLUE_WHALE led_a[13] <= ~pipeline_trap_mcause[31];`endif
-                    `ifdef BOARD_BLUE_WHALE led_a[14] <= pipeline_trap_mcause[31];`endif
+                    `ifdef ENABLE_LED_BASE led[6] <= 1'b1; `endif
+                    `ifdef ENABLE_LED_EXT led_a[13] <= ~pipeline_trap_mcause[31]; `endif
+                    `ifdef ENABLE_LED_EXT led_a[14] <= pipeline_trap_mcause[31]; `endif
 
                     // Write the mepc CSR register
                     core_addr_o <= `CSR_BEGIN_ADDR + `CSR_MEPC;
@@ -940,7 +940,7 @@ module risc_p (
         if (core_stb_o & core_cyc_o & core_ack_i) begin
             {core_stb_o, core_cyc_o} <= 2'b00;
             // Fetch instruction LED off
-            led[0] <= 1'b0;
+            `ifdef ENABLE_LED_BASE led[0] <= 1'b0; `endif
 
             // Write the instruction into the cache.
             i_cache_addr[o_cache_index] <= core_addr_o;
@@ -967,7 +967,7 @@ module risc_p (
         end else if (core_stb_o & core_cyc_o & core_err_i) begin
             {core_stb_o, core_cyc_o} <= 2'b00;
             // Fetch instruction LED off
-            led[0] <= 1'b0;
+            `ifdef ENABLE_LED_BASE led[0] <= 1'b0; `endif
 
 `ifdef D_CORE
             $display ($time, " CORE:        Illegal instruction address @[%h].", core_addr_o);
@@ -993,8 +993,8 @@ module risc_p (
         if (decoder_stb_o & decoder_cyc_o & decoder_ack_i) begin
             {decoder_stb_o, decoder_cyc_o} <= 2'b00;
             // Decode instruction LED off
-            led[1] <= 1'b0;
-            `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
+            `ifdef ENABLE_LED_BASE led[1] <= 1'b0; `endif
+            `ifdef ENABLE_LED_EXT led_a[1] <= 1'b0; `endif
 
             // Cache the decoder data
             i_cache_has_decoded[d_cache_index] <= 1'b1;
@@ -1022,8 +1022,8 @@ module risc_p (
         end else if (decoder_stb_o & decoder_cyc_o & decoder_err_i) begin
             {decoder_stb_o, decoder_cyc_o} <= 2'b00;
             // Decode instruction LED off
-            led[1] <= 1'b0;
-            `ifdef BOARD_BLUE_WHALE led_a[1] <= 1'b0;`endif
+            `ifdef ENABLE_LED_BASE led[1] <= 1'b0; `endif
+            `ifdef ENABLE_LED_EXT led_a[1] <= 1'b0; `endif
 `ifdef D_CORE
             $display ($time, " CORE:        --- Illegal instruction %h @[%h]. Stop filling the pipeline. ---",
                         decoder_instruction_o, pipeline_instr_addr[decode_pending_entry]);
@@ -1039,8 +1039,8 @@ module risc_p (
         if (regfile_stb_read_o & regfile_cyc_read_o & regfile_ack_read_i) begin
             {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b00;
             // Regfile LED off
-            led[2] <= 1'b0;
-            `ifdef BOARD_BLUE_WHALE led_a[2] <= 1'b0;`endif
+            `ifdef ENABLE_LED_BASE led[2] <= 1'b0; `endif
+            `ifdef ENABLE_LED_EXT led_a[2] <= 1'b0; `endif
 
             if (pipeline_entry_status[regfile_read_pending_entry] == PL_E_REGFILE_READ_PENDING) begin
                 pipeline_entry_status[regfile_read_pending_entry] <= PL_E_REGFILE_READ;
@@ -1090,8 +1090,8 @@ module risc_p (
         if (exec_stb_o & exec_cyc_o & exec_ack_i) begin
             {exec_stb_o, exec_cyc_o} <= 2'b00;
             // Exec LED off
-            led[3] <= 1'b0;
-            `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b0;`endif
+            `ifdef ENABLE_LED_BASE led[3] <= 1'b0; `endif
+            `ifdef ENABLE_LED_EXT led_a[3] <= 1'b0; `endif
 
             incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
 
@@ -1123,8 +1123,8 @@ module risc_p (
                 regfile_reg_rd_o <= exec_rd_i;
 
                 {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b11;
-                led[4] <= 1'b1;
-                `ifdef BOARD_BLUE_WHALE led_a[4] <= 1'b1;`endif
+                `ifdef ENABLE_LED_BASE led[4] <= 1'b1; `endif
+                `ifdef ENABLE_LED_EXT led_a[4] <= 1'b1; `endif
 
                 // Store the writeback rd register and register value so that when the pending regfile read completes
                 // we update can the rs1 or rs2 with the value of the writeback register.
@@ -1153,8 +1153,8 @@ module risc_p (
 
             case (1'b1)
                 exec_jmp_i: begin
-                    led[5] <= 1'b1;
-                    `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b1;`endif
+                    `ifdef ENABLE_LED_BASE led[5] <= 1'b1; `endif
+                    `ifdef ENABLE_LED_EXT led_a[12] <= 1'b1; `endif
                     // Flush the pipeline
                     flush_pipeline_task (1'b1);
                     pipeline_trap_mcause <= 0;
@@ -1163,9 +1163,9 @@ module risc_p (
 
                     if (exec_mret_i) begin
                         if (execute_trap == 1) begin
-                            led[6] <= 1'b0;
-                            `ifdef BOARD_BLUE_WHALE led_a[13] <= 1'b0;`endif
-                            `ifdef BOARD_BLUE_WHALE led_a[14] <= 1'b0;`endif
+                            `ifdef ENABLE_LED_BASE led[6] <= 1'b0; `endif
+                            `ifdef ENABLE_LED_EXT led_a[13] <= 1'b0; `endif
+                            `ifdef ENABLE_LED_EXT led_a[14] <= 1'b0; `endif
                         end
                         /*
                         * Some tests use mret instructions without entering an interrupt and we need to account
@@ -1199,7 +1199,7 @@ module risc_p (
 
                 exec_fencei_i: begin
                     // The program execution continues at exec_next_addr_i which is an incremental address (+2/+4)
-                    led[5] <= 1'b0;
+                    `ifdef ENABLE_LED_BASE led[5] <= 1'b0; `endif
                     /*
                      * A simple implementation can flush the local instruction cache and the instruction pipeline when
                      * the FENCE.I is executed.
@@ -1216,8 +1216,8 @@ module risc_p (
 
                 default: begin
                     // The program execution continues at exec_next_addr_i which is an incremental address (+2/+4)
-                    led[5] <= 1'b0;
-                    `ifdef BOARD_BLUE_WHALE led_a[12] <= 1'b0;`endif
+                    `ifdef ENABLE_LED_BASE led[5] <= 1'b0; `endif
+                    `ifdef ENABLE_LED_EXT led_a[12] <= 1'b0; `endif
                     // Advance in the pipeline
                     pipeline_rd_ptr <= next_pipeline_rd_ptr;
                 end
@@ -1225,8 +1225,8 @@ module risc_p (
         end else if (exec_stb_o & exec_cyc_o & exec_err_i) begin
             {exec_stb_o, exec_cyc_o} <= 2'b00;
             // Exec LED off
-            led[3] <= 1'b0;
-            `ifdef BOARD_BLUE_WHALE led_a[3] <= 1'b0;`endif
+            `ifdef ENABLE_LED_BASE led[3] <= 1'b0; `endif
+            `ifdef ENABLE_LED_EXT led_a[3] <= 1'b0; `endif
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
             $fdisplay (fd, "%0d, %0d, %0d, %0d", stats_start_execution_time + CLK_PERIOD_NS, exec_op_type_o,
@@ -1311,8 +1311,8 @@ module risc_p (
         if (regfile_stb_write_o & regfile_cyc_write_o & regfile_ack_write_i) begin
             {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b00;
 
-            led[4] <= 1'b0;
-            `ifdef BOARD_BLUE_WHALE led_a[4] <= 1'b0;`endif
+            `ifdef ENABLE_LED_BASE led[4] <= 1'b0; `endif
+            `ifdef ENABLE_LED_EXT led_a[4] <= 1'b0; `endif
         end
     endtask
 
@@ -1323,8 +1323,8 @@ module risc_p (
         if (reset_btn) begin
             reset_clks <= 0;
             reset <= 1'b1;
-            led <= 0;
-            `ifdef BOARD_BLUE_WHALE led_a <= 16'h0;`endif
+            `ifdef ENABLE_LED_BASE led <= 0; `endif
+            `ifdef ENABLE_LED_EXT led_a <= 16'h0; `endif
 
             cpu_state_m <= STATE_RESET;
         end else begin
@@ -1345,8 +1345,8 @@ module risc_p (
                 end
 
                 STATE_HALTED: begin
-                    led[7] <= 1'b1;
-                    `ifdef BOARD_BLUE_WHALE led_a[15] <= 1'b1;`endif
+                    `ifdef ENABLE_LED_BASE led[7] <= 1'b1; `endif
+                    `ifdef ENABLE_LED_EXT led_a[15] <= 1'b1; `endif
                 end
             endcase
         end

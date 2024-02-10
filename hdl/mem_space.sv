@@ -310,7 +310,7 @@ module mem_space #(
         incr_internal_event_counters <= 0;
 
         // Reflect the status of IRQs
-        `ifdef BOARD_BLUE_WHALE led[8] <= |io_interrupts_o;`endif
+        `ifdef ENABLE_LED_EXT led[8] <= |io_interrupts_o;`endif
 
         if (data_sync_ack_o) data_sync_ack_o <= data_stb_i;
         if (data_sync_err_o) data_sync_err_o <= data_stb_i;
@@ -351,7 +351,7 @@ module mem_space #(
                             data_new_transaction_q <= 1'b0;
                             data_access <= ACCESS_FLASH;
 
-                            `ifdef BOARD_BLUE_WHALE led[9] <= 1'b1;`endif
+                            `ifdef ENABLE_LED_EXT led[9] <= 1'b1;`endif
                         end
                     end else begin
                         data_new_transaction_q <= 1'b1;
@@ -387,8 +387,8 @@ module mem_space #(
                         data_new_transaction_q <= 1'b0;
                         data_access <= ACCESS_RAM;
 
-                        `ifdef BOARD_BLUE_WHALE led[10] <= ~data_we_i;`endif
-                        `ifdef BOARD_BLUE_WHALE led[11] <= data_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[10] <= ~data_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[11] <= data_we_i;`endif
                     end else begin
                         data_new_transaction_q <= 1'b1;
                     end
@@ -406,8 +406,8 @@ module mem_space #(
 
                         data_new_transaction_q <= 1'b0;
                         data_access <= ACCESS_IO;
-                        `ifdef BOARD_BLUE_WHALE led[12] <= ~data_we_i;`endif
-                        `ifdef BOARD_BLUE_WHALE led[13] <= data_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[12] <= ~data_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[13] <= data_we_i;`endif
                     end else begin
                         data_new_transaction_q <= 1'b1;
                     end
@@ -429,8 +429,8 @@ module mem_space #(
 
                         data_new_transaction_q <= 1'b0;
                         data_access <= ACCESS_CSR;
-                        `ifdef BOARD_BLUE_WHALE led[14] <= ~data_we_i;`endif
-                        `ifdef BOARD_BLUE_WHALE led[15] <= data_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[14] <= ~data_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[15] <= data_we_i;`endif
                     end else begin
                         data_new_transaction_q <= 1'b1;
                     end
@@ -464,7 +464,7 @@ module mem_space #(
                         core_new_transaction_q <= 1'b0;
                         core_access <= ACCESS_FLASH;
 
-                        `ifdef BOARD_BLUE_WHALE led[1] <= 1'b1;`endif
+                        `ifdef ENABLE_LED_EXT led[1] <= 1'b1;`endif
                     end else begin
                         core_new_transaction_q <= 1'b1;
                     end
@@ -493,8 +493,8 @@ module mem_space #(
                         core_new_transaction_q <= 1'b0;
                         core_access <= ACCESS_RAM;
 
-                        `ifdef BOARD_BLUE_WHALE led[2] <= ~core_we_i;`endif
-                        `ifdef BOARD_BLUE_WHALE led[3] <= core_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[2] <= ~core_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[3] <= core_we_i;`endif
                     end else begin
                         core_new_transaction_q <= 1'b1;
                     end
@@ -517,8 +517,8 @@ module mem_space #(
                         core_new_transaction_q <= 1'b0;
                         core_access <= ACCESS_IO;
 
-                        `ifdef BOARD_BLUE_WHALE led[6] <= ~core_we_i;`endif
-                        `ifdef BOARD_BLUE_WHALE led[7] <= core_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[6] <= ~core_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[7] <= core_we_i;`endif
                     end else begin
                         core_new_transaction_q <= 1'b1;
                     end
@@ -541,8 +541,8 @@ module mem_space #(
                         core_new_transaction_q <= 1'b0;
                         core_access <= ACCESS_CSR;
 
-                        `ifdef BOARD_BLUE_WHALE led[4] <= ~core_we_i;`endif
-                        `ifdef BOARD_BLUE_WHALE led[5] <= core_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[4] <= ~core_we_i;`endif
+                        `ifdef ENABLE_LED_EXT led[5] <= core_we_i;`endif
                     end else begin
                         core_new_transaction_q <= 1'b1;
                     end
@@ -573,14 +573,14 @@ module mem_space #(
 
                 core_access <= ACCESS_NONE;
 
-                `ifdef BOARD_BLUE_WHALE led[1] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[1] <= 1'b0;`endif
             end else begin
                 data_data_o <= flash_data_i;
                 {data_sync_ack_o, data_sync_err_o} <= 2'b10;
 
                 data_access <= ACCESS_NONE;
 
-                `ifdef BOARD_BLUE_WHALE led[9] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[9] <= 1'b0;`endif
             end
 
 `ifdef ENABLE_HPM_COUNTERS
@@ -607,8 +607,8 @@ module mem_space #(
 `ifdef ENABLE_HPM_COUNTERS
                 incr_internal_event_counters[`EVENT_INSTR_FROM_RAM] <= 1'b1;
 `endif
-                `ifdef BOARD_BLUE_WHALE led[2] <= 1'b0;`endif
-                `ifdef BOARD_BLUE_WHALE led[3] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[2] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[3] <= 1'b0;`endif
             end else begin
                 data_data_o <= ram_data_i;
                 data_data_tag_o <= ram_data_tag_i;
@@ -623,8 +623,8 @@ module mem_space #(
                     incr_internal_event_counters[`EVENT_STORE_TO_RAM] <= 1'b1;
                 end
 `endif
-                `ifdef BOARD_BLUE_WHALE led[10] <= 1'b0;`endif
-                `ifdef BOARD_BLUE_WHALE led[11] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[10] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[11] <= 1'b0;`endif
             end
 
 `ifdef D_MEM_SPACE
@@ -647,8 +647,8 @@ module mem_space #(
 
                 core_access <= ACCESS_NONE;
 
-                `ifdef BOARD_BLUE_WHALE led[6] <= 1'b0;`endif
-                `ifdef BOARD_BLUE_WHALE led[7] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[6] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[7] <= 1'b0;`endif
             end else begin
                 data_data_o <= io_data_i;
                 data_data_tag_o <= io_addr_tag_o;
@@ -656,8 +656,8 @@ module mem_space #(
 
                 data_access <= ACCESS_NONE;
 
-                `ifdef BOARD_BLUE_WHALE led[12] <= 1'b0;`endif
-                `ifdef BOARD_BLUE_WHALE led[13] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[12] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[13] <= 1'b0;`endif
             end
 
 `ifdef ENABLE_HPM_COUNTERS
@@ -684,16 +684,16 @@ module mem_space #(
 
                 core_access <= ACCESS_NONE;
 
-                `ifdef BOARD_BLUE_WHALE led[4] <= 1'b0;`endif
-                `ifdef BOARD_BLUE_WHALE led[5] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[4] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[5] <= 1'b0;`endif
             end else begin
                 data_data_o <= csr_data_i;
                 {data_sync_ack_o, data_sync_err_o} <= {csr_ack_i, csr_err_i};
 
                 data_access <= ACCESS_NONE;
 
-                `ifdef BOARD_BLUE_WHALE led[14] <= 1'b0;`endif
-                `ifdef BOARD_BLUE_WHALE led[15] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[14] <= 1'b0;`endif
+                `ifdef ENABLE_LED_EXT led[15] <= 1'b0;`endif
             end
 
 `ifdef ENABLE_HPM_COUNTERS
@@ -727,9 +727,7 @@ module mem_space #(
             core_prev_new_transaction <= 1'b0;
             data_prev_new_transaction <= 1'b0;
 
-`ifdef BOARD_BLUE_WHALE
-            led <= 16'h0;
-`endif
+            `ifdef ENABLE_LED_EXT led <= 16'h0; `endif
         end else begin
             mem_space_task;
         end
