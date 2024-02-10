@@ -121,6 +121,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     logic sync_err_o = 1'b0;
     assign err_o = sync_err_o & stb_i;
 
+    logic [31:0] next_addr_comb;
+    assign next_addr_comb = instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+
 `ifdef ENABLE_RV32M_EXT
     logic mul_stb_o, mul_cyc_o, mul_result_upper_o, mul_op_1_is_signed_o, mul_op_2_is_signed_o, mul_ack_i;
     logic [31:0] mul_op_1_o, mul_op_2_o, mul_result_i;
@@ -146,42 +149,39 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
         case (instr_op_type_i)
             `INSTR_TYPE_LUI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : instr_op_imm_i;
+                rd_o = |instr_op_rd_i ? instr_op_imm_i : 0;
                 // IMM was already shifted left by 12 by the decoder
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.lui rdx%0d[%h], %h; PC: [%h]", instr_addr_i, instr_i[15:0],
-                                instr_op_rd_i, rd_o, instr_op_imm_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_imm_i, next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h lui rdx%0d[%h], %h; PC: [%h]", instr_addr_i, instr_i,
-                                instr_op_rd_i, rd_o, instr_op_imm_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_imm_i, next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : instr_op_imm_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? instr_op_imm_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_AUIPC: begin
                 // IMM was already shifted left by 12 by the decoder
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : instr_addr_i + instr_op_imm_i;
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? instr_addr_i + instr_op_imm_i : 0;
                 $display($time, " [%h]: %h auipc rdx%0d[%h], %h; PC: [%h]", instr_addr_i, instr_i, instr_op_rd_i,
-                            rd_o, instr_op_imm_i, next_addr_o);
+                            rd_o, instr_op_imm_i, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : instr_addr_i + instr_op_imm_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? instr_addr_i + instr_op_imm_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_JAL: begin
 `ifdef D_EXEC
                 next_addr_o = instr_addr_i + instr_op_imm_i;
-                rd_o = instr_op_rd_i == 0 ? 0 : instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? next_addr_comb : 0;
                 if (instr_is_compressed_i) begin
                     $display($time, " [%h]: %8h c.jal rdx%0d[%h], %h; PC: [%h]", instr_addr_i, instr_i[15:0],
                                 instr_op_rd_i, rd_o, instr_op_imm_i, next_addr_o);
@@ -190,7 +190,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                                 instr_op_rd_i, rd_o, instr_op_imm_i, next_addr_o);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? next_addr_comb : 0;
                 next_addr_o <= instr_addr_i + instr_op_imm_i;
 `endif
                 jmp_o <= 1'b1;
@@ -201,7 +201,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             `INSTR_TYPE_JALR: begin
                 tmp = rs1_i + instr_op_imm_i;
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? next_addr_comb : 0;
                 next_addr_o = {tmp[31:1], 1'b0};
                 if (instr_is_compressed_i) begin
                     $display($time, " [%h]: %8h c.jalr rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i,
@@ -211,7 +211,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                                 instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? next_addr_comb : 0;
                 next_addr_o <= {tmp[31:1], 1'b0};
 `endif
                 jmp_o <= 1'b1;
@@ -221,8 +221,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_BEQ: begin
 `ifdef D_EXEC
-                next_addr_o = rs1_i == rs2_i ? instr_addr_i + instr_op_imm_i :
-                                                (instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4);
+                next_addr_o = rs1_i == rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
                 if (instr_is_compressed_i) begin
                     $display($time, " [%h]: %8h c.beq rs1x%0d[%h], rs2x%0d[%h] %h; PC: [%h]", instr_addr_i,
                                     instr_i[15:0], instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i,
@@ -232,8 +231,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                                 instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i, next_addr_o);
                 end
 `else
-                next_addr_o <= rs1_i == rs2_i ? instr_addr_i + instr_op_imm_i :
-                                                (instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4);
+                next_addr_o <= rs1_i == rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
 `endif
                 jmp_o <= rs1_i == rs2_i;
                 {sync_ack_o, sync_err_o} <= 2'b10;
@@ -241,8 +239,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_BNE: begin
 `ifdef D_EXEC
-                next_addr_o = rs1_i != rs2_i ? instr_addr_i + instr_op_imm_i :
-                                                instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                next_addr_o = rs1_i != rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
                 if (instr_is_compressed_i) begin
                     $display($time, " [%h]: %8h c.bne rs1x%0d[%h], rs2x%0d[%h] %h; PC: [%h]", instr_addr_i,
                                 instr_i[15:0], instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i,
@@ -252,8 +249,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                                 instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i, next_addr_o);
                 end
 `else
-                next_addr_o <= rs1_i != rs2_i ? instr_addr_i + instr_op_imm_i :
-                                                (instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4);
+                next_addr_o <= rs1_i != rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
 `endif
                 jmp_o <= rs1_i != rs2_i;
                 {sync_ack_o, sync_err_o} <= 2'b10;
@@ -264,7 +260,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        next_addr_o = rs1_i[30:0] < rs2_i[30:0] ? instr_addr_i + instr_op_imm_i : instr_addr_i + 4;
+                        next_addr_o = rs1_i[30:0] < rs2_i[30:0] ? instr_addr_i + instr_op_imm_i : next_addr_comb;
                         jmp_o <= rs1_i[30:0] < rs2_i[30:0];
                     end
 
@@ -274,11 +270,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b01: begin
-                        next_addr_o = instr_addr_i + 4;
+                        next_addr_o = next_addr_comb;
                     end
 
                     2'b00: begin // Both are positive
-                        next_addr_o = rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : instr_addr_i + 4;
+                        next_addr_o = rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
                         jmp_o <= rs1_i < rs2_i;
                     end
                 endcase
@@ -288,7 +284,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        next_addr_o <= rs1_i[30:0] < rs2_i[30:0] ? instr_addr_i + instr_op_imm_i : instr_addr_i + 4;
+                        next_addr_o <= rs1_i[30:0] < rs2_i[30:0] ? instr_addr_i + instr_op_imm_i : next_addr_comb;
                         jmp_o <= rs1_i[30:0] < rs2_i[30:0];
                     end
 
@@ -298,11 +294,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b01: begin
-                        next_addr_o <= instr_addr_i + 4;
+                        next_addr_o <= next_addr_comb;
                     end
 
                     2'b00: begin // Both are positive
-                        next_addr_o <= rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : instr_addr_i + 4;
+                        next_addr_o <= rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
                         jmp_o <= rs1_i < rs2_i;
                     end
                 endcase
@@ -315,12 +311,12 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        next_addr_o = rs1_i[30:0] < rs2_i[30:0] ? instr_addr_i + 4 : instr_addr_i + instr_op_imm_i;
+                        next_addr_o = rs1_i[30:0] < rs2_i[30:0] ? next_addr_comb : instr_addr_i + instr_op_imm_i;
                         jmp_o <= ~(rs1_i[30:0] < rs2_i[30:0]);
                     end
 
                     2'b10: begin
-                        next_addr_o = instr_addr_i + 4;
+                        next_addr_o = next_addr_comb;
                     end
 
                     2'b01: begin
@@ -329,7 +325,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b00: begin // Both are positive
-                        next_addr_o = rs1_i < rs2_i ? instr_addr_i + 4 : instr_addr_i + instr_op_imm_i;
+                        next_addr_o = rs1_i < rs2_i ? next_addr_comb : instr_addr_i + instr_op_imm_i;
                         jmp_o <= ~(rs1_i < rs2_i);
                     end
                 endcase
@@ -339,12 +335,12 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        next_addr_o <= rs1_i[30:0] < rs2_i[30:0] ? instr_addr_i + 4 : instr_addr_i + instr_op_imm_i;
+                        next_addr_o <= rs1_i[30:0] < rs2_i[30:0] ? next_addr_comb : instr_addr_i + instr_op_imm_i;
                         jmp_o <= ~(rs1_i[30:0] < rs2_i[30:0]);
                     end
 
                     2'b10: begin
-                        next_addr_o <= instr_addr_i + 4;
+                        next_addr_o <= next_addr_comb;
                     end
 
                     2'b01: begin
@@ -353,7 +349,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b00: begin // Both are positive
-                        next_addr_o <= rs1_i < rs2_i ? instr_addr_i + 4 : instr_addr_i + instr_op_imm_i;
+                        next_addr_o <= rs1_i < rs2_i ? next_addr_comb : instr_addr_i + instr_op_imm_i;
                         jmp_o <= ~(rs1_i < rs2_i);
                     end
                 endcase
@@ -363,11 +359,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_BLTU: begin
 `ifdef D_EXEC
-                next_addr_o = rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : instr_addr_i + 4;
+                next_addr_o = rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
                 $display($time, " [%h]: %h bltu rs1x%0d[%h], rs2x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i, next_addr_o);
 `else
-                next_addr_o <= rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : instr_addr_i + 4;
+                next_addr_o <= rs1_i < rs2_i ? instr_addr_i + instr_op_imm_i : next_addr_comb;
 `endif
                 jmp_o <= rs1_i < rs2_i;
                 {sync_ack_o, sync_err_o} <= 2'b10;
@@ -375,11 +371,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_BGEU: begin
 `ifdef D_EXEC
-                next_addr_o = rs1_i < rs2_i ? instr_addr_i + 4 : instr_addr_i + instr_op_imm_i;
+                next_addr_o = rs1_i < rs2_i ? next_addr_comb : instr_addr_i + instr_op_imm_i;
                 $display($time, " [%h]: %h bgeu rs1x%0d[%h], rs2x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i, next_addr_o);
 `else
-                next_addr_o <= rs1_i < rs2_i ? instr_addr_i + 4 : instr_addr_i + instr_op_imm_i;
+                next_addr_o <= rs1_i < rs2_i ? next_addr_comb : instr_addr_i + instr_op_imm_i;
 `endif
                 jmp_o <= ~(rs1_i < rs2_i);
                 {sync_ack_o, sync_err_o} <= 2'b10;
@@ -469,20 +465,19 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_ADDI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i + instr_op_imm_i;
+                rd_o = |instr_op_rd_i ? rs1_i + instr_op_imm_i : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.addi rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i,
-                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i,
+                                next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h addi rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i + instr_op_imm_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i + instr_op_imm_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
@@ -491,11 +486,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], instr_op_imm_i[31]})
                     2'b11: begin // Both are negative
-                        rd_o = instr_op_rd_i == 0 ? 0 : (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0);
+                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0) : 0;
                     end
 
                     2'b10: begin
-                        rd_o = instr_op_rd_i == 0 ? 0 : 1;
+                        rd_o = |instr_op_rd_i ? 1 : 0;
                     end
 
                     2'b01: begin
@@ -503,22 +498,21 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b00: begin // Both are positive
-                        rd_o = instr_op_rd_i == 0 ? 0 : (rs1_i < instr_op_imm_i ? 1 : 0);
+                        rd_o = |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
                     end
                 endcase
 
-                next_addr_o = instr_addr_i + 4;
                 $display($time, " [%h]: %h slti rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
 `else
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], instr_op_imm_i[31]})
                     2'b11: begin // Both are negative
-                        rd_o <= instr_op_rd_i == 0 ? 0 : (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0);
+                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0) : 0;
                     end
 
                     2'b10: begin
-                        rd_o <= instr_op_rd_i == 0 ? 0 : 1;
+                        rd_o <= |instr_op_rd_i ? 1 : 0;
                     end
 
                     2'b01: begin
@@ -526,181 +520,168 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b00: begin // Both are positive
-                        rd_o <= instr_op_rd_i == 0 ? 0 : (rs1_i < instr_op_imm_i ? 1 : 0);
+                        rd_o <= |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
                     end
                 endcase
-                next_addr_o <= instr_addr_i + 4;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SLTIU: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : (rs1_i < instr_op_imm_i ? 1 : 0);
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
                 $display($time, " [%h]: %h sltiu rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : (rs1_i < instr_op_imm_i ? 1 : 0);
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_XORI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i ^ instr_op_imm_i;
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? rs1_i ^ instr_op_imm_i : 0;
                 $display($time, " [%h]: %h xori rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i ^ instr_op_imm_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i ^ instr_op_imm_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_ORI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i | instr_op_imm_i;
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? rs1_i | instr_op_imm_i : 0;
                 $display($time, " [%h]: %h ori rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i | instr_op_imm_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i | instr_op_imm_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_ANDI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i & instr_op_imm_i;
+                rd_o = |instr_op_rd_i ? rs1_i & instr_op_imm_i : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.andi rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i,
-                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i,
+                                next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h andi rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i & instr_op_imm_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i & instr_op_imm_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SLLI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i << instr_op_imm_i[4:0];
+                rd_o = |instr_op_rd_i ? rs1_i << instr_op_imm_i[4:0] : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.slli rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i,
-                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i,
+                                next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h slli rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i << instr_op_imm_i[4:0];
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i << instr_op_imm_i[4:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SRLI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i >> instr_op_imm_i[4:0];
+                rd_o = |instr_op_rd_i ? rs1_i >> instr_op_imm_i[4:0] : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.srli rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i,
-                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i,
+                                next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h srli rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i >> instr_op_imm_i[4:0];
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i >> instr_op_imm_i[4:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SRAI: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : $signed(rs1_i) >>> instr_op_imm_i[4:0];
+                rd_o = |instr_op_rd_i ? $signed(rs1_i) >>> instr_op_imm_i[4:0] : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.srai rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i,
-                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i,
+                                next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h srai rdx%0d[%h], rs1x%0d[%h] %h; PC: [%h]", instr_addr_i, instr_i,
-                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_imm_i, next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : $signed(rs1_i) >>> instr_op_imm_i[4:0];
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? $signed(rs1_i) >>> instr_op_imm_i[4:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_ADD: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i + rs2_i;
+                rd_o = |instr_op_rd_i ? rs1_i + rs2_i : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.add rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h add rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
-                            instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                            instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i + rs2_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i + rs2_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SUB: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i - rs2_i;
+                rd_o = |instr_op_rd_i ? rs1_i - rs2_i : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.sub rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i,
-                                rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                                rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h sub rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i - rs2_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i - rs2_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SLL: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i << rs2_i[4:0];
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? rs1_i << rs2_i[4:0] : 0;
                 $display($time, " [%h]: %h sll rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i,
-                            instr_op_rs2_i, rs2_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i << rs2_i[4:0];
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i << rs2_i[4:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
@@ -709,11 +690,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        rd_o = instr_op_rd_i == 0 ? 0 : (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0);
+                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0) : 0;
                     end
 
                     2'b10: begin
-                        rd_o = instr_op_rd_i == 0 ? 0 : 1;
+                        rd_o = |instr_op_rd_i ? 1 : 0;
                     end
 
                     2'b01: begin
@@ -721,22 +702,21 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b00: begin // Both are positive
-                        rd_o = instr_op_rd_i == 0 ? 0 : (rs1_i < rs2_i ? 1 : 0);
+                        rd_o = |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
                     end
                 endcase
 
-                next_addr_o = instr_addr_i + 4;
                 $display($time, " [%h]: %h slt rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
 `else
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        rd_o <= instr_op_rd_i == 0 ? 0 : (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0);
+                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0) : 0;
                     end
 
                     2'b10: begin
-                        rd_o <= instr_op_rd_i == 0 ? 0 : 1;
+                        rd_o <= |instr_op_rd_i ? 1 : 0;
                     end
 
                     2'b01: begin
@@ -744,116 +724,106 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
 
                     2'b00: begin // Both are positive
-                        rd_o <= instr_op_rd_i == 0 ? 0 : (rs1_i < rs2_i ? 1 : 0);
+                        rd_o <= |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
                     end
                 endcase
-                next_addr_o <= instr_addr_i + 4;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SLTU: begin
                 // Note SLTU rd, x0, rs2 sets rd to 1 if rs2 is not equal to zero, otherwise sets rd to zero
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : (rs1_i < rs2_i ? 1 : 0);
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
                 $display($time, " [%h]: %h sltu rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i,
-                            instr_op_rs2_i, rs2_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : (rs1_i < rs2_i ? 1 : 0);
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_XOR: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i ^ rs2_i;
+                rd_o = |instr_op_rd_i ? rs1_i ^ rs2_i : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.xor rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i,
-                                rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                                rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h xor rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i ^ rs2_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i ^ rs2_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SRL: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i >> rs2_i[4:0];
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? rs1_i >> rs2_i[4:0] : 0;
                 $display($time, " [%h]: %h srl rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                                instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i >> rs2_i[4:0];
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i >> rs2_i[4:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_SRA: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : $signed(rs1_i) >>> rs2_i[4:0];
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? $signed(rs1_i) >>> rs2_i[4:0] : 0;
                 $display($time, " [%h]: %h sra rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                            instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
 `else
 
-                rd_o <= instr_op_rd_i == 0 ? 0 : $signed(rs1_i) >>> rs2_i[4:0];
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? $signed(rs1_i) >>> rs2_i[4:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_OR: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i | rs2_i;
+                rd_o = |instr_op_rd_i ? rs1_i | rs2_i : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.or rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i[15:0], instr_op_rd_i, rd_o,
-                                instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                                instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h or rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i | rs2_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i | rs2_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_AND: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rs1_i & rs2_i;
+                rd_o = |instr_op_rd_i ? rs1_i & rs2_i : 0;
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i + 2;
                     $display($time, " [%h]: %8h c.and rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i[15:0], instr_op_rd_i, rd_o, instr_op_rs1_i,
-                                rs1_i, instr_op_rs2_i, rs2_i, next_addr_o);
+                                rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
                 end else begin
-                    next_addr_o = instr_addr_i + 4;
                     $display($time, " [%h]: %8h and rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
                 end
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i & rs2_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? rs1_i & rs2_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
@@ -861,12 +831,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 // FENCE instruction is implemented as a NOP
 `ifdef D_EXEC
                 // Note if pred and succ are 0 this is a HINT instruction
-                next_addr_o = instr_addr_i + 4;
                 $display($time, " [%h]: %h fence fm: %h pred: %h, succ: %h; PC: [%h]", instr_addr_i, instr_i,
-                            instr_op_imm_i[31:28], instr_op_imm_i[27:24], instr_op_imm_i[23:20], next_addr_o);
-`else
-                next_addr_o <= instr_addr_i + 4;
+                            instr_op_imm_i[31:28], instr_op_imm_i[27:24], instr_op_imm_i[23:20], next_addr_comb);
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
@@ -876,11 +844,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                  * of the ECALL or EBREAK instruction itself, not the address of the following instruction.
                  */
 `ifdef D_EXEC
-                next_addr_o = instr_addr_i;
-                $display($time, " [%h]: %h ecall; PC: [%h]", instr_addr_i, instr_i, next_addr_o);
-`else
-                next_addr_o <= instr_addr_i;
+                $display($time, " [%h]: %h ecall; PC: [%h]", instr_addr_i, instr_i, instr_addr_i);
 `endif
+                next_addr_o <= instr_addr_i;
+
                 trap_mcause_o[`EX_CODE_ECALL] <= 1'b1;
                 trap_mtval_o <= 0;
                 // Return an error so we can handle the exception
@@ -894,15 +861,12 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                  */
 `ifdef D_EXEC
                 if (instr_is_compressed_i) begin
-                    next_addr_o = instr_addr_i;
-                    $display($time, " [%h]: %8h c.ebreak; PC: [%h]", instr_addr_i, instr_i[15:0], next_addr_o);
+                    $display($time, " [%h]: %8h c.ebreak; PC: [%h]", instr_addr_i, instr_i[15:0], instr_addr_i);
                 end else begin
-                    next_addr_o = instr_addr_i;
-                    $display($time, " [%h]: %8h ebreak; PC: [%h]", instr_addr_i, instr_i, next_addr_o);
+                    $display($time, " [%h]: %8h ebreak; PC: [%h]", instr_addr_i, instr_i, instr_addr_i);
                 end
-`else
-                next_addr_o <= instr_addr_i;
 `endif
+                next_addr_o <= instr_addr_i;
                 trap_mcause_o[`EX_CODE_BREAKPOINT] <= 1'b1;
                 trap_mtval_o <= 0;
 
@@ -924,23 +888,19 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                  * implementation is to simply implement WFI as a NOP.
                  */
 `ifdef D_EXEC
-                next_addr_o = instr_addr_i + 4;
-                $display($time, " [%h]: %h wfi; PC: [%h]", instr_addr_i, instr_i, next_addr_o);
-`else
-                next_addr_o <= instr_addr_i + 4;
+                $display($time, " [%h]: %h wfi; PC: [%h]", instr_addr_i, instr_i, next_addr_comb);
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
 `ifdef ENABLE_ZIFENCEI_EXT
             `INSTR_TYPE_FENCE_I: begin
 `ifdef D_EXEC
-                next_addr_o = instr_addr_i + 4;
                 $display($time, " [%h]: %h fence.i imm: %h; PC: [%h]", instr_addr_i, instr_i, instr_op_imm_i[31:20],
-                                next_addr_o);
-`else
-                next_addr_o <= instr_addr_i + 4;
+                                next_addr_comb);
 `endif
+                next_addr_o <= next_addr_comb;
                 fencei_o <= 1'b1;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
@@ -1021,15 +981,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     state_m <= STATE_DIV_PENDING;
                 end else begin
 `ifdef D_EXEC
-                    rd_o = instr_op_rd_i == 0 ? 0 : 32'hffffffff;
-                    next_addr_o = instr_addr_i + 4;
+                    rd_o = |instr_op_rd_i ? 32'hffffffff : 0;
                     $display($time, " [%h]: %h div rdx%0d[%h], rs1x%0d[%h], rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
 `else
-                    rd_o <= instr_op_rd_i == 0 ? 0 : 32'hffffffff;
-                    next_addr_o <= instr_addr_i + 4;
+                    rd_o <= |instr_op_rd_i ? 32'hffffffff : 0;
 `endif
+                    next_addr_o <= next_addr_comb;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
             end
@@ -1047,15 +1006,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     state_m <= STATE_DIV_PENDING;
                 end else begin
 `ifdef D_EXEC
-                    rd_o = instr_op_rd_i == 0 ? 0 : 32'hffffffff;
-                    next_addr_o = instr_addr_i + 4;
+                    rd_o = |instr_op_rd_i ? 32'hffffffff : 0;
                     $display($time, " [%h]: %h divu rdx%0d[%h], rs1x%0d[%h], rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
 `else
-                    rd_o <= instr_op_rd_i == 0 ? 0 : 32'hffffffff;
-                    next_addr_o <= instr_addr_i + 4;
+                    rd_o <= |instr_op_rd_i ? 32'hffffffff : 0;
 `endif
+                    next_addr_o <= next_addr_comb;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
             end
@@ -1074,15 +1032,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     state_m <= STATE_DIV_PENDING;
                 end else begin
 `ifdef D_EXEC
-                    rd_o = instr_op_rd_i == 0 ? 0 : rs1_i;
-                    next_addr_o = instr_addr_i + 4;
+                    rd_o = |instr_op_rd_i ? rs1_i : 0;
                     $display($time, " [%h]: %h rem rdx%0d[%h], rs1x%0d[%h], rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
 `else
-                    rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i;
-                    next_addr_o <= instr_addr_i + 4;
+                    rd_o <= |instr_op_rd_i ? rs1_i : 0;
 `endif
+                    next_addr_o <= next_addr_comb;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
             end
@@ -1101,15 +1058,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     state_m <= STATE_DIV_PENDING;
                 end else begin
 `ifdef D_EXEC
-                    rd_o = instr_op_rd_i == 0 ? 0 : rs1_i;
-                    next_addr_o = instr_addr_i + 4;
+                    rd_o = |instr_op_rd_i ? rs1_i : 0;
                     $display($time, " [%h]: %h remu rdx%0d[%h], rs1x%0d[%h], rs2x%0d[%h]; PC: [%h]", instr_addr_i,
                                 instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
-                                next_addr_o);
+                                next_addr_comb);
 `else
-                    rd_o <= instr_op_rd_i == 0 ? 0 : rs1_i;
-                    next_addr_o <= instr_addr_i + 4;
+                    rd_o <= |instr_op_rd_i ? rs1_i : 0;
 `endif
+                    next_addr_o <= next_addr_comb;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
             end
@@ -1283,70 +1239,65 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
         case (instr_op_type_i)
             `INSTR_TYPE_LB: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : {{24{data_data_i[7]}}, data_data_i[7:0]};
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? {{24{data_data_i[7]}}, data_data_i[7:0]} : 0;
                 $display($time, "           :          @[%h] -> rdx%0d[%h]; PC: [%h]",
-                            data_addr_o, instr_op_rd_i, rd_o, next_addr_o);
+                            data_addr_o, instr_op_rd_i, rd_o, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : {{24{data_data_i[7]}}, data_data_i[7:0]};
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? {{24{data_data_i[7]}}, data_data_i[7:0]} : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
                 state_m <= STATE_EXEC;
             end
 
             `INSTR_TYPE_LH: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : {{16{data_data_i[15]}}, data_data_i[15:0]};
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? {{16{data_data_i[15]}}, data_data_i[15:0]} : 0;
                 $display($time, "           :          @[%h] -> rdx%0d[%h]; PC: [%h]",
-                            data_addr_o, instr_op_rd_i, rd_o, next_addr_o);
+                            data_addr_o, instr_op_rd_i, rd_o, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : {{16{data_data_i[15]}}, data_data_i[15:0]};
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? {{16{data_data_i[15]}}, data_data_i[15:0]} : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
                 state_m <= STATE_EXEC;
             end
 
             `INSTR_TYPE_LW: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o = instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> rdx%0d[%h]; PC: [%h]",
-                            data_addr_o, instr_op_rd_i, rd_o, next_addr_o);
+                            data_addr_o, instr_op_rd_i, rd_o, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
                 state_m <= STATE_EXEC;
             end
 
             `INSTR_TYPE_LBU: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i[7:0];
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? data_data_i[7:0] : 0;
                 $display($time, "           :          @[%h] -> rdx%0d[%h]; PC: [%h]",
-                            data_addr_o, instr_op_rd_i, rd_o, next_addr_o);
+                            data_addr_o, instr_op_rd_i, rd_o, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i[7:0];
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i[7:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
                 state_m <= STATE_EXEC;
             end
 
             `INSTR_TYPE_LHU: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i[15:0];
-                next_addr_o = instr_addr_i + 4;
+                rd_o = |instr_op_rd_i ? data_data_i[15:0] : 0;
                 $display($time, "           :          @[%h] -> rdx%0d[%h]; PC: [%h]",
-                            instr_op_rd_i, rd_o, data_addr_o, next_addr_o);
+                            instr_op_rd_i, rd_o, data_addr_o, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i[15:0];
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i[15:0] : 0;
 `endif
+                next_addr_o <= next_addr_comb;
                 {sync_ack_o, sync_err_o} <= 2'b10;
                 state_m <= STATE_EXEC;
             end
@@ -1374,14 +1325,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 end else begin
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]",
-                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_addr_i + 4);
+                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, next_addr_comb);
 `endif
                     state_m <= STATE_EXEC;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
 
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_CSRRS: begin
@@ -1394,14 +1345,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 end else begin
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]",
-                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_addr_i + 4);
+                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, next_addr_comb);
 `endif
                     state_m <= STATE_EXEC;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
 
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_CSRRC: begin
@@ -1414,14 +1365,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 end else begin
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]",
-                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_addr_i + 4);
+                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, next_addr_comb);
 `endif
                     state_m <= STATE_EXEC;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
 
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_CSRRWI: begin
@@ -1434,14 +1385,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 end else begin
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]",
-                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_addr_i + 4);
+                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, next_addr_comb);
 `endif
                     state_m <= STATE_EXEC;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
 
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_CSRRSI: begin
@@ -1454,14 +1405,14 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 end else begin
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]",
-                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_addr_i + 4);
+                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, next_addr_comb);
 `endif
                     state_m <= STATE_EXEC;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
 
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_CSRRCI: begin
@@ -1474,89 +1425,89 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 end else begin
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]",
-                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_addr_i + 4);
+                                data_addr_o, data_data_i, instr_op_rd_i, data_data_i, next_addr_comb);
 `endif
                     state_m <= STATE_EXEC;
                     {sync_ack_o, sync_err_o} <= 2'b10;
                 end
 
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
-                next_addr_o <= instr_addr_i + 4;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
+                next_addr_o <= next_addr_comb;
             end
 `endif // ENABLE_ZICSR_EXT
 
 `ifdef ENABLE_RV32A_EXT
             `INSTR_TYPE_LR_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : {{16{data_data_i[15]}}, data_data_i[15:0]};
+                rd_o = |instr_op_rd_i ? {{16{data_data_i[15]}}, data_data_i[15:0]} : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; PC: [%h]", data_addr_o, data_data_i,
-                                instr_op_rd_i, rd_o, instr_addr_i + 4);
+                                instr_op_rd_i, rd_o, next_addr_comb);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : {{16{data_data_i[15]}}, data_data_i[15:0]};
+                rd_o <= |instr_op_rd_i ? {{16{data_data_i[15]}}, data_data_i[15:0]} : 0;
 `endif
-                next_addr_o <= instr_addr_i + 4;
+                next_addr_o <= next_addr_comb;
                 state_m <= STATE_EXEC;
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
             `INSTR_TYPE_AMOSWAP_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, rd_o, rs2_i, rs1_i);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, rs2_i);
             end
 
             `INSTR_TYPE_AMOADD_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, rd_o, data_data_i + rs2_i, rs1_i);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i + rs2_i);
             end
 
             `INSTR_TYPE_AMOXOR_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, rd_o, data_data_i ^ rs2_i, rs1_i);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i ^ rs2_i);
             end
 
             `INSTR_TYPE_AMOAND_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, rd_o, data_data_i & rs2_i, rs1_i);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i & rs2_i);
             end
 
             `INSTR_TYPE_AMOOR_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, rd_o, data_data_i | rs2_i, rs1_i);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i | rs2_i);
             end
 
             `INSTR_TYPE_AMOMIN_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
@@ -1584,7 +1535,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
                 endcase
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
@@ -1612,7 +1563,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_AMOMAX_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
 
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
@@ -1641,7 +1592,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     end
                 endcase
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
@@ -1669,11 +1620,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_AMOMINU_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, rd_o, data_data_i < rs2_i ? data_data_i : rs2_i, rs1_i);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
                                     data_data_i < rs2_i ? data_data_i : rs2_i);
@@ -1681,11 +1632,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_AMOMAXU_W: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o = |instr_op_rd_i ? data_data_i : 0;
                 $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, rd_o, data_data_i > rs2_i ? data_data_i : rs2_i, rs1_i);
 `else
-                rd_o <= instr_op_rd_i == 0 ? 0 : data_data_i;
+                rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
                 store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
                                     data_data_i > rs2_i ? data_data_i : rs2_i);
@@ -1700,7 +1651,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
         endcase
-
     endtask
 
     //==================================================================================================================
@@ -1752,39 +1702,34 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
         case (instr_op_type_i)
             `INSTR_TYPE_SB: begin
 `ifdef D_EXEC
-                next_addr_o = instr_addr_i + 4;
                 $display($time, "           :          rs2x%0d[%2h] -> @[%h]; PC: [%h]",
-                            instr_op_rs2_i, rs2_i, data_addr_o, next_addr_o);
-`else
-                next_addr_o <= instr_addr_i + 4;
+                            instr_op_rs2_i, rs2_i, data_addr_o, next_addr_comb);
 `endif
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_SH: begin
 `ifdef D_EXEC
-                next_addr_o = instr_addr_i + 4;
                 $display($time, "           :          rs2x%0d[%4h] -> @[%h]; PC: [%h]",
-                            instr_op_rs2_i, rs2_i, data_addr_o, next_addr_o);
-`else
-                next_addr_o <= instr_addr_i + 4;
+                            instr_op_rs2_i, rs2_i, data_addr_o, next_addr_comb);
 `endif
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_SW: begin
 `ifdef D_EXEC
-                next_addr_o = instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
                 $display($time, "           :          rs2x%0d[%8h] -> @[%h]; PC: [%h]",
-                            instr_op_rs2_i, rs2_i, data_addr_o, next_addr_o);
-`else
-                next_addr_o <= instr_is_compressed_i ? instr_addr_i + 2 : instr_addr_i + 4;
+                            instr_op_rs2_i, rs2_i, data_addr_o, next_addr_comb);
 `endif
+                next_addr_o <= next_addr_comb;
             end
 
 `ifdef ENABLE_ZICSR_EXT
             `INSTR_TYPE_CSRRW, `INSTR_TYPE_CSRRS, `INSTR_TYPE_CSRRC,
             `INSTR_TYPE_CSRRWI, `INSTR_TYPE_CSRRSI, `INSTR_TYPE_CSRRCI: begin
 `ifdef D_EXEC
-                $display($time, "           :          %8h -> @[%h]; PC: [%h]", data_data_o, data_addr_o, next_addr_o);
+                $display($time, "           :          %8h -> @[%h]; PC: [%h]", data_data_o, data_addr_o,
+                            next_addr_comb);
 `endif
             end
 `endif // ENABLE_ZICSR_EXT
@@ -1792,10 +1737,8 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `ifdef ENABLE_RV32A_EXT
             `INSTR_TYPE_SC_W: begin
 `ifdef D_EXEC
-                next_addr_o = instr_addr_i + 4;
-                $display($time, "           :          %8h -> @[%h]; PC: [%h]", data_data_o, data_addr_o, next_addr_o);
-`else
-                next_addr_o <= instr_addr_i + 4;
+                $display($time, "           :          %8h -> @[%h]; PC: [%h]", data_data_o, data_addr_o,
+                                   next_addr_comb);
 `endif
                 /*
                  * The sc.w succeeds only if the reservation is still valid and the reservation set contains the bytes
@@ -1814,17 +1757,17 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                      */
                     rd_o <= 0;
                 end
+                next_addr_o <= next_addr_comb;
             end
 
             `INSTR_TYPE_AMOSWAP_W, `INSTR_TYPE_AMOADD_W, `INSTR_TYPE_AMOXOR_W,
             `INSTR_TYPE_AMOAND_W, `INSTR_TYPE_AMOOR_W, `INSTR_TYPE_AMOMIN_W, `INSTR_TYPE_AMOMAX_W,
             `INSTR_TYPE_AMOMINU_W, `INSTR_TYPE_AMOMAXU_W: begin
 `ifdef D_EXEC
-                next_addr_o = instr_addr_i + 4;
-                $display($time, "           :          %8h -> @[%h]; PC: [%h]", data_data_o, data_addr_o, next_addr_o);
-`else
-                next_addr_o <= instr_addr_i + 4;
+                $display($time, "           :          %8h -> @[%h]; PC: [%h]", data_data_o, data_addr_o,
+                            next_addr_comb);
 `endif
+                next_addr_o <= next_addr_comb;
             end
 `endif // ENABLE_RV32A_EXT
 
@@ -1999,14 +1942,13 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     //==================================================================================================================
     task mul_complete_task;
 `ifdef D_EXEC
-        rd_o = instr_op_rd_i == 0 ? 0 : mul_result_i;
-        next_addr_o = instr_addr_i + 4;
-        $display($time, "           :          %8h -> rdx%0d; PC: [%h]", rd_o, instr_op_rd_i, next_addr_o);
+        rd_o = |instr_op_rd_i ? mul_result_i : 0;
+        $display($time, "           :          %8h -> rdx%0d; PC: [%h]", rd_o, instr_op_rd_i, next_addr_comb);
 `else
-        if (instr_op_rd_i != 0) rd_o <= mul_result_i;
-        next_addr_o <= instr_addr_i + 4;
+        if (|instr_op_rd_i) rd_o <= mul_result_i;
 `endif
 
+        next_addr_o <= next_addr_comb;
         {sync_ack_o, sync_err_o} <= 2'b10;
 
         state_m <= STATE_EXEC;
@@ -2020,27 +1962,24 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
         case (instr_op_type_i)
             `INSTR_TYPE_DIV, `INSTR_TYPE_DIVU: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : div_result_i;
-                next_addr_o = instr_addr_i + 4;
-                $display($time, "           :          %8h -> rdx%0d; PC: [%h]", rd_o, instr_op_rd_i, next_addr_o);
+                rd_o = |instr_op_rd_i ? div_result_i : 0;
+                $display($time, "           :          %8h -> rdx%0d; PC: [%h]", rd_o, instr_op_rd_i, next_addr_comb);
 `else
-                if (instr_op_rd_i != 0) rd_o <= div_result_i;
-                next_addr_o <= instr_addr_i + 4;
+                if (|instr_op_rd_i) rd_o <= div_result_i;
 `endif
             end
 
             `INSTR_TYPE_REM, `INSTR_TYPE_REMU: begin
 `ifdef D_EXEC
-                rd_o = instr_op_rd_i == 0 ? 0 : rem_result_i;
-                next_addr_o = instr_addr_i + 4;
-                $display($time, "           :          %8h -> rdx%0d; PC: [%h]", rd_o, instr_op_rd_i, next_addr_o);
+                rd_o = |instr_op_rd_i ? rem_result_i : 0;
+                $display($time, "           :          %8h -> rdx%0d; PC: [%h]", rd_o, instr_op_rd_i, next_addr_comb);
 `else
-                if (instr_op_rd_i != 0) rd_o <= rem_result_i;
-                next_addr_o <= instr_addr_i + 4;
+                if (|instr_op_rd_i) rd_o <= rem_result_i;
 `endif
             end
         endcase
 
+        next_addr_o <= next_addr_comb;
         {sync_ack_o, sync_err_o} <= 2'b10;
 
         state_m <= STATE_EXEC;
