@@ -558,7 +558,8 @@ module risc_p (
                 $display ($time, " CORE:    [%h] Fetch address misaligned @[%h]. Stop filling the pipeline.",
                         pipeline_wr_ptr, fetch_address);
 `endif
-                pipeline_trap_task (pipeline_wr_ptr, 1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, fetch_address, 0);
+                pipeline_exception_task (pipeline_wr_ptr, 1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, fetch_address,
+                                            0);
             end else begin
 `ifdef D_CORE
                 $display ($time, " CORE:        -- Instruction address misaligned %h; ignoring (have trap already). --",
@@ -721,6 +722,7 @@ module risc_p (
         // while these operations were pending.
         for (i=0; i<PIPELINE_SIZE; i = i + 1) begin
             pipeline_entry_status[i] <= PL_E_EMPTY;
+            // The rs1 and rs2 register indexes need to be cleared so that the writeback does not match an empty entry.
             pipeline_decoder_op[i] <= 0;
         end
         pipeline_trap <= 0;
@@ -738,9 +740,9 @@ module risc_p (
     // is marked as "ready for execution". We let the instructions in the pipeline execute normally until the pipeline
     // entry is encountered and then we handle the exception.
     //==================================================================================================================
-    task pipeline_trap_task (input [PIPELINE_BITS-1:0] entry, input [31:0] mcause, input [31:0] mepc,
+    task pipeline_exception_task (input [PIPELINE_BITS-1:0] entry, input [31:0] mcause, input [31:0] mepc,
                                 input [31:0] mtval);
-        // Make this entry "ready for execution"
+        // Make this entry "ready for execution". The exception will be handled when the exec stage handles this entry.
         pipeline_entry_status[entry] <= PL_E_REGFILE_READ;
         pipeline_trap[entry] <= 1'b1;
 
@@ -748,7 +750,7 @@ module risc_p (
         pipeline_trap_mcause <= mcause;
         pipeline_trap_mepc <= mepc;
         pipeline_trap_mtval <= mtval;
-        // Stop filling the pipeline
+        // Stop filling the pipeline. An exception was detected in the pipeline.
         pipeline_fill <= 1'b0;
     endtask
 
@@ -978,7 +980,7 @@ module risc_p (
                 $display ($time, " CORE:        --- Invalid instruction address %h. Stop filling the pipeline. ---",
                             core_addr_o);
 `endif
-                pipeline_trap_task (fetch_pending_entry, 1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, core_addr_o, 0);
+                pipeline_exception_task (fetch_pending_entry, 1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT, core_addr_o, 0);
             end else begin
 `ifdef D_CORE
                 $display ($time, " CORE:        --- Invalid instruction address %h; ignoring (have trap already). ---",
@@ -1029,7 +1031,7 @@ module risc_p (
                         decoder_instruction_o, pipeline_instr_addr[decode_pending_entry]);
 `endif
             // This exception may overwrite a pipeline trap detected during fetch since the instruction is an older one.
-            pipeline_trap_task (decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
+            pipeline_exception_task (decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
         end else if (~(decoder_stb_o & decoder_cyc_o)) begin
             decode_instruction_task;
@@ -1168,9 +1170,9 @@ module risc_p (
                             `ifdef ENABLE_LED_EXT led_a[14] <= 1'b0; `endif
                         end
                         /*
-                        * Some tests use mret instructions without entering an interrupt and we need to account
-                        * for this case otherwise execute_trap would go negative.
-                        */
+                         * Some tests use mret instructions without entering an interrupt and we need to account
+                         * for this case otherwise execute_trap would go negative.
+                         */
                         if (execute_trap != 0) execute_trap <= execute_trap - 1;
                     end
 
@@ -1296,7 +1298,7 @@ module risc_p (
             pipeline_trap_mtval <= exec_trap_mtval_i;
             enter_trap_task;
         end else if (~(exec_stb_o & exec_cyc_o) & (pipeline_entry_status[pipeline_rd_ptr] == PL_E_REGFILE_READ)) begin
-            if (pipeline_trap[pipeline_rd_ptr]) begin
+            if (|pipeline_trap[pipeline_rd_ptr]) begin
                 /*
                  * Handle the exception that occured earlier in the pipeline (EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED,
                  * EX_CODE_ILLEGAL_INSTRUCTION, EX_CODE_INSTRUCTION_ACCESS_FAULT).

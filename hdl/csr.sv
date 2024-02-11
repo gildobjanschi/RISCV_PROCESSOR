@@ -126,8 +126,9 @@ module csr (
                  * in the BASE field plus four times the interrupt cause number.
                  * For example, a machine-mode counter interrupt causes the pc to be set to BASE+0x1c.
                  */
-                if (~we_i) data_o <= mtvec;
-                else begin
+                if (~we_i) begin
+                    data_o <= mtvec;
+                end else begin
                     mtvec <= data_i;
                     if (data_i[1:0] == 2'b00) begin
                         // Direct mode
@@ -137,8 +138,6 @@ module csr (
                         mtvec_interrupt_external <= {data_i[31:2], 2'b0} + 8'h2c;
                         mtvec_interrupt_software <= {data_i[31:2], 2'b0} + 8'h0c;
                         mtvec_interrupt_timer <= {data_i[31:2], 2'b0} + 8'h1c;
-                    end else begin
-                        // Invalid mtvec
                     end
                 end
             end
@@ -317,9 +316,9 @@ module csr (
                 if (~mtvec[1]) begin
                     // mtvec was set.
                     /*
-                    * We assume that the core has written the mepc and mcause before issuing a read for the trap address.
-                    * mtval is also written for exceptions.
-                    */
+                     * We assume that the core has written the mepc and mcause before issuing a read for the trap address.
+                     * mtval is also written for exceptions.
+                     */
                     mstatus[`MSTATUS_MPIE_BIT] <= mstatus[`MSTATUS_MIE_BIT];
                     // Interrupts are disabled to prevent preemption.
                     mstatus[`MSTATUS_MIE_BIT] <= 1'b0;
@@ -369,7 +368,8 @@ module csr (
                         `EX_CODE_INSTRUCTION_ACCESS_FAULT: begin
                             data_o <= mtvec_base;
 `ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Instruction access fault exception @[%h] ===", mepc, mtval);
+                            $display($time, " CSR: [%h]: === Instruction access fault exception @[%h] ===", mepc,
+                                        mtval);
 `endif
                         end
 
@@ -419,7 +419,8 @@ module csr (
                         `EX_CODE_STORE_ADDRESS_MISALIGNED: begin
                             data_o <= mtvec_base;
 `ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Store address misaligned exception @[%h] ===", mepc, mtval);
+                            $display($time, " CSR: [%h]: === Store address misaligned exception @[%h] ===", mepc,
+                                        mtval);
 `endif
                         end
 
@@ -431,23 +432,10 @@ module csr (
 `endif
                         end
                     endcase
-                end else begin
-                    // mtval is invalid
+                end else begin // mtvec is invalid
                     data_o <= mtvec;
-                    // Clear the interrupt pending bit
-                    case (mcause)
-                        `IRQ_CODE_EXTERNAL: begin
-                            mip[`IRQ_EXTERNAL] <= 1'b0;
-                        end
-
-                        `IRQ_CODE_SOFTWARE: begin
-                            mip[`IRQ_SOFTWARE] <= 1'b0;
-                        end
-
-                        `IRQ_CODE_TIMER: begin
-                            mip[`IRQ_TIMER] <= 1'b0;
-                        end
-                    endcase
+                    // Interrupts cannot be serviced.
+                    mip <= 0;
                 end
             end
 
