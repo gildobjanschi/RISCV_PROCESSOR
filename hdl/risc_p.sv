@@ -391,15 +391,16 @@ module risc_p (
     localparam TRAP_STATE_ENTER_TRAP            = 4'h6;
     localparam TRAP_STATE_ENTER_TRAP_READY      = 4'h7;
     localparam TRAP_STATE_ERROR                 = 4'h8;
+    localparam TRAP_STATE_FETCH                 = 4'h9;
     logic [3:0] trap_state_m;
 
     logic [31:0] fetch_address;
     // Last writeback register index and register value
     logic [4:0] writeback_op_rd;
     logic [31:0] writeback_rd;
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
+
     logic [7:0] execute_trap;
-`endif
+
     // Reset button meta stability handling
     logic reset_btn;
 `ifdef BOARD_BLUE_WHALE
@@ -510,9 +511,7 @@ module risc_p (
                     i_cache_has_instr <= 0;
                     i_cache_has_decoded <= 0;
 
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
                     execute_trap <= 0;
-`endif
                 end else begin
                     // Back to zero to wait for PLL lock
                     reset_clks <= 0;
@@ -877,30 +876,43 @@ module risc_p (
             TRAP_STATE_ENTER_TRAP_READY: begin
                 if (core_cyc_o & core_stb_o & core_ack_i) begin
                     {core_stb_o, core_cyc_o} <= 2'b00;
-                    if (core_data_i == `INVALID_ADDR) begin
+                    if (core_data_i[1]) begin
+                        if (pipeline_trap_mcause[31]) begin
 `ifdef D_CORE
-                        $display ($time, " CORE:    mtvec not set.");
+                            $display ($time, " CORE:            Interrupt ignored: mtvec not set.");
 `endif
-                        // The CPU is halted with the mcause that was set earlier.
-                        cpu_state_m <= STATE_HALTED;
-                    end else begin
+                        end else begin
 `ifdef D_CORE
+                            $display ($time, " CORE:    --- Halting CPU: mtvec not set for exception: %h. ---",
+                                        to_mcause_code(pipeline_trap_mcause));
+`endif
+                            // The CPU is halted with the mcause that was set earlier.
+                            // Note that tests.sh rely on the fact that failed tests raise EX_CODE_BREAKPOINT and that
+                            // in SIMULATION mode CPU should halt.
+                            cpu_state_m <= STATE_HALTED;
+                        end
+                    end else begin
+`ifdef D_CORE_FINE
                         $display ($time, " CORE:    Executing trap routine @[%h].", core_data_i);
 `endif
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
-                        execute_trap <= execute_trap + 1;
-`endif
-                        pipeline_trap_mcause <= 0;
 
-                        fetch_address <= core_data_i;
-                        // Resume filling the pipeline
-                        pipeline_fill <= 1'b1;
-                        cpu_state_m <= STATE_RUNNING;
+                        execute_trap <= execute_trap + 1;
                     end
+
+                    trap_state_m <= TRAP_STATE_FETCH;
                 end else if (core_cyc_o & core_stb_o & core_err_i) begin
                     {core_stb_o, core_cyc_o} <= 2'b00;
                     trap_state_m <= TRAP_STATE_ERROR;
                 end
+            end
+
+            TRAP_STATE_FETCH: begin
+                pipeline_trap_mcause <= 0;
+
+                fetch_address <= core_data_i[1] ? pipeline_trap_mepc : core_data_i;
+                // Resume filling the pipeline
+                pipeline_fill <= 1'b1;
+                cpu_state_m <= STATE_RUNNING;
             end
 
             TRAP_STATE_ERROR: begin
@@ -1151,7 +1163,6 @@ module risc_p (
 
                     fetch_address <= exec_next_addr_i;
 
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
                     if (exec_mret_i) begin
                         if (execute_trap == 1) begin
                             `ifdef ENABLE_LED_BASE led[6] <= 1'b0; `endif
@@ -1164,12 +1175,9 @@ module risc_p (
                          */
                         if (execute_trap != 0) execute_trap <= execute_trap - 1;
                     end
-`endif // ENABLE_LED_BASE or ENABLE_LED_EXT
+
 `ifdef SIMULATION
                     if (exec_next_addr_i == exec_instr_addr_o) begin
-`ifdef D_CORE_FINE
-                        $display ($time, " CORE:        Looping instruction @[%h].", exec_instr_addr_o);
-`endif
                         looping_instruction <= 1'b1;
                         cpu_state_m <= STATE_HALTED;
                     end
@@ -1413,63 +1421,73 @@ module risc_p (
             if (finish_simulation > 0) begin
                 finish_simulation <= finish_simulation - 4'h1;
             end else begin
+                if (execute_trap > 0) begin
+                    if (looping_instruction) begin
+                        $display ($time, " CORE: ------- Halt: looping instruction @[%h]; exception: %s --------",
+                                exec_instr_addr_o, to_mcause_bits_string(1 << mem_space_m.csr_m.mcause));
+                    end else begin
+                        $display ($time, " CORE: ------- Halt: executing trap @[%h]. --------",  exec_instr_addr_o);
+                    end
+                end else begin
 `ifdef TEST_MODE
-                if (looping_instruction) begin
-                    $display ($time, " CORE: ------- Pass -------");
-                end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " CORE: !!!! Fail detected by test !!!!");
-                end else begin
-                    // Test ended in a trap
-                    $display ($time, " CORE: !!!! Fail: Exception: %s !!!!",
-                                to_mcause_bits_string(pipeline_trap_mcause));
-                end
-`else // TEST_MODE
-                if (looping_instruction) begin
-                    $display ($time, " CORE: ------------- Halt: looping instruction @[%h]. -------------",
-                                exec_instr_addr_o);
-                end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " CORE: ------------------- Halt at breakpoint ------------------------");
-                end else begin
-                    $display ($time, " CORE: ---------------- Halt due to exception: %s --------------------",
-                                to_mcause_bits_string(pipeline_trap_mcause));
-                end
+                    if (looping_instruction) begin
+                        $display ($time, " CORE: ------- Pass -------");
+                    end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
+                        $display ($time, " CORE: !!!! Fail detected by test !!!!");
+                    end else begin
+                        // Test ended in a trap
+                        $display ($time, " CORE: !!!! Fail: Exception: %s !!!!",
+                                    to_mcause_bits_string(pipeline_trap_mcause));
+                    end
+`else
+                    if (looping_instruction) begin
+                        $display ($time, " CORE: ------------- Halt: looping instruction @[%h]. -------------",
+                                    exec_instr_addr_o);
+                    end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
+                        $display ($time, " CORE: --------------------- Halt at breakpoint ----------------------");
+                    end else begin
+                        $display ($time, " CORE: ---------------- Halt due to exception: %s --------------------",
+                                    to_mcause_bits_string(pipeline_trap_mcause));
+                    end
 
 `ifdef ENABLE_HPM_COUNTERS
-                $display ($time, " CORE: Cycles:                 %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display ($time, " CORE: Instructions retired:   %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
-                $display ($time, " CORE: Instructions from ROM:  %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
-                $display ($time, " CORE: Instructions from RAM:  %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
-                $display ($time, " CORE: I-Cache hits:           %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
-                $display ($time, " CORE: Load from ROM:          %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
-                $display ($time, " CORE: Load from RAM:          %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
-                $display ($time, " CORE: Store to RAM:           %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
-                $display ($time, " CORE: IO load:                %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
-                $display ($time, " CORE: IO store:               %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
-                $display ($time, " CORE: CSR load:               %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
-                $display ($time, " CORE: CSR store:              %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
-                $display ($time, " CORE: Timer interrupts:       %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
-                $display ($time, " CORE: External interrupts:    %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
+                    $display ($time, " CORE: Cycles:                 %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
+                    $display ($time, " CORE: Instructions retired:   %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
+                    $display ($time, " CORE: Instructions from ROM:  %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
+                    $display ($time, " CORE: Instructions from RAM:  %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
+                    $display ($time, " CORE: I-Cache hits:           %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
+                    $display ($time, " CORE: Load from ROM:          %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
+                    $display ($time, " CORE: Load from RAM:          %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
+                    $display ($time, " CORE: Store to RAM:           %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
+                    $display ($time, " CORE: IO load:                %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
+                    $display ($time, " CORE: IO store:               %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
+                    $display ($time, " CORE: CSR load:               %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
+                    $display ($time, " CORE: CSR store:              %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
+                    $display ($time, " CORE: Timer interrupts:       %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
+                    $display ($time, " CORE: External interrupts:    %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
 `else // ENABLE_HPM_COUNTERS
-                $display ($time, " CORE: Cycles:                 %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display ($time, " CORE: Instructions:           %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
+                    $display ($time, " CORE: Cycles:                 %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
+                    $display ($time, " CORE: Instructions:           %0d",
+                                                                mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
 `endif // ENABLE_HPM_COUNTERS
 `endif // TEST_MODE
+                end
+
 `ifdef D_STATS_FILE
                 $fclose(fd);
 `endif

@@ -1,0 +1,92 @@
+
+Discarded input sections
+
+ .data          0x00000000        0x0 ./src/riscv_unaligned_load_store_test_0.o
+ .bss           0x00000000        0x0 ./src/riscv_unaligned_load_store_test_0.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+ROM              0x00600000         0x00a00000         xr
+RAM              0x80000000         0x02000000         xw!r
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD ./src/riscv_unaligned_load_store_test_0.o
+
+.text           0x00600000     0xdff8
+ *(.text)
+ .text          0x00600000     0xdff8 ./src/riscv_unaligned_load_store_test_0.o
+                0x00600000                _start
+                0x0060e000                        . = ALIGN (0x1000)
+
+.tohost         0x80000000       0x48 load address 0x0060dff8
+ *(.tohost)
+ .tohost        0x80000000       0x48 ./src/riscv_unaligned_load_store_test_0.o
+                0x80000000                tohost
+                0x80000040                fromhost
+                0x80001000                        . = ALIGN (0x1000)
+
+.page_table
+ *(.page_table)
+
+.data
+ *(.data)
+
+.region_0       0x80000048     0x1000 load address 0x0060e040
+ .region_0      0x80000048     0x1000 ./src/riscv_unaligned_load_store_test_0.o
+
+.region_1       0x80001048     0x4000 load address 0x0060f040
+ .region_1      0x80001048     0x4000 ./src/riscv_unaligned_load_store_test_0.o
+
+.region_2       0x80005048     0x2000 load address 0x00613040
+ .region_2      0x80005048     0x2000 ./src/riscv_unaligned_load_store_test_0.o
+
+.region_3       0x80007048      0x200 load address 0x00615040
+ .region_3      0x80007048      0x200 ./src/riscv_unaligned_load_store_test_0.o
+
+.region_4       0x80007248     0x1000 load address 0x00615240
+ .region_4      0x80007248     0x1000 ./src/riscv_unaligned_load_store_test_0.o
+
+.user_stack     0x80009000     0x4e20 load address 0x00616240
+ *(.user_stack)
+ .user_stack    0x80009000     0x4e20 ./src/riscv_unaligned_load_store_test_0.o
+
+.kernel_data
+ *(.kernel_data)
+
+.kernel_stack   0x8000e000     0x3e80 load address 0x0061b060
+ *(.kernel_stack)
+ .kernel_stack  0x8000e000     0x3e80 ./src/riscv_unaligned_load_store_test_0.o
+
+.bss
+ *(.bss)
+                0x80011e80                        _end = .
+OUTPUT(RandomTest.elf elf32-littleriscv)
+
+.riscv.attributes
+                0x00000000       0x4b
+ .riscv.attributes
+                0x00000000       0x4b ./src/riscv_unaligned_load_store_test_0.o
+
+.debug_line     0x00000000    0x13f75
+ .debug_line    0x00000000    0x13f75 ./src/riscv_unaligned_load_store_test_0.o
+
+.debug_line_str
+                0x00000000       0x63
+ .debug_line_str
+                0x00000000       0x63 ./src/riscv_unaligned_load_store_test_0.o
+
+.debug_info     0x00000000       0x26
+ .debug_info    0x00000000       0x26 ./src/riscv_unaligned_load_store_test_0.o
+
+.debug_abbrev   0x00000000       0x14
+ .debug_abbrev  0x00000000       0x14 ./src/riscv_unaligned_load_store_test_0.o
+
+.debug_aranges  0x00000000       0x20
+ .debug_aranges
+                0x00000000       0x20 ./src/riscv_unaligned_load_store_test_0.o
+
+.debug_str      0x00000000       0x6f
+ .debug_str     0x00000000       0x6f ./src/riscv_unaligned_load_store_test_0.o
