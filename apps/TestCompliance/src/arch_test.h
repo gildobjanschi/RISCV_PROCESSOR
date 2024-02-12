@@ -1919,6 +1919,8 @@ cleanup_epilogs:                // jump here to quit, will restore state for eac
   j     exit_cleanup            //skip around handlers, go to RVMODEL_HALT
 
 abort_tests:
+  //TODO: Changed by Gil
+  ebreak
   LREG    T4, sig_bgn_off(sp)   // calculate Mmode sig_end addr in handler's mode
   LREG    T1, sig_seg_siz(sp)
   add     T1, T1, T4            // construct sig seg end

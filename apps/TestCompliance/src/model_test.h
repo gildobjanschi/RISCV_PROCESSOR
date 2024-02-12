@@ -46,7 +46,9 @@
 //RVTEST_IO_CHECK
 #define RVMODEL_IO_CHECK()
 //RVTEST_IO_ASSERT_GPR_EQ
-#define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I)
+#define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I) \
+    LI _S,_I;                     \
+    bne _S,_R,abort_tests;        \
 //RVTEST_IO_ASSERT_SFPR_EQ
 #define RVMODEL_IO_ASSERT_SFPR_EQ(_F, _R, _I)
 //RVTEST_IO_ASSERT_DFPR_EQ
