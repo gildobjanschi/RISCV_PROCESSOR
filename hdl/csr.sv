@@ -39,6 +39,7 @@
 `include "events.svh"
 `include "csr.svh"
 `include "traps.svh"
+`include "memory_map.svh"
 
 module csr (
     // Wishbone interface
@@ -130,11 +131,18 @@ module csr (
                     data_o <= mtvec;
                 end else begin
                     mtvec <= data_i;
+                    mtvec_base <= {data_i[31:2], 2'b0};
+
                     if (data_i[1:0] == 2'b00) begin
                         // Direct mode
-                        mtvec_base <= {data_i[31:2], 2'b0};
-                    end else if (data_i[1:0] == 2'b10) begin
+`ifdef D_CORE
+                        $display($time, " CSR:    Direct mode mtvec: @[%h].", data_i);
+`endif
+                    end else if (data_i[1:0] == 2'b01) begin
                         // Vectored
+`ifdef D_CORE
+                        $display($time, " CSR:    Vectored mode mtvec: @[%h].", data_i);
+`endif
                         mtvec_interrupt_external <= {data_i[31:2], 2'b0} + 8'h2c;
                         mtvec_interrupt_software <= {data_i[31:2], 2'b0} + 8'h0c;
                         mtvec_interrupt_timer <= {data_i[31:2], 2'b0} + 8'h1c;
@@ -313,130 +321,121 @@ module csr (
             end
 
             `CSR_ENTER_TRAP: begin
-                if (~mtvec[1]) begin
-                    // mtvec was set.
-                    /*
-                     * We assume that the core has written the mepc and mcause before issuing a read for the trap address.
-                     * mtval is also written for exceptions.
-                     */
-                    mstatus[`MSTATUS_MPIE_BIT] <= mstatus[`MSTATUS_MIE_BIT];
-                    // Interrupts are disabled to prevent preemption.
-                    mstatus[`MSTATUS_MIE_BIT] <= 1'b0;
+                /*
+                 * We assume that the core has written the mepc and mcause before issuing a read for the trap address.
+                 * mtval is also written for exceptions.
+                 */
+                mstatus[`MSTATUS_MPIE_BIT] <= mstatus[`MSTATUS_MIE_BIT];
+                // Interrupts are disabled to prevent preemption.
+                mstatus[`MSTATUS_MIE_BIT] <= 1'b0;
 
-                    (* parallel_case, full_case *)
-                    case (mcause)
-                        `IRQ_CODE_EXTERNAL: begin
+                (* parallel_case, full_case *)
+                case (mcause)
+                    `IRQ_CODE_EXTERNAL: begin
 `ifdef D_CORE
-                            data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_external : mtvec_base;
-                            $display($time, " CSR: [%h]: === INTERRUPT_EXTERNAL @[%h] ===", mepc, data_o);
+                        data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_external : mtvec_base;
+                        $display($time, " CSR: [%h]: === INTERRUPT_EXTERNAL @[%h] ===", mepc, data_o);
 `else
-                            data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_external : mtvec_base;
+                        data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_external : mtvec_base;
 `endif
 `ifdef ENABLE_HPM_COUNTERS
-                            incr_event_counters_internal[`EVENT_EXTERNAL_INT] <= 1'b1;
+                        incr_event_counters_internal[`EVENT_EXTERNAL_INT] <= 1'b1;
 `endif
-                        end
+                    end
 
-                        `IRQ_CODE_SOFTWARE: begin
+                    `IRQ_CODE_SOFTWARE: begin
 `ifdef D_CORE
-                            data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_software : mtvec_base;
-                            $display($time, " CSR: [%h]: === INTERRUPT_SOFTWARE @[%h] ===", mepc, data_o);
+                        data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_software : mtvec_base;
+                        $display($time, " CSR: [%h]: === INTERRUPT_SOFTWARE @[%h] ===", mepc, data_o);
 `else
-                            data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_software : mtvec_base;
+                        data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_software : mtvec_base;
 `endif
-                        end
+                    end
 
-                        `IRQ_CODE_TIMER: begin
+                    `IRQ_CODE_TIMER: begin
 `ifdef D_CORE
-                            data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_timer : mtvec_base;
-                            $display($time, " CSR: [%h]: === INTERRUPT_TIMER @[%h] ===", mepc, data_o);
+                        data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_timer : mtvec_base;
+                        $display($time, " CSR: [%h]: === INTERRUPT_TIMER @[%h] ===", mepc, data_o);
 `else
-                            data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_timer : mtvec_base;
+                        data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_timer : mtvec_base;
 `endif
 `ifdef ENABLE_HPM_COUNTERS
-                            incr_event_counters_internal[`EVENT_TIMER_INT] <= 1'b1;
+                        incr_event_counters_internal[`EVENT_TIMER_INT] <= 1'b1;
 `endif
-                        end
+                    end
 
-                        `EX_CODE_BREAKPOINT: begin
-                            data_o <= mtvec_base;
+                    `EX_CODE_BREAKPOINT: begin
+                        data_o <= mtvec_base;
 `ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Breakpoint exception ===", mepc);
+                        $display($time, " CSR: [%h]: === Breakpoint exception ===", mepc);
 `endif
-                        end
+                    end
 
-                        `EX_CODE_INSTRUCTION_ACCESS_FAULT: begin
-                            data_o <= mtvec_base;
+                    `EX_CODE_INSTRUCTION_ACCESS_FAULT: begin
+                        data_o <= mtvec_base;
 `ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Instruction access fault exception @[%h] ===", mepc,
-                                        mtval);
+                        $display($time, " CSR: [%h]: === Instruction access fault exception @[%h] ===", mepc, mtval);
 `endif
-                        end
+                    end
 
-                        `EX_CODE_ILLEGAL_INSTRUCTION: begin
-                            data_o <= mtvec_base;
+                    `EX_CODE_ILLEGAL_INSTRUCTION: begin
+                        data_o <= mtvec_base;
 `ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Illegal instruction exception: %h ===", mepc, mtval);
+                        $display($time, " CSR: [%h]: === Illegal instruction exception: %h ===", mepc, mtval);
 `endif
-                        end
+                    end
 
-                        `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED: begin
-                            data_o <= mtvec_base;
+                    `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED: begin
+                        data_o <= mtvec_base;
 `ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Instruction address misaligned exception @[%h] ===", mepc,
+                        $display($time, " CSR: [%h]: === Instruction address misaligned exception @[%h] ===", mepc,
+                                mtval);
+`endif
+                    end
+
+                    `EX_CODE_ECALL: begin
+                        data_o <= mtvec_base;
+`ifdef D_CORE
+                        $display($time, " CSR: [%h]: === ECALL ===", mepc);
+`endif
+                    end
+
+                    `EX_CODE_LOAD_ACCESS_FAULT: begin
+                        data_o <= mtvec_base;
+`ifdef D_CORE
+                        $display($time, " CSR: [%h]: === Load access fault exception @[%h] ===", mepc, mtval);
+`endif
+                    end
+
+                    `EX_CODE_STORE_ACCESS_FAULT: begin
+                        data_o <= mtvec_base;
+`ifdef D_CORE
+                        $display($time, " CSR: [%h]: === Store access fault exception @[%h] ===", mepc, mtval);
+`endif
+                    end
+
+                    `EX_CODE_LOAD_ADDRESS_MISALIGNED: begin
+                        data_o <= mtvec_base;
+`ifdef D_CORE
+                        $display($time, " CSR: [%h]: === Load address misaligned exception @[%h] ===", mepc, mtval);
+`endif
+                    end
+
+                    `EX_CODE_STORE_ADDRESS_MISALIGNED: begin
+                        data_o <= mtvec_base;
+`ifdef D_CORE
+                        $display($time, " CSR: [%h]: === Store address misaligned exception @[%h] ===", mepc, mtval);
+`endif
+                    end
+
+                    default: begin
+                        data_o <= mtvec_base;
+`ifdef D_CORE
+                        $display($time, " CSR: [%h]: === Unhandled exception mcause=%h. mtval=%h ===", mepc, mcause,
                                     mtval);
 `endif
-                        end
-
-                        `EX_CODE_ECALL: begin
-                            data_o <= mtvec_base;
-`ifdef D_CORE
-                            $display($time, " CSR: [%h]: === ECALL ===", mepc);
-`endif
-                        end
-
-                        `EX_CODE_LOAD_ACCESS_FAULT: begin
-                            data_o <= mtvec_base;
-`ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Load access fault exception @[%h] ===", mepc, mtval);
-`endif
-                        end
-
-                        `EX_CODE_STORE_ACCESS_FAULT: begin
-                            data_o <= mtvec_base;
-`ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Store access fault exception @[%h] ===", mepc, mtval);
-`endif
-                        end
-
-                        `EX_CODE_LOAD_ADDRESS_MISALIGNED: begin
-                            data_o <= mtvec_base;
-`ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Load address misaligned exception @[%h] ===", mepc, mtval);
-`endif
-                        end
-
-                        `EX_CODE_STORE_ADDRESS_MISALIGNED: begin
-                            data_o <= mtvec_base;
-`ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Store address misaligned exception @[%h] ===", mepc,
-                                        mtval);
-`endif
-                        end
-
-                        default: begin
-                            data_o <= mtvec_base;
-`ifdef D_CORE
-                            $display($time, " CSR: [%h]: === Unhandled exception mcause=%h. mtval=%h ===", mepc, mcause,
-                                        mtval);
-`endif
-                        end
-                    endcase
-                end else begin // mtvec is invalid
-                    data_o <= mtvec;
-                    // Interrupts cannot be serviced.
-                    mip <= 0;
-                end
+                    end
+                endcase
             end
 
             `CSR_EXIT_TRAP: begin
@@ -584,11 +583,11 @@ module csr (
              * We set the last two bits to indicate that mtvec was not set by the machine.
              * (0 = DIRECT mode, 1 = VECTORED mode, 2 and 3 are reserved.)
              */
-            mtvec <= {30'h0, 2'b11};
-            mtvec_base <= {30'h0, 2'b11};
-            mtvec_interrupt_external <= {30'h0, 2'b11};
-            mtvec_interrupt_software <= {30'h0, 2'b11};
-            mtvec_interrupt_timer <= {30'h0, 2'b11};
+            mtvec <= `INVALID_ADDR;
+            mtvec_base <= `INVALID_ADDR;
+            mtvec_interrupt_external <= `INVALID_ADDR;
+            mtvec_interrupt_software <= `INVALID_ADDR;
+            mtvec_interrupt_timer <= `INVALID_ADDR;
 
             mhpmevent[`EVENT_CYCLE] <= 1 << `EVENT_CYCLE;
             mhpmevent[`EVENT_RESERVED] <= 1 << `EVENT_RESERVED;
