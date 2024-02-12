@@ -20,15 +20,11 @@
 /apps/TestC/Release/*.map
 /apps/TestC/Release/src/*
 
+/apps/TestCompliance/Release/*.sig
 /apps/TestCompliance/Release/*.bin
 /apps/TestCompliance/Release/*.elf
 /apps/TestCompliance/Release/*.lst
 /apps/TestCompliance/Release/*.map
 /apps/TestCompliance/Release/src/*
 
-/apps/RandomTest/Release/*.bin
-/apps/RandomTest/Release/*.elf
-/apps/RandomTest/Release/*.lst
-/apps/RandomTest/Release/*.map
-/apps/RandomTest/Release/src/*
 

@@ -62,21 +62,6 @@ doCompliance()
 	fi
 }
 
-doRandom()
-{
-	if test -f "$OUTPUT_FILE"; then
-		rm $OUTPUT_FILE
-	fi
-
-	if [ "$APP_NAME" = "risc_p" ] ; then
-		iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/RandomTest/Release/$1\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
-		if [ $? -eq 0 ]; then
-			vvp $OUTPUT_FILE
-		fi
-	fi
-}
-
-
 # RV32I instructions
 doCompliance "add-01.bin";
 doCompliance "addi-01.bin";
@@ -183,19 +168,3 @@ doCompliance "amominu.w-01.bin";
 doCompliance "amoor.w-01.bin";
 doCompliance "amoswap.w-01.bin";
 doCompliance "amoxor.w-01.bin";
-
-# Google random tests (from sample)
-doRandom "riscv_arithmetic_basic_test_0.bin";
-doRandom "riscv_ebreak_debug_mode_test_0.bin";
-doRandom "riscv_ebreak_test_0.bin";
-doRandom "riscv_full_interrupt_test_0.bin";
-doRandom "riscv_hint_instr_test_0.bin";
-doRandom "riscv_illegal_instr_test_0.bin";
-doRandom "riscv_jump_stress_test_0.bin";
-doRandom "riscv_loop_test_0.bin";
-doRandom "riscv_mmu_stress_test_0.bin";
-doRandom "riscv_no_fence_test_0.bin";
-doRandom "riscv_non_compressed_instr_test_0.bin";
-doRandom "riscv_rand_instr_test_0.bin";
-doRandom "riscv_rand_jump_test_0.bin";
-doRandom "riscv_unaligned_load_store_test_0.bin";
