@@ -185,9 +185,9 @@ module sim_top_risc_p;
             end
 
             $fclose (sign_fd);
-            $display ($time, " INITIAL: Signature generated: %s (@[%h] - @[%h]).", filename, begin_addr, end_addr);
+            $display ($time, " SIM: Signature generated: %s (@[%h] - @[%h]).", filename, begin_addr, end_addr);
         end else begin
-            $display ($time, " INITIAL: Cannot save signature file: %s.", filename);
+            $display ($time, " SIM: Cannot save signature file: %s.", filename);
         end
     endtask
 `endif
@@ -201,60 +201,60 @@ module sim_top_risc_p;
                 finish_simulation <= finish_simulation - 4'h1;
             end else begin
 `ifdef TEST_MODE
-                $display ($time, " INITIAL: Test complete.");
+                $display ($time, " SIM: Test complete.");
                 if (risc_p_m.looping_instruction) begin
                     save_signature_task (risc_p_m.regfile_m.cpu_reg[1], risc_p_m.regfile_m.cpu_reg[2]);
                 end else if (risc_p_m.pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " INITIAL: !!!! Fail detected by test !!!!");
+                    $display ($time, " SIM: !!!! Fail detected by test !!!!");
                 end else begin
                     // Test ended in a trap
-                    $display ($time, " INITIAL: !!!! Fail: Exception: %s !!!!",
+                    $display ($time, " SIM: !!!! Fail: Exception: %s !!!!",
                                 to_mcause_bits_string(risc_p_m.pipeline_trap_mcause));
                 end
 `else // TEST_MODE
                 if (risc_p_m.looping_instruction) begin
-                    $display ($time, " INITIAL: ------------- Halt: looping instruction @[%h]. -------------",
+                    $display ($time, " SIM: ------------- Halt: looping instruction @[%h]. -------------",
                                 risc_p_m.exec_instr_addr_o);
                 end else if (risc_p_m.pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " INITIAL: ------------------- Halt at breakpoint ------------------------");
+                    $display ($time, " SIM: ------------------- Halt at breakpoint ------------------------");
                 end else begin
-                    $display ($time, " INITIAL: ---------------- Halt due to exception: %s --------------------",
+                    $display ($time, " SIM: ---------------- Halt due to exception: %s --------------------",
                                 to_mcause_bits_string(risc_p_m.pipeline_trap_mcause));
                 end
 
 `ifdef ENABLE_HPM_COUNTERS
-                $display ($time, " INITIAL: Cycles:                 %0d",
+                $display ($time, " SIM: Cycles:                 %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display ($time, " INITIAL: Instructions retired:   %0d",
+                $display ($time, " SIM: Instructions retired:   %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
-                $display ($time, " INITIAL: Instructions from ROM:  %0d",
+                $display ($time, " SIM: Instructions from ROM:  %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
-                $display ($time, " INITIAL: Instructions from RAM:  %0d",
+                $display ($time, " SIM: Instructions from RAM:  %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
-                $display ($time, " INITIAL: I-Cache hits:           %0d",
+                $display ($time, " SIM: I-Cache hits:           %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
-                $display ($time, " INITIAL: Load from ROM:          %0d",
+                $display ($time, " SIM: Load from ROM:          %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
-                $display ($time, " INITIAL: Load from RAM:          %0d",
+                $display ($time, " SIM: Load from RAM:          %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
-                $display ($time, " INITIAL: Store to RAM:           %0d",
+                $display ($time, " SIM: Store to RAM:           %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
-                $display ($time, " INITIAL: IO load:                %0d",
+                $display ($time, " SIM: IO load:                %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
-                $display ($time, " INITIAL: IO store:               %0d",
+                $display ($time, " SIM: IO store:               %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
-                $display ($time, " INITIAL: CSR load:               %0d",
+                $display ($time, " SIM: CSR load:               %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
-                $display ($time, " INITIAL: CSR store:              %0d",
+                $display ($time, " SIM: CSR store:              %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
-                $display ($time, " INITIAL: Timer interrupts:       %0d",
+                $display ($time, " SIM: Timer interrupts:       %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
-                $display ($time, " INITIAL: External interrupts:    %0d",
+                $display ($time, " SIM: External interrupts:    %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
 `else // ENABLE_HPM_COUNTERS
-                $display ($time, " INITIAL: Cycles:                 %0d",
+                $display ($time, " SIM: Cycles:                 %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display ($time, " INITIAL: Instructions:           %0d",
+                $display ($time, " SIM: Instructions:           %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
 `endif // ENABLE_HPM_COUNTERS
 `endif // TEST_MODE

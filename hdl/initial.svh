@@ -41,25 +41,25 @@
                         sim_flash_slave_m.flash[`FLASH_OFFSET_ADDR + file_index] = value_1;
                         file_index = file_index + 1;
                     end else begin
-                        $display($time, " INITIAL: Loaded %s to flash (%h bytes).", `BIN_FILE_NAME, file_index);
+                        $display($time, " SIM: Loaded %s to flash (%h bytes).", `BIN_FILE_NAME, file_index);
                     end
                 end
 
                 $fclose(fd);
             end else begin
-                $display($time, " INITIAL: Error: File open error: %s", `BIN_FILE_NAME);
+                $display($time, " SIM: Error: File open error: %s", `BIN_FILE_NAME);
                 $finish(0);
             end
         end else begin
-            $display($time, " INITIAL: No .bin file specified. Use -D BIN_FILE_NAME option");
+            $display($time, " SIM: No .bin file specified. Use -D BIN_FILE_NAME option");
             $finish(0);
         end
 
 `ifdef TEST_MODE
-        $display($time, " INITIAL: Running test...");
+        $display($time, " SIM: Running test...");
 `else
-        $display($time, " INITIAL: CLK_PERIOD_NS: %0d ns.", `CLK_PERIOD_NS);
-        $display($time, " INITIAL: ------------------------- Simulation begin ---------------------------");
+        $display($time, " SIM: CLK_PERIOD_NS: %0d ns.", `CLK_PERIOD_NS);
+        $display($time, " SIM: ------------------------- Simulation begin ---------------------------");
 `endif // TEST_MODE
 
 `ifdef GENERATE_VCD
@@ -83,11 +83,11 @@
 
 `ifdef TEST_MODE
         #25000000
-        $display($time, " INITIAL: !!!! Timeout: end of test not reached  !!!!");
+        $display($time, " SIM: !!!! Timeout: end of test not reached  !!!!");
 `elsif SIMULATION
         #150000000
 
-        $display($time, " INITIAL: ---------------------- Simulation end ------------------------");
+        $display($time, " SIM: ---------------------- Simulation end ------------------------");
 `endif // SIMULATION
 
         $finish(0);
