@@ -99,7 +99,7 @@ module csr (
         // The request succeeds unless an error occurs in the case default block.
         {sync_ack_o, sync_err_o} <= 2'b10;
 
-`ifdef D_CSR
+`ifdef D_CSR_FINE
         if (~we_i) begin
             $display($time, " CSR: Read [%h]", addr_i);
         end else begin
@@ -135,13 +135,13 @@ module csr (
 
                     if (data_i[1:0] == 2'b00) begin
                         // Direct mode
-`ifdef D_CORE
-                        $display($time, " CSR:    Direct mode mtvec: @[%h].", data_i);
+`ifdef D_CSR
+                        $display($time, " CSR: Direct mode mtvec: @[%h].", data_i);
 `endif
                     end else if (data_i[1:0] == 2'b01) begin
                         // Vectored
-`ifdef D_CORE
-                        $display($time, " CSR:    Vectored mode mtvec: @[%h].", data_i);
+`ifdef D_CSR
+                        $display($time, " CSR: Vectored mode mtvec: @[%h].", data_i);
 `endif
                         mtvec_interrupt_external <= {data_i[31:2], 2'b0} + 8'h2c;
                         mtvec_interrupt_software <= {data_i[31:2], 2'b0} + 8'h0c;
@@ -332,7 +332,7 @@ module csr (
                 (* parallel_case, full_case *)
                 case (mcause)
                     `IRQ_CODE_EXTERNAL: begin
-`ifdef D_CORE
+`ifdef D_CSR
                         data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_external : mtvec_base;
                         $display($time, " CSR: [%h]: === INTERRUPT_EXTERNAL @[%h] ===", mepc, data_o);
 `else
@@ -344,7 +344,7 @@ module csr (
                     end
 
                     `IRQ_CODE_SOFTWARE: begin
-`ifdef D_CORE
+`ifdef D_CSR
                         data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_software : mtvec_base;
                         $display($time, " CSR: [%h]: === INTERRUPT_SOFTWARE @[%h] ===", mepc, data_o);
 `else
@@ -353,7 +353,7 @@ module csr (
                     end
 
                     `IRQ_CODE_TIMER: begin
-`ifdef D_CORE
+`ifdef D_CSR
                         data_o = mtvec[1:0] == 2'b01 ? mtvec_interrupt_timer : mtvec_base;
                         $display($time, " CSR: [%h]: === INTERRUPT_TIMER @[%h] ===", mepc, data_o);
 `else
@@ -366,28 +366,28 @@ module csr (
 
                     `EX_CODE_BREAKPOINT: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Breakpoint exception ===", mepc);
 `endif
                     end
 
                     `EX_CODE_INSTRUCTION_ACCESS_FAULT: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Instruction access fault exception @[%h] ===", mepc, mtval);
 `endif
                     end
 
                     `EX_CODE_ILLEGAL_INSTRUCTION: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Illegal instruction exception: %h ===", mepc, mtval);
 `endif
                     end
 
                     `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Instruction address misaligned exception @[%h] ===", mepc,
                                 mtval);
 `endif
@@ -395,42 +395,42 @@ module csr (
 
                     `EX_CODE_ECALL: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === ECALL ===", mepc);
 `endif
                     end
 
                     `EX_CODE_LOAD_ACCESS_FAULT: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Load access fault exception @[%h] ===", mepc, mtval);
 `endif
                     end
 
                     `EX_CODE_STORE_ACCESS_FAULT: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Store access fault exception @[%h] ===", mepc, mtval);
 `endif
                     end
 
                     `EX_CODE_LOAD_ADDRESS_MISALIGNED: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Load address misaligned exception @[%h] ===", mepc, mtval);
 `endif
                     end
 
                     `EX_CODE_STORE_ADDRESS_MISALIGNED: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Store address misaligned exception @[%h] ===", mepc, mtval);
 `endif
                     end
 
                     default: begin
                         data_o <= mtvec_base;
-`ifdef D_CORE
+`ifdef D_CSR
                         $display($time, " CSR: [%h]: === Unhandled exception mcause=%h. mtval=%h ===", mepc, mcause,
                                     mtval);
 `endif
@@ -439,7 +439,7 @@ module csr (
             end
 
             `CSR_EXIT_TRAP: begin
-`ifdef D_CORE
+`ifdef D_CSR
                 $display($time, " CSR: [%h]: === Exit interrupt. ===", mepc);
 `endif
                 mstatus[`MSTATUS_MIE_BIT] <= mstatus[`MSTATUS_MPIE_BIT];
@@ -455,9 +455,9 @@ module csr (
 `endif  // TEST_MODE
 
             default: begin
-`ifdef D_CORE
+`ifdef D_CSR
                 $display($time, " CSR: register [%h] not supported", addr_i);
-`endif  // D_CORE
+`endif  // D_CSR
                 /* Attempts to access a non-existent CSR raise an illegal instruction exception */
                 {sync_ack_o, sync_err_o} <= 2'b01;
             end
@@ -641,7 +641,7 @@ module csr (
             if (mstatus[`MSTATUS_MIE_BIT]) begin
                 // A new interrupt is pending if the interrupt type is enabled in mie.
                 mip <= mip | (io_interrupts_i & mie);
-`ifdef D_CORE
+`ifdef D_CSR
                 if (|io_interrupts_i) begin
                     $display($time, " CSR: New interrupts: %h. Enabled: %h. Pending now: %h.", io_interrupts_i, mie,
                          mip | (io_interrupts_i & mie));

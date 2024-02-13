@@ -21,14 +21,35 @@
         .word 4;
 
 //RV_COMPLIANCE_HALT
-#define RVMODEL_HALT                                              \
-  addi x1, x1, 4; \
-  li x1, 1;                                                                   \
-  write_tohost:                                                               \
-    sw x1, tohost, t1;                                                        \
-  self_loop:  j self_loop;
+#define RVMODEL_HALT                    \
+    addi x1, x1, 4;                     \
+    li x1, 1;                           \
+write_tohost:                           \
+    sw x1, tohost, t1;                  \
+    lui x1, % hi(begin_signature);      \
+    addi x1, x1, % lo(begin_signature); \
+    lui x2, % hi(end_signature);      \
+    addi x2, x2, % lo(end_signature); \
+self_loop : j self_loop;
 
-#define RVMODEL_BOOT
+#define RVMODEL_BOOT  \
+  lui t0, %hi(_ram_data_begin)              ;\
+  addi t0, t0, %lo(_ram_data_begin)         ;\
+  lui t3, %hi(_ram_data_end)                ;\
+  addi t3, t3, %lo(_ram_data_end)           ;\
+  sub t1, t3, t0                            ;\
+  srli t5, t1, 2                            ;\
+  lui t2, %hi(_rom_copy_to_ram_begin)       ;\
+  addi t2, t2, %lo(_rom_copy_to_ram_begin)  ;\
+copy_rom_to_ram_words:                      ;\
+  beq t5, zero, copy_rom_done               ;\
+  lw t4, 0(t2)                              ;\
+  addi t2, t2, 4                            ;\
+  sw t4, 0(t0)                              ;\
+  addi t0, t0, 4                            ;\
+  addi t5, t5, -1                           ;\
+  j copy_rom_to_ram_words                   ;\
+copy_rom_done:                              ;\
 
 //RV_COMPLIANCE_DATA_BEGIN
 #define RVMODEL_DATA_BEGIN                                              \
@@ -46,9 +67,7 @@
 //RVTEST_IO_CHECK
 #define RVMODEL_IO_CHECK()
 //RVTEST_IO_ASSERT_GPR_EQ
-#define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I) \
-    LI _S,_I;                     \
-    bne _S,_R,abort_tests;        \
+#define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I)
 //RVTEST_IO_ASSERT_SFPR_EQ
 #define RVMODEL_IO_ASSERT_SFPR_EQ(_F, _R, _I)
 //RVTEST_IO_ASSERT_DFPR_EQ

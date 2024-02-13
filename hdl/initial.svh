@@ -30,8 +30,6 @@
             integer fd, bytes_read, file_index;
             logic [7:0] value_1;
 
-            $display($time, " INITIAL: Loading .bin file: %s...", `BIN_FILE_NAME);
-
             fd = $fopen(`BIN_FILE_NAME, "rb");
             if (fd) begin
                 file_index = 0;
@@ -43,9 +41,7 @@
                         sim_flash_slave_m.flash[`FLASH_OFFSET_ADDR + file_index] = value_1;
                         file_index = file_index + 1;
                     end else begin
-`ifndef TEST_MODE
-                        $display($time, " INITIAL: Loaded %h bytes to flash.", file_index);
-`endif // TEST_MODE
+                        $display($time, " INITIAL: Loaded %s to flash (%h bytes).", `BIN_FILE_NAME, file_index);
                     end
                 end
 
@@ -59,9 +55,10 @@
             $finish(0);
         end
 
-`ifndef TEST_MODE
+`ifdef TEST_MODE
+        $display($time, " INITIAL: Running test...");
+`else
         $display($time, " INITIAL: CLK_PERIOD_NS: %0d ns.", `CLK_PERIOD_NS);
-
         $display($time, " INITIAL: ------------------------- Simulation begin ---------------------------");
 `endif // TEST_MODE
 

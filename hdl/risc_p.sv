@@ -477,6 +477,13 @@ module risc_p (
     assign i_cache_index = fetch_address[CACHE_BITS:1];
     assign o_cache_index = core_addr_o[CACHE_BITS:1];
 
+`ifdef SIMULATION
+    logic looping_instruction;
+`ifdef D_STATS_FILE
+    integer fd;
+    integer stats_start_execution_time, stats_prev_end_execution_time;
+`endif
+`endif
     //==================================================================================================================
     // The reset task
     //==================================================================================================================
@@ -1369,114 +1376,4 @@ module risc_p (
         endcase
     endfunction
 
-`ifdef SIMULATION
-    logic[3:0] finish_simulation;
-    logic looping_instruction;
-`ifdef D_STATS_FILE
-    integer fd;
-    integer stats_start_execution_time, stats_prev_end_execution_time;
-`endif
-
-    initial begin
-        finish_simulation = 4'h2;
-        looping_instruction = 1'b0;
-`ifdef D_STATS_FILE
-        fd = $fopen("out.csv", "w");
-`endif
-    end
-
-    //==================================================================================================================
-    // Convert from mcause bits to mcause string
-    //==================================================================================================================
-    function string to_mcause_bits_string(input [31:0] mcause_bits);
-        (* parallel_case, full_case *)
-        case (mcause_bits)
-            // Exceptions
-            32'h0000_0001: return "EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED";
-            32'h0000_0002: return "EX_CODE_INSTRUCTION_ACCESS_FAULT";
-            32'h0000_0004: return "EX_CODE_ILLEGAL_INSTRUCTION";
-            32'h0000_0008: return "EX_CODE_BREAKPOINT";
-            32'h0000_0010: return "EX_CODE_LOAD_ADDRESS_MISALIGNED";
-            32'h0000_0020: return "EX_CODE_LOAD_ACCESS_FAULT";
-            32'h0000_0040: return "EX_CODE_STORE_ADDRESS_MISALIGNED";
-            32'h0000_0080: return "EX_CODE_STORE_ACCESS_FAULT";
-            32'h0000_0100: return "EX_CODE_ECALL";
-            default: return "Undefined";
-        endcase
-    endfunction
-
-    //==================================================================================================================
-    // Finish the simulation
-    //==================================================================================================================
-    always @(posedge clk) begin
-        if (cpu_state_m == STATE_HALTED) begin
-            if (finish_simulation > 0) begin
-                finish_simulation <= finish_simulation - 4'h1;
-            end else begin
-`ifdef TEST_MODE
-                if (looping_instruction) begin
-                    $display ($time, " CORE: ------- Pass -------");
-                end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " CORE: !!!! Fail detected by test !!!!");
-                end else begin
-                    // Test ended in a trap
-                    $display ($time, " CORE: !!!! Fail: Exception: %s !!!!",
-                                to_mcause_bits_string(pipeline_trap_mcause));
-                end
-`else // TEST_MODE
-                if (looping_instruction) begin
-                    $display ($time, " CORE: ------------- Halt: looping instruction @[%h]. -------------",
-                                exec_instr_addr_o);
-                end else if (pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " CORE: ------------------- Halt at breakpoint ------------------------");
-                end else begin
-                    $display ($time, " CORE: ---------------- Halt due to exception: %s --------------------",
-                                to_mcause_bits_string(pipeline_trap_mcause));
-                end
-
-`ifdef ENABLE_HPM_COUNTERS
-                $display ($time, " CORE: Cycles:                 %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display ($time, " CORE: Instructions retired:   %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
-                $display ($time, " CORE: Instructions from ROM:  %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
-                $display ($time, " CORE: Instructions from RAM:  %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
-                $display ($time, " CORE: I-Cache hits:           %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
-                $display ($time, " CORE: Load from ROM:          %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
-                $display ($time, " CORE: Load from RAM:          %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
-                $display ($time, " CORE: Store to RAM:           %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
-                $display ($time, " CORE: IO load:                %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
-                $display ($time, " CORE: IO store:               %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
-                $display ($time, " CORE: CSR load:               %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
-                $display ($time, " CORE: CSR store:              %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
-                $display ($time, " CORE: Timer interrupts:       %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
-                $display ($time, " CORE: External interrupts:    %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
-`else // ENABLE_HPM_COUNTERS
-                $display ($time, " CORE: Cycles:                 %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display ($time, " CORE: Instructions:           %0d",
-                                                            mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
-`endif // ENABLE_HPM_COUNTERS
-`endif // TEST_MODE
-`ifdef D_STATS_FILE
-                $fclose(fd);
-`endif
-                // Finish the simulation
-                $finish(0);
-            end
-        end
-    end
-`endif // SIMULATION
 endmodule

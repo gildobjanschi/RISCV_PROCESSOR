@@ -55,116 +55,122 @@ doCompliance()
 	fi
 
 	if [ "$APP_NAME" = "risc_p" ] ; then
-		iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
+		iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1.bin\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
 		if [ $? -eq 0 ]; then
 			vvp $OUTPUT_FILE
+			diff --text ../apps/TestCompliance/reference/$1.reference_output ../apps/TestCompliance/Release/$1.sig
+            if [ $? -eq 0 ]; then
+                echo -e "\033[0;32m                              PASS\033[0m"
+            else
+                echo -e "\033[0;31m                              FAIL\033[0m"
+			fi
 		fi
 	fi
 }
 
 # RV32I instructions
-doCompliance "add-01.bin";
-doCompliance "addi-01.bin";
-doCompliance "and-01.bin";
-doCompliance "andi-01.bin";
-doCompliance "auipc-01.bin";
-doCompliance "beq-01.bin";
-doCompliance "bge-01.bin";
-doCompliance "bgeu-01.bin";
-doCompliance "blt-01.bin";
-doCompliance "bltu-01.bin";
-doCompliance "bne-01.bin";
-doCompliance "fence-01.bin";
-doCompliance "jal-01.bin";
-doCompliance "jalr-01.bin";
-doCompliance "misalign1-jalr-01.bin";
-doCompliance "lb-align-01.bin";
-doCompliance "lbu-align-01.bin";
-doCompliance "lh-align-01.bin";
-doCompliance "lhu-align-01.bin";
-doCompliance "lui-01.bin";
-doCompliance "lw-align-01.bin";
-doCompliance "or-01.bin";
-doCompliance "ori-01.bin";
-doCompliance "sb-align-01.bin";
-doCompliance "sh-align-01.bin";
-doCompliance "sll-01.bin";
-doCompliance "slli-01.bin";
-doCompliance "slt-01.bin";
-doCompliance "slti-01.bin";
-doCompliance "sltiu-01.bin";
-doCompliance "sltu-01.bin";
-doCompliance "sra-01.bin";
-doCompliance "srai-01.bin";
-doCompliance "srl-01.bin";
-doCompliance "srli-01.bin";
-doCompliance "sub-01.bin";
-doCompliance "sw-align-01.bin";
-doCompliance "xor-01.bin";
-doCompliance "xori-01.bin";
+doCompliance "add-01";
+doCompliance "addi-01";
+doCompliance "and-01";
+doCompliance "andi-01";
+doCompliance "auipc-01";
+doCompliance "beq-01";
+doCompliance "bge-01";
+doCompliance "bgeu-01";
+doCompliance "blt-01";
+doCompliance "bltu-01";
+doCompliance "bne-01";
+doCompliance "fence-01";
+doCompliance "jal-01";
+doCompliance "jalr-01";
+doCompliance "misalign1-jalr-01";
+doCompliance "lb-align-01";
+doCompliance "lbu-align-01";
+doCompliance "lh-align-01";
+doCompliance "lhu-align-01";
+doCompliance "lui-01";
+doCompliance "lw-align-01";
+doCompliance "or-01";
+doCompliance "ori-01";
+doCompliance "sb-align-01";
+doCompliance "sh-align-01";
+doCompliance "sll-01";
+doCompliance "slli-01";
+doCompliance "slt-01";
+doCompliance "slti-01";
+doCompliance "sltiu-01";
+doCompliance "sltu-01";
+doCompliance "sra-01";
+doCompliance "srai-01";
+doCompliance "srl-01";
+doCompliance "srli-01";
+doCompliance "sub-01";
+doCompliance "sw-align-01";
+doCompliance "xor-01";
+doCompliance "xori-01";
 
 # Priviledged tests
-doCompliance "misalign2-jalr-01.bin";
-doCompliance "misalign-beq-01.bin";
-doCompliance "misalign-bge-01.bin";
-doCompliance "misalign-bgeu-01.bin";
-doCompliance "misalign-blt-01.bin";
-doCompliance "misalign-bltu-01.bin";
-doCompliance "misalign-bne-01.bin";
-doCompliance "misalign-jal-01.bin";
-doCompliance "misalign-lh-01.bin";
-doCompliance "misalign-lhu-01.bin";
-doCompliance "misalign-lw-01.bin";
-doCompliance "misalign-sh-01.bin";
-doCompliance "misalign-sw-01.bin";
+doCompliance "misalign2-jalr-01";
+doCompliance "misalign-beq-01";
+doCompliance "misalign-bge-01";
+doCompliance "misalign-bgeu-01";
+doCompliance "misalign-blt-01";
+doCompliance "misalign-bltu-01";
+doCompliance "misalign-bne-01";
+doCompliance "misalign-jal-01";
+doCompliance "misalign-lh-01";
+doCompliance "misalign-lhu-01";
+doCompliance "misalign-lw-01";
+doCompliance "misalign-sh-01";
+doCompliance "misalign-sw-01";
 
 # Compressed instructions
-doCompliance "cadd-01.bin";
-doCompliance "caddi-01.bin";
-doCompliance "caddi16sp-01.bin";
-doCompliance "caddi4spn-01.bin";
-doCompliance "cand-01.bin";
-doCompliance "candi-01.bin";
-doCompliance "cbeqz-01.bin";
-doCompliance "cbnez-01.bin";
-doCompliance "cjal-01.bin";
-doCompliance "cjalr-01.bin";
-doCompliance "cjr-01.bin";
-doCompliance "cli-01.bin";
-doCompliance "clui-01.bin";
-doCompliance "clw-01.bin";
-doCompliance "clwsp-01.bin";
-doCompliance "cmv-01.bin";
-doCompliance "cnop-01.bin";
-doCompliance "cor-01.bin";
-doCompliance "cslli-01.bin";
-doCompliance "csrai-01.bin";
-doCompliance "csrli-01.bin";
-doCompliance "csub-01.bin";
-doCompliance "csw-01.bin";
-doCompliance "cswsp-01.bin";
-doCompliance "cxor-01.bin";
+doCompliance "cadd-01";
+doCompliance "caddi-01";
+doCompliance "caddi16sp-01";
+doCompliance "caddi4spn-01";
+doCompliance "cand-01";
+doCompliance "candi-01";
+doCompliance "cbeqz-01";
+doCompliance "cbnez-01";
+doCompliance "cjal-01";
+doCompliance "cjalr-01";
+doCompliance "cjr-01";
+doCompliance "cli-01";
+doCompliance "clui-01";
+doCompliance "clw-01";
+doCompliance "clwsp-01";
+doCompliance "cmv-01";
+doCompliance "cnop-01";
+doCompliance "cor-01";
+doCompliance "cslli-01";
+doCompliance "csrai-01";
+doCompliance "csrli-01";
+doCompliance "csub-01";
+doCompliance "csw-01";
+doCompliance "cswsp-01";
+doCompliance "cxor-01";
 
 # Multiply/Divide instructions
-doCompliance "mul-01.bin";
-doCompliance "mulh-01.bin";
-doCompliance "mulhsu-01.bin";
-doCompliance "mulhu-01.bin";
-doCompliance "div-01.bin";
-doCompliance "divu-01.bin";
-doCompliance "rem-01.bin";
-doCompliance "remu-01.bin";
+doCompliance "mul-01";
+doCompliance "mulh-01";
+doCompliance "mulhsu-01";
+doCompliance "mulhu-01";
+doCompliance "div-01";
+doCompliance "divu-01";
+doCompliance "rem-01";
+doCompliance "remu-01";
 
 # CSR instructions
-doCompliance "csr-01.bin";
+doCompliance "csr-01";
 
 # Atomic instructions
-doCompliance "amoadd.w-01.bin";
-doCompliance "amoand.w-01.bin";
-doCompliance "amomax.w-01.bin";
-doCompliance "amomaxu.w-01.bin";
-doCompliance "amomin.w-01.bin";
-doCompliance "amominu.w-01.bin";
-doCompliance "amoor.w-01.bin";
-doCompliance "amoswap.w-01.bin";
-doCompliance "amoxor.w-01.bin";
+doCompliance "amoadd.w-01";
+doCompliance "amoand.w-01";
+doCompliance "amomax.w-01";
+doCompliance "amomaxu.w-01";
+doCompliance "amomin.w-01";
+doCompliance "amominu.w-01";
+doCompliance "amoor.w-01";
+doCompliance "amoswap.w-01";
+doCompliance "amoxor.w-01";

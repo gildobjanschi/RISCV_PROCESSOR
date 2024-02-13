@@ -22,7 +22,7 @@ mkdir -p src
 
 rm src/*
 rm *.bin
-
+rm ../apps/TestCompliance/Release/*.sig
 
 make clean
 build_subdirmk "add-01";

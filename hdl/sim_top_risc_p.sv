@@ -136,5 +136,136 @@ module sim_top_risc_p;
         .psram_d        (psram_d));
 `endif
 
+    logic[3:0] finish_simulation = 4'h4;
+    initial begin
+`ifdef D_STATS_FILE
+        risc_p_m.fd = $fopen("out.csv", "w");
+`endif
+    end
+
+    //==================================================================================================================
+    // Convert from mcause bits to mcause string
+    //==================================================================================================================
+    function string to_mcause_bits_string(input [31:0] mcause_bits);
+        (* parallel_case, full_case *)
+        case (mcause_bits)
+            // Exceptions
+            32'h0000_0001: return "EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED";
+            32'h0000_0002: return "EX_CODE_INSTRUCTION_ACCESS_FAULT";
+            32'h0000_0004: return "EX_CODE_ILLEGAL_INSTRUCTION";
+            32'h0000_0008: return "EX_CODE_BREAKPOINT";
+            32'h0000_0010: return "EX_CODE_LOAD_ADDRESS_MISALIGNED";
+            32'h0000_0020: return "EX_CODE_LOAD_ACCESS_FAULT";
+            32'h0000_0040: return "EX_CODE_STORE_ADDRESS_MISALIGNED";
+            32'h0000_0080: return "EX_CODE_STORE_ACCESS_FAULT";
+            32'h0000_0100: return "EX_CODE_ECALL";
+            default: return "Undefined";
+        endcase
+    endfunction
+
+    //==================================================================================================================
+    // Save the signature in test mode
+    //==================================================================================================================
+`ifdef TEST_MODE
+    integer sign_fd, i;
+    string bin_full_name, filename;
+    logic found_last_back_slash = 1'b0;
+
+    task save_signature_task (input [31:0] begin_addr, input [31:0] end_addr);
+        begin_addr = begin_addr - `RAM_BEGIN_ADDR;
+        end_addr = end_addr - `RAM_BEGIN_ADDR;
+        bin_full_name = `BIN_FILE_NAME;
+        filename = {bin_full_name.substr(0, bin_full_name.len() - 4), "sig"};
+
+        sign_fd = $fopen (filename, "w");
+        if (sign_fd) begin
+            for (i = begin_addr; i < end_addr; i = i + 4) begin
+                $fdisplay (sign_fd, "%h%h%h%h", sim_sdram_m.ram[i/2+1][15:8], sim_sdram_m.ram[i/2+1][7:0],
+                            sim_sdram_m.ram[i/2][15:8], sim_sdram_m.ram[i/2][7:0]);
+            end
+
+            $fclose (sign_fd);
+            $display ($time, " INITIAL: Signature generated: %s (@[%h] - @[%h]).", filename, begin_addr, end_addr);
+        end else begin
+            $display ($time, " INITIAL: Cannot save signature file: %s.", filename);
+        end
+    endtask
+`endif
+
+    //==================================================================================================================
+    // Finish the simulation
+    //==================================================================================================================
+    always @(posedge risc_p_m.clk) begin
+        if (risc_p_m.cpu_state_m == risc_p_m.STATE_HALTED) begin
+            if (finish_simulation > 0) begin
+                finish_simulation <= finish_simulation - 4'h1;
+            end else begin
+`ifdef TEST_MODE
+                $display ($time, " INITIAL: Test complete.");
+                if (risc_p_m.looping_instruction) begin
+                    save_signature_task (risc_p_m.regfile_m.cpu_reg[1], risc_p_m.regfile_m.cpu_reg[2]);
+                end else if (risc_p_m.pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
+                    $display ($time, " INITIAL: !!!! Fail detected by test !!!!");
+                end else begin
+                    // Test ended in a trap
+                    $display ($time, " INITIAL: !!!! Fail: Exception: %s !!!!",
+                                to_mcause_bits_string(risc_p_m.pipeline_trap_mcause));
+                end
+`else // TEST_MODE
+                if (risc_p_m.looping_instruction) begin
+                    $display ($time, " INITIAL: ------------- Halt: looping instruction @[%h]. -------------",
+                                risc_p_m.exec_instr_addr_o);
+                end else if (risc_p_m.pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
+                    $display ($time, " INITIAL: ------------------- Halt at breakpoint ------------------------");
+                end else begin
+                    $display ($time, " INITIAL: ---------------- Halt due to exception: %s --------------------",
+                                to_mcause_bits_string(risc_p_m.pipeline_trap_mcause));
+                end
+
+`ifdef ENABLE_HPM_COUNTERS
+                $display ($time, " INITIAL: Cycles:                 %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
+                $display ($time, " INITIAL: Instructions retired:   %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
+                $display ($time, " INITIAL: Instructions from ROM:  %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
+                $display ($time, " INITIAL: Instructions from RAM:  %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_RAM]);
+                $display ($time, " INITIAL: I-Cache hits:           %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_I_CACHE_HIT]);
+                $display ($time, " INITIAL: Load from ROM:          %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_ROM]);
+                $display ($time, " INITIAL: Load from RAM:          %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_LOAD_FROM_RAM]);
+                $display ($time, " INITIAL: Store to RAM:           %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_STORE_TO_RAM]);
+                $display ($time, " INITIAL: IO load:                %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_IO_LOAD]);
+                $display ($time, " INITIAL: IO store:               %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_IO_STORE]);
+                $display ($time, " INITIAL: CSR load:               %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_LOAD]);
+                $display ($time, " INITIAL: CSR store:              %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CSR_STORE]);
+                $display ($time, " INITIAL: Timer interrupts:       %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
+                $display ($time, " INITIAL: External interrupts:    %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
+`else // ENABLE_HPM_COUNTERS
+                $display ($time, " INITIAL: Cycles:                 %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
+                $display ($time, " INITIAL: Instructions:           %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
+`endif // ENABLE_HPM_COUNTERS
+`endif // TEST_MODE
+`ifdef D_STATS_FILE
+                $fclose(risc_p_m.fd);
+`endif
+                // Finish the simulation
+                $finish(0);
+            end
+        end
+    end
+
 `include "initial.svh"
 endmodule
