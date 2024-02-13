@@ -56,11 +56,6 @@ Build the [RISC V architecture tests](https://github.com/riscv-non-isa/riscv-arc
 > cd apps/TestCompliance/Release
 > ./build.sh
 ```
-Build the [Google random tests](https://github.com/chipsalliance/riscv-dv):
-```
-> cd apps/RandomTest/Release
-> ./build.sh
-```
 
 Run all the instruction tests in the pipelined processor:
 ```
