@@ -1,5 +1,15 @@
 #!/usr/bin/bash
 
+helpFunction()
+{
+    echo ""
+    echo "Usage: $0 -u -w -p -h"
+    echo "    -u: ULX3S board (default)"
+    echo "    -w: Blue Whale board."
+    echo "    -h: Help."
+    exit 1 # Exit script after printing help
+}
+
 BOARD=""
 OUTPUT_FILE=out.sim
 RAM_FILE=""
@@ -20,52 +30,45 @@ SIM_RAM_FILE=""
 OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_HPM_COUNTERS -D QPI_MODE"
 
 while getopts "uwph" flag; do
-	case "${flag}" in
-		u ) BOARD="BOARD_ULX3S" ;;
-		w ) BOARD="BOARD_BLUE_WHALE" ;;
-		p ) echo "Running RISC-V."; APP_NAME="risc_p" ;;
-		h ) helpFunction ;;
-		* ) helpFunction ;; #Invalid argument
-	esac
+    case "${flag}" in
+        u ) BOARD="BOARD_ULX3S" ;;
+        w ) BOARD="BOARD_BLUE_WHALE" ;;
+        h ) helpFunction ;;
+        * ) helpFunction ;; #Invalid argument
+    esac
 done
 
-if test -z "$APP_NAME"; then
-	APP_NAME="risc_p"
-fi
-
 if test -z "$BOARD"; then
-	BOARD="BOARD_ULX3S"
+    BOARD="BOARD_ULX3S"
 fi
 
 if [ "$BOARD" = "BOARD_ULX3S" ] ; then
-	echo "Running on ULX3S."
-	RAM_FILE="sdram.sv"
-	SIM_RAM_FILE="sim_sdram.sv"
+    echo "Running on ULX3S."
+    RAM_FILE="sdram.sv"
+    SIM_RAM_FILE="sim_sdram.sv"
 else if [ "$BOARD" = "BOARD_BLUE_WHALE" ] ; then
-	echo "Running on Blue Whale."
-	RAM_FILE="psram.sv"
-	SIM_RAM_FILE="sim_psram.sv"
+    echo "Running on Blue Whale."
+    RAM_FILE="psram.sv"
+    SIM_RAM_FILE="sim_psram.sv"
 fi
 fi
 
 doCompliance()
 {
-	if test -f "$OUTPUT_FILE"; then
-		rm $OUTPUT_FILE
-	fi
+    if test -f "$OUTPUT_FILE"; then
+        rm $OUTPUT_FILE
+    fi
 
-	if [ "$APP_NAME" = "risc_p" ] ; then
-		iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1.bin\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
-		if [ $? -eq 0 ]; then
-			vvp $OUTPUT_FILE
-			diff --text ../apps/TestCompliance/reference/$1.reference_output ../apps/TestCompliance/Release/$1.sig
-            if [ $? -eq 0 ]; then
-                echo -e "\033[0;32m                              PASS\033[0m"
-            else
-                echo -e "\033[0;31m                              FAIL\033[0m"
-			fi
-		fi
-	fi
+    iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1.bin\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
+    if [ $? -eq 0 ]; then
+        vvp $OUTPUT_FILE
+        diff --text ../apps/TestCompliance/reference/$1.sig ../apps/TestCompliance/Release/$1.sig
+        if [ $? -eq 0 ]; then
+            echo -e "\033[0;32m                              PASS\033[0m"
+        else
+            echo -e "\033[0;31m                              FAIL\033[0m"
+        fi
+    fi
 }
 
 # RV32I instructions
@@ -162,7 +165,8 @@ doCompliance "rem-01";
 doCompliance "remu-01";
 
 # CSR instructions
-doCompliance "csr-01";
+# --- spike cannot generate signature ---
+#doCompliance "csr-01";
 
 # Atomic instructions
 doCompliance "amoadd.w-01";

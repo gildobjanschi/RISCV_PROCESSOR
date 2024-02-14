@@ -10,22 +10,17 @@ MEMORY
 SECTIONS
 {
     .text.init : { *(.text.init) } > ROM
-    . = ALIGN(0x1000);
     /* ROM address where RAM data begins */
     PROVIDE( _rom_copy_to_ram_begin = .);
     .data : {
         _ram_data_begin = .;
         *(.data)
+        _ram_data_end = .;
     } > RAM AT > ROM
 
     .tohost : {
         *(.tohost)
     } > RAM AT > ROM
-    . = ALIGN(0x1000);
 
-    .bss : {
-        *(.bss)
-        _ram_data_end = .;
-    } > RAM AT > ROM
     _end = .;
 }
