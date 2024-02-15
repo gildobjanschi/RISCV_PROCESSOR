@@ -396,7 +396,13 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h lh rdx%0d, rs1x%0d[%h] %h; load @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_imm_i, tmp);
 `endif
-                load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0011);
+                if (tmp[0] == 1'b1) begin
+                    trap_mcause_o[`EX_CODE_LOAD_ADDRESS_MISALIGNED] <= 1'b1;
+                    trap_mtval_o <= tmp;
+                    {sync_ack_o, sync_err_o} <= 2'b01;
+                end else begin
+                    load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0011);
+                end
             end
 
             `INSTR_TYPE_LW: begin
@@ -410,7 +416,13 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                                 instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_imm_i, tmp);
                 end
 `endif
-                load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b1111);
+                if (tmp[0] == 1'b1) begin
+                    trap_mcause_o[`EX_CODE_LOAD_ADDRESS_MISALIGNED] <= 1'b1;
+                    trap_mtval_o <= tmp;
+                    {sync_ack_o, sync_err_o} <= 2'b01;
+                end else begin
+                    load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b1111);
+                end
             end
 
             `INSTR_TYPE_LBU: begin
@@ -428,7 +440,13 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h lhu rdx%0d, rs1x%0d[%h] %h; load @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_imm_i, tmp);
 `endif
-                load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0011);
+                if (tmp[0] == 1'b1) begin
+                    trap_mcause_o[`EX_CODE_LOAD_ADDRESS_MISALIGNED] <= 1'b1;
+                    trap_mtval_o <= tmp;
+                    {sync_ack_o, sync_err_o} <= 2'b01;
+                end else begin
+                    load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0011);
+                end
             end
 
             `INSTR_TYPE_SB: begin
@@ -446,7 +464,13 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h sh rs1x%0d[%h], rs2x%0d[%h] %h; store @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i, tmp);
 `endif
-                store_task (tmp, `ADDR_TAG_MODE_NONE, rs2_i, 4'b0011);
+                if (tmp[0] == 1'b1) begin
+                    trap_mcause_o[`EX_CODE_LOAD_ADDRESS_MISALIGNED] <= 1'b1;
+                    trap_mtval_o <= tmp;
+                    {sync_ack_o, sync_err_o} <= 2'b01;
+                end else begin
+                    store_task (tmp, `ADDR_TAG_MODE_NONE, rs2_i, 4'b0011);
+                end
             end
 
             `INSTR_TYPE_SW: begin
@@ -460,7 +484,13 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                                 instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i, tmp);
                 end
 `endif
-                store_task (tmp, `ADDR_TAG_MODE_NONE, rs2_i, 4'b1111);
+                if (tmp[0] == 1'b1) begin
+                    trap_mcause_o[`EX_CODE_LOAD_ADDRESS_MISALIGNED] <= 1'b1;
+                    trap_mtval_o <= tmp;
+                    {sync_ack_o, sync_err_o} <= 2'b01;
+                end else begin
+                    store_task (tmp, `ADDR_TAG_MODE_NONE, rs2_i, 4'b1111);
+                end
             end
 
             `INSTR_TYPE_ADDI: begin

@@ -71,6 +71,9 @@ doCompliance()
     fi
 }
 
+#doCompliance "ebreak";
+#doCompliance "ecall";
+
 # RV32I instructions
 doCompliance "add-01";
 doCompliance "addi-01";
@@ -86,7 +89,6 @@ doCompliance "bne-01";
 doCompliance "fence-01";
 doCompliance "jal-01";
 doCompliance "jalr-01";
-doCompliance "misalign1-jalr-01";
 doCompliance "lb-align-01";
 doCompliance "lbu-align-01";
 doCompliance "lh-align-01";
@@ -113,6 +115,9 @@ doCompliance "xor-01";
 doCompliance "xori-01";
 
 # Priviledged tests
+#doCompliance "ebreak";
+#doCompliance "ecall";
+doCompliance "misalign1-jalr-01";
 doCompliance "misalign2-jalr-01";
 doCompliance "misalign-beq-01";
 doCompliance "misalign-bge-01";
@@ -121,13 +126,14 @@ doCompliance "misalign-blt-01";
 doCompliance "misalign-bltu-01";
 doCompliance "misalign-bne-01";
 doCompliance "misalign-jal-01";
-doCompliance "misalign-lh-01";
-doCompliance "misalign-lhu-01";
-doCompliance "misalign-lw-01";
-doCompliance "misalign-sh-01";
-doCompliance "misalign-sw-01";
+# These tests are not supported since a word and a half word need to be aligned at even addresses.
+#doCompliance "misalign-lh-01";
+#doCompliance "misalign-lhu-01";
+#doCompliance "misalign-lw-01";
+#doCompliance "misalign-sh-01";
+#doCompliance "misalign-sw-01";
 
-# Compressed instructions
+# Compressed extension
 doCompliance "cadd-01";
 doCompliance "caddi-01";
 doCompliance "caddi16sp-01";
@@ -136,6 +142,7 @@ doCompliance "cand-01";
 doCompliance "candi-01";
 doCompliance "cbeqz-01";
 doCompliance "cbnez-01";
+doCompliance "cj-01";
 doCompliance "cjal-01";
 doCompliance "cjalr-01";
 doCompliance "cjr-01";
@@ -154,7 +161,7 @@ doCompliance "csw-01";
 doCompliance "cswsp-01";
 doCompliance "cxor-01";
 
-# Multiply/Divide instructions
+# Multiply/Divide extension
 doCompliance "mul-01";
 doCompliance "mulh-01";
 doCompliance "mulhsu-01";
@@ -164,11 +171,10 @@ doCompliance "divu-01";
 doCompliance "rem-01";
 doCompliance "remu-01";
 
-# CSR instructions
-# --- spike cannot generate signature ---
-#doCompliance "csr-01";
+# Zicsr extension
+doCompliance "csr-01";
 
-# Atomic instructions
+# Atomic extension
 doCompliance "amoadd.w-01";
 doCompliance "amoand.w-01";
 doCompliance "amomax.w-01";
@@ -178,3 +184,7 @@ doCompliance "amominu.w-01";
 doCompliance "amoor.w-01";
 doCompliance "amoswap.w-01";
 doCompliance "amoxor.w-01";
+
+# Zifencei extension
+# The test assumes that the instruction memory is writtable which is not the case in this implementation.
+#doCompliance "Fencei";
