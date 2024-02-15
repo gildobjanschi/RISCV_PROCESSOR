@@ -74,9 +74,6 @@ build_test()
     mv TestCompliance.bin $1.bin
 }
 
-#build_test "ebreak";
-#build_test "ecall";
-
 # Base ISA
 build_test "add-01";
 build_test "addi-01";
@@ -118,8 +115,8 @@ build_test "xor-01";
 build_test "xori-01";
 
 # Priviledged tests
-#build_test "ebreak";
-#build_test "ecall";
+build_test "ebreak";
+build_test "ecall";
 build_test "misalign1-jalr-01";
 build_test "misalign2-jalr-01";
 build_test "misalign-beq-01";
@@ -145,6 +142,7 @@ build_test "cand-01";
 build_test "candi-01";
 build_test "cbeqz-01";
 build_test "cbnez-01";
+build_test "cebreak-01";
 build_test "cj-01";
 build_test "cjal-01";
 build_test "cjalr-01";
@@ -191,3 +189,4 @@ build_test "amoxor.w-01";
 # Zifencei extension
 # The test assumes that the instruction memory is writtable which is not the case in this implementation.
 #build_test "Fencei";
+

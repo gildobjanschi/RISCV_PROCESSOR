@@ -33,6 +33,7 @@ write_tohost:                           \
 self_loop : j self_loop;
 
 #define RVMODEL_BOOT  \
+my_boot:                                    ;\
   lui t0, %hi(_ram_data_begin)              ;\
   addi t0, t0, %lo(_ram_data_begin)         ;\
   lui t3, %hi(_ram_data_end)                ;\
@@ -50,6 +51,25 @@ copy_rom_to_ram_words:                      ;\
   addi t5, t5, -1                           ;\
   j copy_rom_to_ram_words                   ;\
 copy_rom_done:                              ;\
+  lui t0, %hi(trap_addr)                    ;\
+  addi t0, t0, %lo(trap_addr)               ;\
+  csrrw x0, CSR_MTVEC, t0                   ;\
+  j start_test                              ;\
+.align 4                                    ;\
+trap_addr:                                  ;\
+  csrr t1, CSR_MEPC                         ;\
+  lw t2, 0(t1)                              ;\
+  andi t0, t2, 3                            ;\
+  addi t0, t0, -3                           ;\
+  beq t0, zero, uncompr_instr               ;\
+  addi t1, t1, 2                            ;\
+  j trap_exit                               ;\
+uncompr_instr:                              ;\
+  addi t1, t1, 4                            ;\
+trap_exit:                                  ;\
+  csrrw x0, CSR_MEPC, t1                    ;\
+  mret                                      ;\
+start_test:                                 ;\
 
 //RV_COMPLIANCE_DATA_BEGIN
 #define RVMODEL_DATA_BEGIN                                              \

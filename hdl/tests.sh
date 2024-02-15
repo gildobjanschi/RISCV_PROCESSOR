@@ -71,9 +71,6 @@ doCompliance()
     fi
 }
 
-#doCompliance "ebreak";
-#doCompliance "ecall";
-
 # RV32I instructions
 doCompliance "add-01";
 doCompliance "addi-01";
@@ -115,8 +112,8 @@ doCompliance "xor-01";
 doCompliance "xori-01";
 
 # Priviledged tests
-#doCompliance "ebreak";
-#doCompliance "ecall";
+doCompliance "ebreak";
+doCompliance "ecall";
 doCompliance "misalign1-jalr-01";
 doCompliance "misalign2-jalr-01";
 doCompliance "misalign-beq-01";
@@ -142,6 +139,7 @@ doCompliance "cand-01";
 doCompliance "candi-01";
 doCompliance "cbeqz-01";
 doCompliance "cbnez-01";
+doCompliance "cebreak-01";
 doCompliance "cj-01";
 doCompliance "cjal-01";
 doCompliance "cjalr-01";

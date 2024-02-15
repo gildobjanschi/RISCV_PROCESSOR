@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // -----------
 //
-// This assembly file tests the ecall instruction of the RISC-V I extension.
+// This assembly file tests the c.ebreak instruction of the RISC-V C extension.
 // 
 
 #include "model_test.h"
 #include "arch_test.h"
 
-RVTEST_ISA("RV32I_Zicsr")
+RVTEST_ISA("RV32IC_Zicsr")
 
 # Test code region
 .section .text.init
@@ -19,26 +19,29 @@ RVMODEL_BOOT
 RVTEST_CODE_BEGIN
 
 #ifdef TEST_CASE_1
-    RVTEST_CASE(1,"//check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True; def TEST_CASE_1=True",ecall)
+    RVTEST_CASE(1,"//check ISA:=regex(.*32.*); check ISA:=regex(.*I.*C.*Zicsr); def rvtest_mtrap_routine=True; def TEST_CASE_1=True",cebreak)
 
     # ---------------------------------------------------------------------------------------------
+
     LA(     x1,test_A_res)
     
     LI(     x2,0x11111111)
-    ecall
+    c.ebreak
+    .align 2
+    .option push
+    .option norvc
     nop
-    nop
+    .option pop
     sw      x0, 0(x1)
     sw      x2, 4(x1)
     
-    RVMODEL_IO_WRITE_STR(x30, "# Test part A - test ECALL\n");
+    RVMODEL_IO_WRITE_STR(x30, "# Test part A - test EBREAK\n");
 
     RVMODEL_IO_WRITE_STR(x30, "# Test End\n")
 
 #endif
 
  # ---------------------------------------------------------------------------------------------
-    # HALT
 
 RVTEST_CODE_END
 RVMODEL_HALT
@@ -56,12 +59,13 @@ sig_begin_canary:
 CANARY;
 
 test_A_res:
-    .fill 2, 4, 0xdeadbeef
+  .fill 2, 4, 0xdeadbeef
 
 #ifdef rvtest_mtrap_routine
 mtrap_sigptr:
   .fill 4, 4, 0xdeadbeef
 #endif
+
 #ifdef rvtest_gpr_save
 gpr_save:
   .fill 32*(XLEN/32), 4, 0xdeadbeef
