@@ -43,35 +43,57 @@ build_subdirmk()
     cat subdir_frag.mk >> $OUTPUT_FILE
 }
 
-mkdir -p src
+    mkdir -p src
 
-rm src/*
-rm *.bin
-rm *.elf
-rm *.lst
-rm *.map
-rm *.sig
+    rm -f src/*
+    rm -f *.bin
+    rm -f *.elf
+    rm -f *.lst
+    rm -f *.map
+    rm -f *.sig
 
+    if [ "$SIGNATURE" = "1" ] ; then
+        if ! [ -x "$(command -v spike)" ]; then
+            echo -e "\033[0;31m     Error: spike is not installed. See https://github.com/riscv-software-src/riscv-isa-sim for instructions to build it.\033[0m"
+            exit 1
+        fi
+    fi
 
 build_test()
 {
     make clean
+
     build_subdirmk $1;
-    echo "================================================================================================================="
+
     make all
-    if [ "$SIGNATURE" = "1" ] ; then
-        echo "Generate signature..."
-        spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr --misaligned --priv=msu +signature=../reference/$1.sig +signature-granularity=4 TestCompliance.elf
-        echo "Signature generated."
+    if [ $? -eq 0 ]; then
+        echo -e "\033[0;32mGenerated: $1.bin\033[0m"
+        mv TestCompliance.bin $1.bin
+
+        if [ "$SIGNATURE" = "1" ] ; then
+            echo "Generating signature with spike..."
+            spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr --misaligned --priv=msu +signature=../reference/$1.sig +signature-granularity=4 TestCompliance.elf
+            if [ $? -eq 0 ]; then
+                echo -e "\033[0;32mGenerated: ../reference/$1.sig\033[0m"
+            else
+                echo -e "\033[0;31mCannot generate signature ../reference/$1.sig\033[0m"
+            fi
+        fi
+
+        if [ "$LST" = "1" ] ; then
+            echo -e "\033[0;32mGenerated: $1.lst\033[0m"
+            mv TestCompliance.lst $1.lst
+        fi
+
+        if [ "$ELF" = "1" ] ; then
+            mv TestCompliance.elf $1.elf
+            echo -e "\033[0;32mGenerated: $1.elf\033[0m"
+        fi
+    else
+        echo -e "\033[0;31mCannot generate $1.bin\033[0m"
     fi
 
-    if [ "$LST" = "1" ] ; then
-        mv TestCompliance.lst $1.lst
-    fi
-    if [ "$ELF" = "1" ] ; then
-        mv TestCompliance.elf $1.elf
-    fi
-    mv TestCompliance.bin $1.bin
+    echo "=================================================================================================================================================="
 }
 
 # Base ISA

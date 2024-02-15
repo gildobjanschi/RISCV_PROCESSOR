@@ -55,19 +55,29 @@ fi
 
 doCompliance()
 {
-    if test -f "$OUTPUT_FILE"; then
+    if test -f "$OUTPUT_FILE" ; then
         rm $OUTPUT_FILE
     fi
 
-    iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1.bin\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
-    if [ $? -eq 0 ]; then
-        vvp $OUTPUT_FILE
-        diff --text ../apps/TestCompliance/reference/$1.sig ../apps/TestCompliance/Release/$1.sig
+    if test -f "../apps/TestCompliance/Release/$1.bin" ; then
+        iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1.bin\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
         if [ $? -eq 0 ]; then
-            echo -e "\033[0;32m                              PASS\033[0m"
+            vvp $OUTPUT_FILE
+            if [ $? -eq 0 ]; then
+                diff --text ../apps/TestCompliance/reference/$1.sig ../apps/TestCompliance/Release/$1.sig
+                if [ $? -eq 0 ]; then
+                    echo -e "\033[0;32m                                  PASS\033[0m"
+                else
+                    echo -e "\033[0;31m                                  FAIL [Signature mismatch]\033[0m"
+                fi
+            else
+                echo -e "\033[0;31m                                  FAIL [Simulation failed]\033[0m"
+            fi
         else
-            echo -e "\033[0;31m                              FAIL\033[0m"
+            echo -e "\033[0;31m                                  FAIL [Cannot build Verilog code]\033[0m"
         fi
+    else
+        echo -e "\033[0;31m                                  FAIL [Missing ../apps/TestCompliance/Release/$1.bin]\033[0m"
     fi
 }
 

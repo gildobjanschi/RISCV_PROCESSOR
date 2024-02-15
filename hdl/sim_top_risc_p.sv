@@ -137,6 +137,7 @@ module sim_top_risc_p;
 `endif
 
     logic[3:0] finish_simulation = 4'h4;
+    integer exit_code = 0;
     initial begin
 `ifdef D_STATS_FILE
         risc_p_m.fd = $fopen("out.csv", "w");
@@ -174,20 +175,24 @@ module sim_top_risc_p;
     task save_signature_task (input [31:0] begin_addr, input [31:0] end_addr);
         begin_addr = begin_addr - `RAM_BEGIN_ADDR;
         end_addr = end_addr - `RAM_BEGIN_ADDR;
-        bin_full_name = `BIN_FILE_NAME;
-        filename = {bin_full_name.substr(0, bin_full_name.len() - 4), "sig"};
+        if (end_addr > end_addr) begin
+            bin_full_name = `BIN_FILE_NAME;
+            filename = {bin_full_name.substr(0, bin_full_name.len() - 4), "sig"};
 
-        sign_fd = $fopen (filename, "w");
-        if (sign_fd) begin
-            for (i = begin_addr; i < end_addr; i = i + 4) begin
-                $fdisplay (sign_fd, "%h%h%h%h", sim_sdram_m.ram[i/2+1][15:8], sim_sdram_m.ram[i/2+1][7:0],
-                            sim_sdram_m.ram[i/2][15:8], sim_sdram_m.ram[i/2][7:0]);
+            sign_fd = $fopen (filename, "w");
+            if (sign_fd) begin
+                for (i = begin_addr; i < end_addr; i = i + 4) begin
+                    $fdisplay (sign_fd, "%h%h%h%h", sim_sdram_m.ram[i/2+1][15:8], sim_sdram_m.ram[i/2+1][7:0],
+                                sim_sdram_m.ram[i/2][15:8], sim_sdram_m.ram[i/2][7:0]);
+                end
+
+                $fclose (sign_fd);
+                //$display ($time, " SIM: Signature generated: %s (@[%h] - @[%h]).", filename, begin_addr, end_addr);
+            end else begin
+                $display ($time, " SIM:                                   FAIL [Cannot save signature file: %s.]",
+                            filename);
+                exit_code = 1;
             end
-
-            $fclose (sign_fd);
-            $display ($time, " SIM: Signature generated: %s (@[%h] - @[%h]).", filename, begin_addr, end_addr);
-        end else begin
-            $display ($time, " SIM: Cannot save signature file: %s.", filename);
         end
     endtask
 `endif
@@ -201,25 +206,30 @@ module sim_top_risc_p;
                 finish_simulation <= finish_simulation - 4'h1;
             end else begin
 `ifdef TEST_MODE
-                $display ($time, " SIM: Test complete.");
                 if (risc_p_m.looping_instruction) begin
                     save_signature_task (risc_p_m.regfile_m.cpu_reg[1], risc_p_m.regfile_m.cpu_reg[2]);
                 end else if (risc_p_m.pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " SIM: !!!! Fail detected by test !!!!");
+                    $display ($time,
+                                " SIM:\033[0;31m                                  FAIL [Breakpoint in test]\033[0m");
+                    exit_code = 1;
                 end else begin
                     // Test ended in a trap
-                    $display ($time, " SIM: !!!! Fail: Exception: %s !!!!",
+                    $display ($time,
+                                " SIM:\033[0;31m                                  FAIL [Exception in test: %s]\033[0m",
                                 to_mcause_bits_string(risc_p_m.pipeline_trap_mcause));
+                    exit_code = 1;
                 end
 `else // TEST_MODE
                 if (risc_p_m.looping_instruction) begin
-                    $display ($time, " SIM: ------------- Halt: looping instruction @[%h]. -------------",
+                    $display($time, " SIM: --------- Simulation end [Looping instruction @[%h]] -------------------",
                                 risc_p_m.exec_instr_addr_o);
                 end else if (risc_p_m.pipeline_trap_mcause[`EX_CODE_BREAKPOINT]) begin
-                    $display ($time, " SIM: ------------------- Halt at breakpoint ------------------------");
+                    $display($time, " SIM: --------- Simulation end [Breakpint] -----------------------");
+                    exit_code = 1;
                 end else begin
-                    $display ($time, " SIM: ---------------- Halt due to exception: %s --------------------",
+                    $display($time, " SIM: --------- Simulation end [Exception: %s] -----------------------",
                                 to_mcause_bits_string(risc_p_m.pipeline_trap_mcause));
+                    exit_code = 1;
                 end
 
 `ifdef ENABLE_HPM_COUNTERS
@@ -262,7 +272,7 @@ module sim_top_risc_p;
                 $fclose(risc_p_m.fd);
 `endif
                 // Finish the simulation
-                $finish(0);
+                $finish(exit_code);
             end
         end
     end

@@ -82,7 +82,7 @@ TestCompliance.siz: TestCompliance.elf makefile objects.mk $(OPTIONAL_TOOL_DEPS)
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_UPPER_DEPS)$(C_DEPS) TestCompliance.elf
+	-$(RM) $(OBJS) $(SECONDARY_FLASH) $(SECONDARY_LIST) $(SECONDARY_SIZE) $(ASM_DEPS) $(S_UPPER_DEPS) $(C_DEPS) TestCompliance.elf
 	-@echo ' '
 
 secondary-outputs: $(SECONDARY_FLASH) $(SECONDARY_LIST) $(SECONDARY_SIZE)

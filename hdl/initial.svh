@@ -41,25 +41,27 @@
                         sim_flash_slave_m.flash[`FLASH_OFFSET_ADDR + file_index] = value_1;
                         file_index = file_index + 1;
                     end else begin
+`ifdef TEST_MODE
+                        $display($time, " SIM: Running test %s", `BIN_FILE_NAME);
+`else
                         $display($time, " SIM: Loaded %s to flash (%h bytes).", `BIN_FILE_NAME, file_index);
+`endif
                     end
                 end
 
                 $fclose(fd);
             end else begin
                 $display($time, " SIM: Error: File open error: %s", `BIN_FILE_NAME);
-                $finish(0);
+                $finish(1);
             end
         end else begin
             $display($time, " SIM: No .bin file specified. Use -D BIN_FILE_NAME option");
-            $finish(0);
+            $finish(1);
         end
 
-`ifdef TEST_MODE
-        $display($time, " SIM: Running test...");
-`else
+`ifndef TEST_MODE
         $display($time, " SIM: CLK_PERIOD_NS: %0d ns.", `CLK_PERIOD_NS);
-        $display($time, " SIM: ------------------------- Simulation begin ---------------------------");
+        $display($time, " SIM: ------------------------- Simulation begin --------------------------------");
 `endif // TEST_MODE
 
 `ifdef GENERATE_VCD
@@ -83,12 +85,12 @@
 
 `ifdef TEST_MODE
         #25000000
-        $display($time, " SIM: !!!! Timeout: end of test not reached  !!!!");
+        $display($time, " SIM:\033[0;31m                                  FAIL [Simulation timeout]\033[0m");
 `elsif SIMULATION
         #150000000
 
-        $display($time, " SIM: ---------------------- Simulation end ------------------------");
+        $display($time, " SIM: ---------------------- Simulation end [Timeout] ------------------------");
 `endif // SIMULATION
 
-        $finish(0);
+        $finish(1);
     end
