@@ -2,7 +2,7 @@
 
 Blue Whale is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA. It works on the [ULX3S ECP5 85F](https://radiona.org/ulx3s/), a commercially available ECP5 board. The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division, atomic and the zicsr extensions. Interrupts are also implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
-The Blue Whale project includes a simulator that can execute RISC-V application code on the actual SystemVerilog design.
+The Blue Whale project includes a simulator that can execute RISC-V application code using the actual SystemVerilog design.
 
 The project is entirely developed using open source tools:
 * iverilog and vvp: a Verilog compiler and a runtime engine.
@@ -11,6 +11,7 @@ The project is entirely developed using open source tools:
 * next-pnr: place and route tool for FPGAs.
 * ecppack: bitstream packer
 * openFPGALoader: FPGA programmer.
+* spike: A C++ RISC V simulator.
 
 The RISC-V application binaries are compiled using the GNU toolchain for RISC-V.
 
@@ -49,12 +50,14 @@ The source code for the TestC, Console and Dhrystone RISC-V C code applications 
 * Dhrystone is a performance evaluation application that enables you to view printf output of this application with a serial communication program.
 
 ### Simulation
-Before running the instructions test script you need to build the test binaries (over 100 .bin files).
-Build the [RISC V architecture tests](https://github.com/riscv-non-isa/riscv-arch-test):
+Before running the instructions test script you need to build the test binaries and generate the reference signatures using spike (over 90 .bin files).
+First, you need to download [spike](https://github.com/riscv-software-src/riscv-isa-sim) and build spike.
+
+Build the [RISC V architecture test](https://github.com/riscv-non-isa/riscv-arch-test) binaries and generate the reference signatures:
 
 ```
 > cd apps/TestCompliance/Release
-> ./build.sh
+> ./build.sh -s
 ```
 
 Run all the instruction tests in the pipelined processor:
@@ -74,7 +77,6 @@ Add the /bin folder of the xPack to your path and then build each one of the Con
 
 ```
 > cd apps/<name_of_the_app>/Release
-> make -f makefile_ulx3s clean
 > make -f makefile_ulx3s all
 ```
 
@@ -90,7 +92,7 @@ Run the Dhrystone.bin application on the RISC-V processor:
 
 Run the TestC.bin application on the RISC-V processor and view executing instructions:
 ```
-> ./sim.sh -m -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
+> ./sim.sh -p -D D_IO -D D_EXEC -D BIN_FILE_NAME=\"../apps/TestC/Release/TestC.bin\"
 ```
 
 Write the output to a file to view it:
@@ -282,4 +284,3 @@ I appreciate feedback for bug fixes and improvements. There are a few area where
 
 ## Blue Whale Hardware
 If you look at the project sources you will notice that in the Verilog source code, in the script files as well as the application makefiles there is mention of the [Blue Whale hardware](https://github.com/gildobjanschi/blue_whale_hw). This hardware is a small board based on ECP5 that features 8MB PSRAM. I mentioned this here so you can make sense of the various flags and makefiles that reference the Blue Whale hardware.
-
