@@ -15,9 +15,6 @@
 
 uint32_t lock_var = 0;
 
-/* The trap entry point saves and restores registers and calls handle_trap. */
-extern void trap_entry();
-
 void handle_trap() {
     uint32_t mcause;
     asm volatile("csrr %0, mcause" : "=r"(mcause));
@@ -98,21 +95,6 @@ void atomic_lr_sc() {
  * Demonstrate how to print a greeting message on standard output and exit.
  */
 int main(void) {
-    // Enable external interrupts and timer interrupts
-    uint32_t mie = 1 << 11 | 1 << 7;
-    asm volatile("csrw mie, %0" : : "r"(mie));
-
-    // Enable the global interrupt flag
-    uint32_t mstatus;
-    asm volatile("csrr %0, mstatus" : : "r"(mstatus));
-    mstatus |= (1 << 3);
-    asm volatile("csrw mstatus, %0" : : "r"(mstatus));
-
-    // Set the global interrupt handler (use MODE DIRECT)
-    uint32_t mtvec;
-    mtvec = (uint32_t)trap_entry;
-    asm volatile("csrw mtvec, %0" : : "r"(mtvec));
-
     // Generate an interrupt after 100 units of time
     *IO_MTIMECMP = *IO_MTIME + 100;
 	// The string will end up in the .rodata or .data section (depending on the compiler)

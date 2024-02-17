@@ -71,7 +71,7 @@ module csr (
     logic [31:0] mie, mip, mstatus, mepc, mcause, mtvec, mtval, misa, mstatush, mcountinhibit, mscratch, mtinst;
 
     logic [31:0] incr_events;
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
     // Define the number of counters to implement
     localparam HPM_COUNT = 5'd15;  // number of counters + 3 (mcycle, reserved and minstret)
     logic [31:0] incr_event_counters_internal;
@@ -79,7 +79,7 @@ module csr (
 `else
     localparam HPM_COUNT = 5'd3;  // mcycle, reserved and minstret are always enabled
     assign incr_events = incr_event_counters_i;
-`endif  // ENABLE_HPM_COUNTERS
+`endif  // ENABLE_ZIHPM_EXT
     logic [63:0] mhpmcounter[0:HPM_COUNT-1];
     logic [31:0] mhpmevent  [0:HPM_COUNT-1];
     logic [ 4:0] i;
@@ -228,7 +228,12 @@ module csr (
                  * which the hart is running.
                  */
                 if (~we_i) data_o <= mhpmcounter[`EVENT_CYCLE][31:0];
-                //              else mhpmcounter[`EVENT_CYCLE][31:0] <= data_i;
+                else mhpmcounter[`EVENT_CYCLE][31:0] <= data_i;
+            end
+
+            `CSR_MCYCLEH: begin  // mcycleh (Upper 32 bits of mcycle)
+                if (~we_i) data_o <= mhpmcounter[`EVENT_CYCLE][63:32];
+                else mhpmcounter[`EVENT_CYCLE][63:32] <= data_i;
             end
 
             `CSR_MINSTRET: begin  // minstret (Machine instructions-retired counter)
@@ -236,17 +241,22 @@ module csr (
                  * The minstret CSR counts the number of instructions the hart has retired.
                  */
                 if (~we_i) data_o <= mhpmcounter[`EVENT_INSTRET][31:0];
-                //              else mhpmcounter[`EVENT_INSTRET][31:0] <= data_i;
+                else mhpmcounter[`EVENT_INSTRET][31:0] <= data_i;
             end
 
-`ifdef ENABLE_HPM_COUNTERS
+            `CSR_MINSTRETH: begin  // minstreth (Upper 32 bits of minstret. Read only)
+                if (~we_i) data_o <= mhpmcounter[`EVENT_INSTRET][63:32];
+                else mhpmcounter[`EVENT_INSTRET][63:32] <= data_i;
+            end
+
+`ifdef ENABLE_ZIHPM_EXT
             `CSR_MHPMEVENT3, `CSR_MHPMEVENT4, `CSR_MHPMEVENT5, `CSR_MHPMEVENT6, `CSR_MHPMEVENT7, `CSR_MHPMEVENT8,
             `CSR_MHPMEVENT9, `CSR_MHPMEVENT10, `CSR_MHPMEVENT11, `CSR_MHPMEVENT12, `CSR_MHPMEVENT13, `CSR_MHPMEVENT14,
             `CSR_MHPMEVENT15, `CSR_MHPMEVENT16, `CSR_MHPMEVENT17, `CSR_MHPMEVENT18, `CSR_MHPMEVENT19, `CSR_MHPMEVENT20,
             `CSR_MHPMEVENT21, `CSR_MHPMEVENT22, `CSR_MHPMEVENT23, `CSR_MHPMEVENT24, `CSR_MHPMEVENT25, `CSR_MHPMEVENT26,
             `CSR_MHPMEVENT27, `CSR_MHPMEVENT28, `CSR_MHPMEVENT29, `CSR_MHPMEVENT30, `CSR_MHPMEVENT31: begin
                 if (~we_i) data_o <= mhpmevent[addr_i-`CSR_MHPMEVENT3+12'h3];
-                //              else mhpmevent[addr_i - `CSR_MHPMEVENT3 + 12'h3] <= data_i;
+                else mhpmevent[addr_i - `CSR_MHPMEVENT3 + 12'h3] <= data_i;
             end
 
             `CSR_MHPMCOUNTER3, `CSR_MHPMCOUNTER4, `CSR_MHPMCOUNTER5, `CSR_MHPMCOUNTER6,
@@ -258,7 +268,7 @@ module csr (
             `CSR_MHPMCOUNTER27, `CSR_MHPMCOUNTER28, `CSR_MHPMCOUNTER29, `CSR_MHPMCOUNTER30,
             `CSR_MHPMCOUNTER31: begin
                 if (~we_i) data_o <= mhpmcounter[addr_i-`CSR_MHPMCOUNTER3+12'h3][31:0];
-                //              else mhpmcounter[addr_i - `CSR_MHPMCOUNTER3 + 12'h3][31:0] <= data_i;
+                else mhpmcounter[addr_i - `CSR_MHPMCOUNTER3 + 12'h3][31:0] <= data_i;
             end
 
             `CSR_MHPMCOUNTERH3, `CSR_MHPMCOUNTERH4, `CSR_MHPMCOUNTERH5, `CSR_MHPMCOUNTERH6,
@@ -270,19 +280,9 @@ module csr (
             `CSR_MHPMCOUNTERH27, `CSR_MHPMCOUNTERH28, `CSR_MHPMCOUNTERH29, `CSR_MHPMCOUNTERH30,
             `CSR_MHPMCOUNTERH31: begin
                 if (~we_i) data_o <= mhpmcounter[addr_i-`CSR_MHPMCOUNTERH3+12'h3][63:32];
-                //              else mhpmcounter[addr_i - `CSR_MHPMCOUNTERH3 + 12'h3][63:32] <= data_i;
+                else mhpmcounter[addr_i - `CSR_MHPMCOUNTERH3 + 12'h3][63:32] <= data_i;
             end
 `endif
-            `CSR_MCYCLEH: begin  // mcycleh (Upper 32 bits of mcycle)
-                if (~we_i) data_o <= mhpmcounter[`EVENT_CYCLE][63:32];
-                //              else mhpmcounter[`EVENT_CYCLE][63:32] <= data_i;
-            end
-
-            `CSR_MINSTRETH: begin  // minstreth (Upper 32 bits of minstret. Read only)
-                if (~we_i) data_o <= mhpmcounter[`EVENT_INSTRET][63:32];
-                //              else mhpmcounter[`EVENT_INSTRET][63:32] <= data_i;
-            end
-
             `CSR_MVENDORID, `CSR_MARCHID, `CRS_MIMPID, `CSR_MHARTID, `CSR_MCONFIGPTR, `CSR_MTVAL2: begin
                 /*
                  * The mvendorid CSR is a 32-bit read-only register providing the JEDEC manufacturer ID of the
@@ -338,7 +338,7 @@ module csr (
 `else
                         data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_external : mtvec_base;
 `endif
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
                         incr_event_counters_internal[`EVENT_EXTERNAL_INT] <= 1'b1;
 `endif
                     end
@@ -359,7 +359,7 @@ module csr (
 `else
                         data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_timer : mtvec_base;
 `endif
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
                         incr_event_counters_internal[`EVENT_TIMER_INT] <= 1'b1;
 `endif
                     end
@@ -471,9 +471,6 @@ module csr (
         if (rst_i) begin
             {sync_ack_o, sync_err_o} <= 2'b00;
 
-            // All performance counters are enabled.
-            mcountinhibit <= 0;
-
             /* XLEN = 32 [30:31] = 01 */
             /* RV32I: [8] = 1 */
             misa <= 32'b0100_0000_0000_0000_0000_0001_0000_0000;
@@ -580,47 +577,37 @@ module csr (
             mtinst <= 0;
 
             /*
-             * We set the last two bits to indicate that mtvec was not set by the machine.
-             * (0 = DIRECT mode, 1 = VECTORED mode, 2 and 3 are reserved.)
+             * Last two bits of mtvec: 2'b00 = DIRECT mode, 2'b01 = VECTORED mode. 2'b10 and 2'b11 are reserved.
              */
             mtvec <= `INVALID_ADDR;
+            // Computed interrupt vectors.
             mtvec_base <= `INVALID_ADDR;
             mtvec_interrupt_external <= `INVALID_ADDR;
             mtvec_interrupt_software <= `INVALID_ADDR;
             mtvec_interrupt_timer <= `INVALID_ADDR;
 
+            // Disable all performance counters.
+            mcountinhibit <= 32'hffff_ffff;
+            /*
+             * Setup the mandatory events.
+             */
             mhpmevent[`EVENT_CYCLE] <= 1 << `EVENT_CYCLE;
             mhpmevent[`EVENT_RESERVED] <= 1 << `EVENT_RESERVED;
             mhpmevent[`EVENT_INSTRET] <= 1 << `EVENT_INSTRET;
 
-`ifdef ENABLE_HPM_COUNTERS
-            // Set the event IDs supported in HW. These can be removed and set as needed in code.
-            mhpmevent[`EVENT_INSTR_FROM_ROM] <= 1 << `EVENT_INSTR_FROM_ROM;
-            mhpmevent[`EVENT_INSTR_FROM_RAM] <= 1 << `EVENT_INSTR_FROM_RAM;
-            mhpmevent[`EVENT_I_CACHE_HIT] <= 1 << `EVENT_I_CACHE_HIT;
-            mhpmevent[`EVENT_LOAD_FROM_ROM] <= 1 << `EVENT_LOAD_FROM_ROM;
-            mhpmevent[`EVENT_LOAD_FROM_RAM] <= 1 << `EVENT_LOAD_FROM_RAM;
-            mhpmevent[`EVENT_STORE_TO_RAM] <= 1 << `EVENT_STORE_TO_RAM;
-            mhpmevent[`EVENT_IO_LOAD] <= 1 << `EVENT_IO_LOAD;
-            mhpmevent[`EVENT_IO_STORE] <= 1 << `EVENT_IO_STORE;
-            mhpmevent[`EVENT_CSR_LOAD] <= 1 << `EVENT_CSR_LOAD;
-            mhpmevent[`EVENT_CSR_STORE] <= 1 << `EVENT_CSR_STORE;
-            mhpmevent[`EVENT_TIMER_INT] <= 1 << `EVENT_TIMER_INT;
-            mhpmevent[`EVENT_EXTERNAL_INT] <= 1 << `EVENT_EXTERNAL_INT;
-
-            for (i = `EVENT_EXTERNAL_INT + 1; i < HPM_COUNT; i = i + 1) begin
+`ifdef ENABLE_ZIHPM_EXT
+            // Clear the optional events
+            for (i = `EVENT_INSTRET + 1; i < HPM_COUNT; i = i + 1) begin
                 mhpmevent[i] <= 0;
             end
-
             incr_event_counters_internal <= 0;
 `endif
-
             // Reset the event counters
             for (i = 0; i < HPM_COUNT; i = i + 1) begin
                 mhpmcounter[i] <= 0;
             end
         end else begin
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
             incr_event_counters_internal <= 0;
 `endif
             // Cycle counter
@@ -644,7 +631,7 @@ module csr (
 `ifdef D_CSR
                 if (|io_interrupts_i) begin
                     $display($time, " CSR: New interrupts: %h. Enabled: %h. Pending now: %h.", io_interrupts_i, mie,
-                         mip | (io_interrupts_i & mie));
+                                        mip | (io_interrupts_i & mie));
                 end
 `endif
             end

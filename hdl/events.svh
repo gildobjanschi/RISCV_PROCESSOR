@@ -26,7 +26,7 @@
 `define EVENT_RESERVED          1
 `define EVENT_INSTRET           2
 
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
 // Performance events. Up to 29 can be defined.
 `define EVENT_INSTR_FROM_ROM    3
 `define EVENT_INSTR_FROM_RAM    4
@@ -40,4 +40,4 @@
 `define EVENT_CSR_STORE         12
 `define EVENT_TIMER_INT         13
 `define EVENT_EXTERNAL_INT      14
-`endif // ENABLE_HPM_COUNTERS
+`endif // ENABLE_ZIHPM_EXT

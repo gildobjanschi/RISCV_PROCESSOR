@@ -113,3 +113,66 @@ int main(void) {
 	return 0;
 }
 
+void handle_trap() {
+    uint32_t mcause;
+    asm volatile("csrr %0, mcause" : "=r"(mcause));
+
+	switch (mcause) {
+		case 0x80000007: { // Timer
+			// Clear the mip interrupt pending bit
+			uint32_t mip = 1 << 7;
+			asm volatile("csrc mip, %0" : : "r"(mip));
+
+			// Generate an interrupt after n units of time
+			*IO_MTIMECMP = *IO_MTIME + 1000;
+
+			//*((char*)NULL) = (char)1;
+		break;
+		}
+
+		case 0x8000000b: { // External interrupts
+		    // Clear the mip interrupt pending bit
+		    uint32_t mip = 1 << 11;
+		    asm volatile("csrc mip, %0" : : "r"(mip));
+		break;
+		}
+
+		case 0: // EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED
+		case 1: // EX_CODE_INSTRUCTION_ACCESS_FAULT
+			/*
+			 * Execution for these exceptions cannot be resumed.
+			 * The processor saves 0 in the mtval and the next instruction cannot be
+			 * computed upon exiting the interrupt routine.
+			 */
+			while (1);
+		break;
+
+		case 2: // EX_CODE_ILLEGAL_INSTRUCTION
+		case 4: // EX_CODE_LOAD_ADDRESS_MISALIGNED
+		case 5: // EX_CODE_LOAD_ACCESS_FAULT
+		case 6: // EX_CODE_STORE_ADDRESS_MISALIGNED
+		case 7: // EX_CODE_STORE_ACCESS_FAULT
+			/*
+			 * Execution for these exceptions can be resumed (yet it makes no sense for machine).
+			 * The processor saves the instruction that caused the fault in the mtval and the
+			 * next instruction is computed upon exiting the interrupt routine.
+			 */
+			while (1);
+		break;
+
+		case 3: // EX_CODE_BREAKPOINT
+			// The debugger function is not supported.
+			// Stop execution
+			while (1);
+	    break;
+
+		case 8: // EX_CODE_ECALL
+			// Do any work you need to do and then...
+			while (1);
+		break;
+
+		default: // Unhandled exception
+			while (1);
+		break;
+	}
+}

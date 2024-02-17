@@ -28,7 +28,7 @@
 `define CSR_MSTATUSH        12'h310
 `define CSR_MCOUNTINIHIBIT  12'h320
 
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
 `define CSR_MHPMEVENT3      12'h323
 `define CSR_MHPMEVENT4      12'h324
 `define CSR_MHPMEVENT5      12'h325
@@ -58,7 +58,7 @@
 `define CSR_MHPMEVENT29     12'h33d
 `define CSR_MHPMEVENT30     12'h33e
 `define CSR_MHPMEVENT31     12'h33f
-`endif // ENABLE_HPM_COUNTERS
+`endif // ENABLE_ZIHPM_EXT
 
 `define CSR_MSCRATCH        12'h340
 `define CSR_MEPC            12'h341
@@ -71,7 +71,7 @@
 `define CSR_MCYCLE          12'hb00
 `define CSR_MINSTRET        12'hb02
 
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
 `define CSR_MHPMCOUNTER3    12'hb03
 `define CSR_MHPMCOUNTER4    12'hb04
 `define CSR_MHPMCOUNTER5    12'hb05
@@ -101,12 +101,12 @@
 `define CSR_MHPMCOUNTER29   12'hb1d
 `define CSR_MHPMCOUNTER30   12'hb1e
 `define CSR_MHPMCOUNTER31   12'hb1f
-`endif // ENABLE_HPM_COUNTERS
+`endif // ENABLE_ZIHPM_EXT
 
 `define CSR_MCYCLEH         12'hb80
 `define CSR_MINSTRETH       12'hb82
 
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
 `define CSR_MHPMCOUNTERH3   12'hb83
 `define CSR_MHPMCOUNTERH4   12'hb84
 `define CSR_MHPMCOUNTERH5   12'hb85
@@ -136,7 +136,7 @@
 `define CSR_MHPMCOUNTERH29  12'hb9d
 `define CSR_MHPMCOUNTERH30  12'hb9e
 `define CSR_MHPMCOUNTERH31  12'hb9f
-`endif // ENABLE_HPM_COUNTERS
+`endif // ENABLE_ZIHPM_EXT
 
 `define CSR_MVENDORID       12'hf11
 `define CSR_MARCHID         12'hf12

@@ -601,7 +601,7 @@ module risc_p (
             // Set the cache LED
             `ifdef ENABLE_LED_EXT led_a[0] <= 1'b1; `endif
 
-`ifdef ENABLE_HPM_COUNTERS
+`ifdef ENABLE_ZIHPM_EXT
             incr_event_counters_o[`EVENT_I_CACHE_HIT] <= 1'b1;
 `endif
         end else begin
