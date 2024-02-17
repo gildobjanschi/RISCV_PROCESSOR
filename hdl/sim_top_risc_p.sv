@@ -232,10 +232,14 @@ module sim_top_risc_p;
                     exit_code = 1;
                 end
 
+`ifdef ENABLE_ZICNTR_EXT
                 $display ($time, " SIM: Cycles:                 %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
+                $display ($time, " SIM: Time:                   %0d",
+                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_TIME]);
                 $display ($time, " SIM: Instructions retired:   %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
+`endif
 `ifdef ENABLE_ZIHPM_EXT
                 $display ($time, " SIM: Instructions from ROM:  %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTR_FROM_ROM]);
@@ -261,11 +265,6 @@ module sim_top_risc_p;
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_TIMER_INT]);
                 $display ($time, " SIM: External interrupts:    %0d",
                                                         risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_EXTERNAL_INT]);
-`else // ENABLE_ZIHPM_EXT
-                $display ($time, " SIM: Cycles:                 %0d",
-                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_CYCLE]);
-                $display ($time, " SIM: Instructions:           %0d",
-                                                        risc_p_m.mem_space_m.csr_m.mhpmcounter[`EVENT_INSTRET]);
 `endif // ENABLE_ZIHPM_EXT
 `endif // TEST_MODE
 `ifdef D_STATS_FILE

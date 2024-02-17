@@ -22,9 +22,11 @@
  * one of the 29 performance counters. The machine uses a dedicated register (minstret) to count retired instructions.
  **********************************************************************************************************************/
 
+`ifdef ENABLE_ZICNTR_EXT
 `define EVENT_CYCLE             0
-`define EVENT_RESERVED          1
+`define EVENT_TIME              1
 `define EVENT_INSTRET           2
+`endif // ENABLE_ZICNTR_EXT
 
 `ifdef ENABLE_ZIHPM_EXT
 // Performance events. Up to 29 can be defined.

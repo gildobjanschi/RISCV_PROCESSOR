@@ -25,9 +25,8 @@ SIM_RAM_FILE=""
 # ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
 # ENABLE_ZIFENCEI_EXT: Zifencei extension
-# ENABLE_ZIHPM_EXT:    Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZIHPM_EXT -D QPI_MODE"
+OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D QPI_MODE"
 
 while getopts "uwph" flag; do
     case "${flag}" in
