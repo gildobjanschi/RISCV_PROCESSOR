@@ -397,7 +397,16 @@ module risc_p (
     // Last writeback register index and register value
     logic [4:0] writeback_op_rd;
     logic [31:0] writeback_rd;
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
+
+`ifdef ENABLE_LED_BASE
+    logic [7:0] execute_trap;
+    `define ENABLE_LED_BASE_OR_EXT
+`elsif ENABLE_LED_EXT
+    logic [7:0] execute_trap;
+    `define ENABLE_LED_BASE_OR_EXT
+`endif
+
+`ifdef ENABLE_LED_BASE_OR_EXT
     logic [7:0] execute_trap;
 `endif
     // Reset button meta stability handling
@@ -517,7 +526,7 @@ module risc_p (
                     i_cache_has_instr <= 0;
                     i_cache_has_decoded <= 0;
 
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
+`ifdef ENABLE_LED_BASE_OR_EXT
                     execute_trap <= 0;
 `endif
                 end else begin
@@ -894,7 +903,7 @@ module risc_p (
 `ifdef D_CORE
                         $display ($time, " CORE:    Executing trap routine @[%h].", core_data_i);
 `endif
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
+`ifdef ENABLE_LED_BASE_OR_EXT
                         execute_trap <= execute_trap + 1;
 `endif
                         pipeline_trap_mcause <= 0;
@@ -1160,7 +1169,7 @@ module risc_p (
 
                     fetch_address <= exec_next_addr_i;
 
-`ifdef ENABLE_LED_BASE or ENABLE_LED_EXT
+`ifdef ENABLE_LED_BASE_OR_EXT
                     if (exec_mret_i) begin
                         if (execute_trap == 1) begin
                             `ifdef ENABLE_LED_BASE led[6] <= 1'b0; `endif
@@ -1173,7 +1182,7 @@ module risc_p (
                          */
                         if (execute_trap != 0) execute_trap <= execute_trap - 1;
                     end
-`endif // ENABLE_LED_BASE or ENABLE_LED_EXT
+`endif // ENABLE_LED_BASE_OR_EXT
 `ifdef SIMULATION
                     if (exec_next_addr_i == exec_instr_addr_o) begin
 `ifdef D_CORE_FINE
