@@ -78,6 +78,7 @@ module sim_top_risc_p;
         // UART wires
         .ftdi_txd       (ftdi_txd), // FPGA output: TXD
         .ftdi_rxd       (ftdi_rxd), // FPGA input : RXD
+        .external_irq_i (btn[2]),   // Simulate external interrupts with btn[2]
 `ifdef BOARD_ULX3S
         .wifi_gpio0     (wifi_gpio0),
         // RAM wires

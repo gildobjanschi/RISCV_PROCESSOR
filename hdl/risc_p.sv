@@ -39,6 +39,7 @@ module risc_p (
     // UART wires
     output logic ftdi_rxd,  // FPGA output: TXD
     input logic ftdi_txd,   // FPGA input : RXD
+    input logic external_irq_i,
 `ifdef BOARD_ULX3S
     output logic wifi_gpio0,
     // RAM wires
@@ -296,7 +297,7 @@ module risc_p (
         // UART wires
         .uart_txd_o         (ftdi_rxd), // FPGA output: TXD
         .uart_rxd_i         (ftdi_txd), // FPGA input: RXD
-        .external_irq_i     (btn[2]));
+        .external_irq_i     (external_irq_i));
 
     decoder decoder_m (
         .clk_i              (clk),
