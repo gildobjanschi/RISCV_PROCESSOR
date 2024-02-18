@@ -583,7 +583,7 @@ module mem_space #(
                 `ifdef ENABLE_LED_EXT led[9] <= 1'b0;`endif
             end
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
             if (core_access == ACCESS_FLASH) begin
                 incr_internal_event_counters[`EVENT_INSTR_FROM_ROM] <= 1'b1;
             end else begin
@@ -604,7 +604,7 @@ module mem_space #(
 
                 core_access <= ACCESS_NONE;
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
                 incr_internal_event_counters[`EVENT_INSTR_FROM_RAM] <= 1'b1;
 `endif
                 `ifdef ENABLE_LED_EXT led[2] <= 1'b0;`endif
@@ -616,7 +616,7 @@ module mem_space #(
 
                 data_access <= ACCESS_NONE;
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
                 if (~ram_we_o) begin
                     incr_internal_event_counters[`EVENT_LOAD_FROM_RAM] <= 1'b1;
                 end else begin
@@ -660,7 +660,7 @@ module mem_space #(
                 `ifdef ENABLE_LED_EXT led[13] <= 1'b0;`endif
             end
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
             if (~io_we_o) begin
                 incr_internal_event_counters[`EVENT_IO_LOAD] <= 1'b1;
             end else begin
@@ -696,7 +696,7 @@ module mem_space #(
                 `ifdef ENABLE_LED_EXT led[15] <= 1'b0;`endif
             end
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
             if (~csr_we_o) begin
                 incr_internal_event_counters[`EVENT_CSR_LOAD] <= 1'b1;
             end else begin

@@ -42,10 +42,9 @@ helpFunction()
 # ENABLE_ZICSR_EXT:     Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
 #                          implementation useless.
 # ENABLE_ZIFENCEI_EXT:  Zifencei extension
-# ENABLE_ZIHPM_EXT:     Enables support for High Performance Counters.
-# ENABLE_ZICNTR_EXT:    Enable RDCYCLE, RDTIME, RDINSTRET
+# ENABLE_MHPM    :      Enables support for High Performance Counters.
 # QPI_MODE:             Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D D_CORE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZIHPM_EXT -D ENABLE_ZICNTR_EXT -D QPI_MODE"
+OPTIONS="-D SIMULATION -D D_CORE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM -D QPI_MODE"
 
 BOARD=""
 APP_NAME=""

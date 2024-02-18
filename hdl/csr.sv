@@ -75,13 +75,7 @@ module csr (
 `endif
     logic [31:0] incr_events;
 
-`ifdef ENABLE_ZIHPM_EXT
-    `define ENABLE_ZIHPM_OR_ZICNTR_EXT
-`elsif ENABLE_ZICNTR_EXT
-    `define ENABLE_ZIHPM_OR_ZICNTR_EXT
-`endif
-
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
     // Define the number of counters to implement
     localparam HPM_COUNT = 5'd15;  // number of counters + 3 (mcycle, reserved and minstret)
     logic [31:0] incr_event_counters_internal;
@@ -89,14 +83,13 @@ module csr (
 `else
     localparam HPM_COUNT = 5'd3;  // mcycle, reserved and minstret are always enabled
     assign incr_events = incr_event_counters_i;
-`endif  // ENABLE_ZIHPM_EXT
+`endif  // ENABLE_MHPM
 
-`ifdef ENABLE_ZIHPM_OR_ZICNTR_EXT
     logic [31:0] mcountinhibit;
     logic [63:0] mhpmcounter[0:HPM_COUNT-1];
     logic [31:0] mhpmevent  [0:HPM_COUNT-1];
     logic [ 4:0] i;
-`endif
+
     // Hide interrupts from the core when interrupts are disabled and/or when an interrupt is processed to avoid
     // preemption.
     assign io_interrupts_o = mstatus[`MSTATUS_MIE_BIT] ? mip : 0;
@@ -179,12 +172,11 @@ module csr (
                 else mstatush <= data_i;
             end
 
-`ifdef ENABLE_ZIHPM_OR_ZICNTR_EXT
             `CSR_MCOUNTINIHIBIT: begin  // mcountinhibit (Machine Counter-Inhibit)
                 if (~we_i) data_o <= mcountinhibit;
                 else mcountinhibit <= data_i;
             end
-`endif
+
             `CSR_MSCRATCH: begin  // mscratch (Scratch register for machine trap handler)
                 /*
                  * The mscratch register is an MXLEN-bit read/write register dedicated for use
@@ -232,7 +224,6 @@ module csr (
                 else mtinst <= data_i;
             end
 
-`ifdef ENABLE_ZICNTR_EXT
             `CSR_MCYCLE: begin  // mcycle (Machine cycle counter)
                 /*
                  * The mcycle CSR counts the number of clock cycles executed by the processor core on
@@ -259,9 +250,8 @@ module csr (
                 if (~we_i) data_o <= mhpmcounter[`EVENT_INSTRET][63:32];
                 else mhpmcounter[`EVENT_INSTRET][63:32] <= data_i;
             end
-`endif // ENABLE_ZICNTR_EXT
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
             `CSR_MHPMEVENT3, `CSR_MHPMEVENT4, `CSR_MHPMEVENT5, `CSR_MHPMEVENT6, `CSR_MHPMEVENT7, `CSR_MHPMEVENT8,
             `CSR_MHPMEVENT9, `CSR_MHPMEVENT10, `CSR_MHPMEVENT11, `CSR_MHPMEVENT12, `CSR_MHPMEVENT13, `CSR_MHPMEVENT14,
             `CSR_MHPMEVENT15, `CSR_MHPMEVENT16, `CSR_MHPMEVENT17, `CSR_MHPMEVENT18, `CSR_MHPMEVENT19, `CSR_MHPMEVENT20,
@@ -295,6 +285,7 @@ module csr (
                 else mhpmcounter[addr_i - `CSR_MHPMCOUNTERH3 + 12'h3][63:32] <= data_i;
             end
 `endif
+
             `CSR_MVENDORID, `CSR_MARCHID, `CRS_MIMPID, `CSR_MHARTID, `CSR_MCONFIGPTR, `CSR_MTVAL2: begin
                 /*
                  * The mvendorid CSR is a 32-bit read-only register providing the JEDEC manufacturer ID of the
@@ -350,7 +341,7 @@ module csr (
 `else
                         data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_external : mtvec_base;
 `endif
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
                         incr_event_counters_internal[`EVENT_EXTERNAL_INT] <= 1'b1;
 `endif
                     end
@@ -371,7 +362,7 @@ module csr (
 `else
                         data_o <= mtvec[1:0] == 2'b01 ? mtvec_interrupt_timer : mtvec_base;
 `endif
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
                         incr_event_counters_internal[`EVENT_TIMER_INT] <= 1'b1;
 `endif
                     end
@@ -464,12 +455,12 @@ module csr (
                 if (~we_i) data_o <= sscratch;
                 else sscratch <= data_i;
             end
-`endif  // TEST_MODE
+`endif
 
             default: begin
 `ifdef D_CSR
                 $display($time, " CSR: register [%h] not supported", addr_i);
-`endif  // D_CSR
+`endif
                 /* Attempts to access a non-existent CSR raise an illegal instruction exception */
                 {sync_ack_o, sync_err_o} <= 2'b01;
             end
@@ -598,24 +589,21 @@ module csr (
             mtvec_interrupt_software <= `INVALID_ADDR;
             mtvec_interrupt_timer <= `INVALID_ADDR;
 
-`ifdef ENABLE_ZICNTR_EXT
             /*
-             * Setup the Zicntr events.
+             * Setup the required events.
              */
             mhpmevent[`EVENT_CYCLE] <= 1 << `EVENT_CYCLE;
-            mhpmevent[`EVENT_TIME] <= 1 << `EVENT_TIME;
+            mhpmevent[`EVENT_RESERVED] <= 0;
             mhpmevent[`EVENT_INSTRET] <= 1 << `EVENT_INSTRET;
-`endif // ENABLE_ZICNTR_EXT
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
             // Clear the HPM events
             for (i = `EVENT_INSTR_FROM_ROM; i < HPM_COUNT; i = i + 1) begin
                 mhpmevent[i] <= 0;
             end
             incr_event_counters_internal <= 0;
-`endif // ENABLE_ZIHPM_EXT
+`endif // ENABLE_MHPM
 
-`ifdef ENABLE_ZIHPM_OR_ZICNTR_EXT
             // Disable all performance counters.
             mcountinhibit <= 32'hffff_ffff;
 
@@ -623,27 +611,18 @@ module csr (
             for (i = 0; i < HPM_COUNT; i = i + 1) begin
                 mhpmcounter[i] <= 0;
             end
-`endif
         end else begin
-
-`ifdef ENABLE_ZICNTR_EXT
             // Cycle counter
             if (~mcountinhibit[`EVENT_CYCLE]) begin
                 mhpmcounter[`EVENT_CYCLE] <= mhpmcounter[`EVENT_CYCLE] + 1;
             end
-            // Time
-            if (~mcountinhibit[`EVENT_TIME]) begin
-                mhpmcounter[`EVENT_TIME] <= mhpmcounter[`EVENT_TIME] + `CLK_PERIOD_NS;
-            end
-            // Instructions retired
-            if (~mcountinhibit[`EVENT_INSTRET]) begin
-                if (incr_events[`EVENT_INSTRET] == 1'b1) begin
-                    mhpmcounter[`EVENT_INSTRET] <= mhpmcounter[`EVENT_INSTRET] + 1;
-                end
-            end
-`endif // ENABLE_ZICNTR_EXT
 
-`ifdef ENABLE_ZIHPM_EXT
+            // Instructions retired
+            if (~mcountinhibit[`EVENT_INSTRET] & incr_events[`EVENT_INSTRET]) begin
+                mhpmcounter[`EVENT_INSTRET] <= mhpmcounter[`EVENT_INSTRET] + 1;
+            end
+
+`ifdef ENABLE_MHPM
             incr_event_counters_internal <= 0;
             // Increment event counters
             for (i = `EVENT_INSTR_FROM_ROM; i < HPM_COUNT; i = i + 1) begin
@@ -651,7 +630,7 @@ module csr (
                     mhpmcounter[i] <= mhpmcounter[i] + 1;
                 end
             end
-`endif // ENABLE_ZIHPM_EXT
+`endif // ENABLE_MHPM
 
             /*
              * Filter IO interrupts with the interrupt enable flag and specific interrupt enable flags.

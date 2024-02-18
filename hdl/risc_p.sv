@@ -611,7 +611,7 @@ module risc_p (
             // Set the cache LED
             `ifdef ENABLE_LED_EXT led_a[0] <= 1'b1; `endif
 
-`ifdef ENABLE_ZIHPM_EXT
+`ifdef ENABLE_MHPM
             incr_event_counters_o[`EVENT_I_CACHE_HIT] <= 1'b1;
 `endif
         end else begin
@@ -1100,10 +1100,7 @@ module risc_p (
             `ifdef ENABLE_LED_BASE led[3] <= 1'b0; `endif
             `ifdef ENABLE_LED_EXT led_a[3] <= 1'b0; `endif
 
-`ifdef ENABLE_ZICNTR_EXT
             incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
-
 `ifdef D_STATS_FILE
             stats_prev_end_execution_time <= $time;
             /*
@@ -1254,23 +1251,17 @@ module risc_p (
             case (1'b1)
                 exec_trap_mcause_i[`EX_CODE_INSTRUCTION_ACCESS_FAULT]: begin
                     pipeline_trap_mcause <= 1 << `EX_CODE_INSTRUCTION_ACCESS_FAULT;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
 
                 exec_trap_mcause_i[`EX_CODE_ILLEGAL_INSTRUCTION]: begin
                     pipeline_trap_mcause <= 1 << `EX_CODE_ILLEGAL_INSTRUCTION;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
 
                 exec_trap_mcause_i[`EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED]: begin
                     pipeline_trap_mcause <= 1 << `EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
 
                 exec_trap_mcause_i[`EX_CODE_ECALL]: begin
@@ -1283,30 +1274,22 @@ module risc_p (
 
                 exec_trap_mcause_i[`EX_CODE_LOAD_ADDRESS_MISALIGNED]: begin
                     pipeline_trap_mcause <= 1 << `EX_CODE_LOAD_ADDRESS_MISALIGNED;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
 
                 exec_trap_mcause_i[`EX_CODE_STORE_ADDRESS_MISALIGNED]: begin
                     pipeline_trap_mcause <= 1 << `EX_CODE_STORE_ADDRESS_MISALIGNED;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
 
                 exec_trap_mcause_i[`EX_CODE_LOAD_ACCESS_FAULT]: begin
                     pipeline_trap_mcause <= 1 << `EX_CODE_LOAD_ACCESS_FAULT;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
 
                 exec_trap_mcause_i[`EX_CODE_STORE_ACCESS_FAULT]: begin
                     pipeline_trap_mcause <= 1 << `EX_CODE_STORE_ACCESS_FAULT;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
 
                 default: begin
@@ -1315,9 +1298,7 @@ module risc_p (
 `endif
                     // Break the execution.
                     pipeline_trap_mcause <= 1 << `EX_CODE_BREAKPOINT;
-`ifdef ENABLE_ZICNTR_EXT
                     incr_event_counters_o[`EVENT_INSTRET] <= 1'b1;
-`endif
                 end
             endcase
 
