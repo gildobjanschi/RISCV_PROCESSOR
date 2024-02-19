@@ -91,7 +91,7 @@ module csr (
     logic [ 4:0] i;
 
     // Hide interrupts from the core when interrupts are disabled and/or when an interrupt is processed to avoid
-    // preemption.
+    // nested interrupts.
     assign io_interrupts_o = mstatus[`MSTATUS_MIE_BIT] ? mip : 0;
 
     //==================================================================================================================

@@ -26,7 +26,7 @@
 module risc_p (
     input logic clk_in,
     output logic [7:0] led,
-    input logic [2:0] btn,
+    input logic [1:0] btn,
     // SPI flash wires
     output logic flash_csn,
 `ifdef SIMULATION
@@ -39,7 +39,7 @@ module risc_p (
     // UART wires
     output logic ftdi_rxd,  // FPGA output: TXD
     input logic ftdi_txd,   // FPGA input : RXD
-    input logic external_irq_i,
+    input logic external_irq,
 `ifdef BOARD_ULX3S
     output logic wifi_gpio0,
     // RAM wires
@@ -297,7 +297,7 @@ module risc_p (
         // UART wires
         .uart_txd_o         (ftdi_rxd), // FPGA output: TXD
         .uart_rxd_i         (ftdi_txd), // FPGA input: RXD
-        .external_irq_i     (external_irq_i));
+        .external_irq_i     (external_irq));
 
     decoder decoder_m (
         .clk_i              (clk),

@@ -907,9 +907,9 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             `INSTR_TYPE_MRET: begin
 `ifdef D_EXEC
                 $display($time, " [%h]: %h mret; load @[%h] ...", instr_addr_i, instr_i,
-                                CSR_BEGIN_ADDR + `CSR_EXIT_TRAP);
+                                CSR_BEGIN_ADDR | `CSR_EXIT_TRAP);
 `endif
-                load_task (CSR_BEGIN_ADDR + `CSR_EXIT_TRAP, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (CSR_BEGIN_ADDR | `CSR_EXIT_TRAP, `ADDR_TAG_MODE_NONE, 4'b1111);
             end
 
             `INSTR_TYPE_WFI: begin
@@ -1103,7 +1103,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
 `ifdef ENABLE_ZICSR_EXT
             `INSTR_TYPE_CSRRW: begin
-                store_addr = CSR_BEGIN_ADDR + instr_op_imm_i;
+                store_addr = CSR_BEGIN_ADDR | instr_op_imm_i;
 `ifdef D_EXEC
                 $display($time, " [%h]: %h csrrw rs1x%0d[%h]; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_imm_i, store_addr);
@@ -1112,7 +1112,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 
             `INSTR_TYPE_CSRRS: begin
-                store_addr = CSR_BEGIN_ADDR + instr_op_imm_i;
+                store_addr = CSR_BEGIN_ADDR | instr_op_imm_i;
 `ifdef D_EXEC
                 $display($time, " [%h]: %h csrrs rs1x%0d[%h]; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_imm_i, store_addr);
@@ -1121,7 +1121,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 
             `INSTR_TYPE_CSRRC: begin
-                store_addr = CSR_BEGIN_ADDR + instr_op_imm_i;
+                store_addr = CSR_BEGIN_ADDR | instr_op_imm_i;
 `ifdef D_EXEC
                 $display($time, " [%h]: %h csrrc rs1x%0d[%h]; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_imm_i, store_addr);
@@ -1130,7 +1130,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 
             `INSTR_TYPE_CSRRWI: begin
-                store_addr = CSR_BEGIN_ADDR + instr_op_imm_i;
+                store_addr = CSR_BEGIN_ADDR | instr_op_imm_i;
 `ifdef D_EXEC
                 $display($time, " [%h]: %h csrrwi UIMM: %h; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, instr_op_imm_i, store_addr);
@@ -1139,7 +1139,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 
             `INSTR_TYPE_CSRRSI: begin
-                store_addr = CSR_BEGIN_ADDR + instr_op_imm_i;
+                store_addr = CSR_BEGIN_ADDR | instr_op_imm_i;
 `ifdef D_EXEC
                 $display($time, " [%h]: %h csrrsi UIMM: %h; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, instr_op_imm_i, store_addr);
@@ -1148,7 +1148,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 
             `INSTR_TYPE_CSRRCI: begin
-                store_addr = CSR_BEGIN_ADDR + instr_op_imm_i;
+                store_addr = CSR_BEGIN_ADDR | instr_op_imm_i;
 `ifdef D_EXEC
                 $display($time, " [%h]: %h csrrci UIMM: %h; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, instr_op_imm_i, store_addr);
