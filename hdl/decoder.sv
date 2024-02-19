@@ -298,7 +298,6 @@ module decoder (
                         instr_load_rs1_rs2_o <= 1'b0;
                     end
 
-`ifdef ENABLE_ZICSR_EXT
                     3'b001: begin
                         instr_op_type_o <= `INSTR_TYPE_CSRRW;
                         instr_op_rd_o <= instr_i[11:7];
@@ -349,7 +348,7 @@ module decoder (
                         instr_op_rs1_o <= instr_i[19:15];
                         instr_load_rs1_rs2_o <= 1'b0;
                     end
-`endif
+
                     default: {sync_ack_o, sync_err_o} <= 2'b01;
                 endcase
             end

@@ -1101,7 +1101,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 `endif //ENABLE_RV32M_EXT
 
-`ifdef ENABLE_ZICSR_EXT
             `INSTR_TYPE_CSRRW: begin
                 store_addr = CSR_BEGIN_ADDR | instr_op_imm_i;
 `ifdef D_EXEC
@@ -1155,7 +1154,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `endif
                 load_task (store_addr, `ADDR_TAG_MODE_NONE, 4'b1111);
             end
-`endif // ENABLE_ZICSR_EXT
 
 `ifdef ENABLE_RV32A_EXT
             `INSTR_TYPE_LR_W: begin
@@ -1344,7 +1342,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 {sync_ack_o, sync_err_o} <= 2'b10;
             end
 
-`ifdef ENABLE_ZICSR_EXT
             `INSTR_TYPE_CSRRW: begin
                 if (instr_op_imm_i[11:10] != 2'b11) begin
                     store_delayed_task(store_addr, `ADDR_TAG_MODE_NONE, rs1_i);
@@ -1464,7 +1461,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
                 next_addr_o <= next_addr_comb;
             end
-`endif // ENABLE_ZICSR_EXT
 
 `ifdef ENABLE_RV32A_EXT
             `INSTR_TYPE_LR_W: begin
@@ -1706,13 +1702,12 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 `endif // ENABLE_RV32A_EXT
 */
-`ifdef ENABLE_ZICSR_EXT
+
             `INSTR_TYPE_CSRRW, `INSTR_TYPE_CSRRS, `INSTR_TYPE_CSRRC, `INSTR_TYPE_CSRRWI, `INSTR_TYPE_CSRRSI,
             `INSTR_TYPE_CSRRCI, `INSTR_TYPE_MRET: begin
                 trap_mcause_o[`EX_CODE_ILLEGAL_INSTRUCTION] <= 1'b1;
                 trap_mtval_o <= instr_i;
             end
-`endif // ENABLE_ZICSR_EXT
 
             default: begin
                 trap_mcause_o[`EX_CODE_LOAD_ACCESS_FAULT] <= 1'b1;
@@ -1754,7 +1749,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 next_addr_o <= next_addr_comb;
             end
 
-`ifdef ENABLE_ZICSR_EXT
             `INSTR_TYPE_CSRRW, `INSTR_TYPE_CSRRS, `INSTR_TYPE_CSRRC,
             `INSTR_TYPE_CSRRWI, `INSTR_TYPE_CSRRSI, `INSTR_TYPE_CSRRCI: begin
 `ifdef D_EXEC
@@ -1762,7 +1756,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             next_addr_comb);
 `endif
             end
-`endif // ENABLE_ZICSR_EXT
 
 `ifdef ENABLE_RV32A_EXT
             `INSTR_TYPE_SC_W: begin
@@ -1837,13 +1830,11 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `endif // ENABLE_RV32A_EXT
 */
 
-`ifdef ENABLE_ZICSR_EXT
             `INSTR_TYPE_CSRRW, `INSTR_TYPE_CSRRS, `INSTR_TYPE_CSRRC,
             `INSTR_TYPE_CSRRWI, `INSTR_TYPE_CSRRSI, `INSTR_TYPE_CSRRCI, `INSTR_TYPE_MRET: begin
                 trap_mcause_o[`EX_CODE_ILLEGAL_INSTRUCTION] <= 1'b1;
                 trap_mtval_o <= instr_i;
             end
-`endif // ENABLE_ZICSR_EXT
 
             default: begin
                 trap_mcause_o[`EX_CODE_STORE_ACCESS_FAULT] <= 1'b1;

@@ -22,11 +22,9 @@ SIM_RAM_FILE=""
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
-# ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
-#                          implementation useless.
 # ENABLE_ZIFENCEI_EXT: Zifencei extension
 # QPI_MODE:            Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D QPI_MODE"
+OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D QPI_MODE"
 
 while getopts "uwph" flag; do
     case "${flag}" in

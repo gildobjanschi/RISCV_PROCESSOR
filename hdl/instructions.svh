@@ -19,8 +19,6 @@
  * The supported instructions are listed herein. The optional extension enable flags are set in sim.sh and fpga.sh:
  *
  * # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
- * # ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
- * #                          implementation useless.
  * # ENABLE_ZIFENCEI_EXT: Zifencei extension
  * # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
  * # ENABLE_RV32A_EXT:    Atomic instructions support.
@@ -86,14 +84,12 @@
 `endif
 
 // Zicsr instructions
-`ifdef ENABLE_ZICSR_EXT
 `define INSTR_TYPE_CSRRW    7'd58
 `define INSTR_TYPE_CSRRS    7'd59
 `define INSTR_TYPE_CSRRC    7'd60
 `define INSTR_TYPE_CSRRWI   7'd61
 `define INSTR_TYPE_CSRRSI   7'd62
 `define INSTR_TYPE_CSRRCI   7'd63
-`endif
 
 // RV32A instructions
 `ifdef ENABLE_RV32A_EXT

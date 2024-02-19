@@ -22,14 +22,12 @@ BOARD=""
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
-# ENABLE_ZICSR_EXT:    Zicsr is required for Machine registers manipulation. Disabling it renders the Machine
-#                          implementation useless.
 # ENABLE_ZIFENCEI_EXT: Zifencei extension
 # ENABLE_MHPM:         Enables support for High Performance Counters.
 # QPI_MODE:            Use quad SPI for flash.
 # ENABLE_LED_BASE      Enable LEDs on ULX3S or the ones on the BLUE_WHALE base board.
 # ENABLE_LED_EXT       Enable LEDs on the BLUE_WHALE extension board,
-OPTIONS="-D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZICSR_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM_EXT -D QPI_MODE -D ENABLE_LED_BASE"
+OPTIONS="-D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM_EXT -D QPI_MODE -D ENABLE_LED_BASE"
 
 APP_NAME=""
 BIN_FILE=""
