@@ -16,19 +16,6 @@ helpFunction()
 
 TRELLISD_DB="/home/virgild/.apio/packages/tools-oss-cad-suite/share/trellis/database"
 BOARD=""
-
-# Flags added by default by the script
-#
-# ENABLE_RV32M_EXT:    Multiply and divide instructions support.
-# ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
-# ENABLE_RV32A_EXT:    Atomic instructions support.
-# ENABLE_ZIFENCEI_EXT: Zifencei extension
-# ENABLE_MHPM:         Enables support for High Performance Counters.
-# QPI_MODE:            Use quad SPI for flash.
-# ENABLE_LED_BASE      Enable LEDs on ULX3S or the ones on the BLUE_WHALE base board.
-# ENABLE_LED_EXT       Enable LEDs on the BLUE_WHALE extension board,
-OPTIONS="-D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM_EXT -D QPI_MODE -D ENABLE_LED_BASE"
-
 APP_NAME=""
 BIN_FILE=""
 RAM_FILE=""
@@ -41,12 +28,43 @@ while getopts "uwpmhb:D:" flag; do
         w ) BOARD="BOARD_BLUE_WHALE" ;;
         p ) echo "Running RISC-V."; APP_NAME="risc_p" ;;
         m ) echo "Running memory space test."; APP_NAME="mem_space_test" ;;
-        D ) OPTIONS="$OPTIONS -D ${OPTARG}" ;;
+        D ) OPTIONS="-D ${OPTARG} " ;;
         h ) helpFunction ;;
         b ) BIN_FILE=${OPTARG} ;;
         * ) helpFunction ;; #Invalid argument
     esac
 done
+
+if test -z "$BOARD"; then
+    BOARD="BOARD_ULX3S"
+fi
+
+# Flags added by default by the script
+#
+# ENABLE_RV32M_EXT:    Multiply and divide instructions support.
+# ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
+# ENABLE_RV32A_EXT:    Atomic instructions support.
+# ENABLE_ZIFENCEI_EXT: Zifencei extension
+# ENABLE_MHPM:         Enables support for High Performance Counters.
+# ENABLE_QPI_MODE:     Use quad SPI for flash.
+# ENABLE_LED_BASE      Enable LEDs on ULX3S or the ones on the BLUE_WHALE base board.
+# ENABLE_LED_EXT       Enable LEDs on the BLUE_WHALE extension board,
+if [ "$BOARD" = "BOARD_ULX3S" ] ; then
+    echo "Running on ULX3S."
+    OPTIONS="$OPTIONS -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE -D ENABLE_LED_BASE"
+    echo "OPTIONS: $OPTIONS"
+    RAM_FILE="sdram.sv"
+    LPF_FILE="ulx3s.lpf"
+    SPEED="6"
+else if [ "$BOARD" = "BOARD_BLUE_WHALE" ] ; then
+    echo "Running on Blue Whale."
+    OPTIONS="$OPTIONS -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE -D ENABLE_LED_BASE -D ENABLE_LED_EXT"
+    echo "OPTIONS: $OPTIONS"
+    RAM_FILE="psram.sv"
+    LPF_FILE="blue_whale.lpf"
+    SPEED="8"
+fi
+fi
 
 if test -z "$APP_NAME"; then
     helpFunction
@@ -63,23 +81,6 @@ fi
 
 if test -f "out.json"; then
     rm out.json
-fi
-
-if test -z "$BOARD"; then
-    BOARD="BOARD_ULX3S"
-fi
-
-if [ "$BOARD" = "BOARD_ULX3S" ] ; then
-    echo "Running on ULX3S."
-    RAM_FILE="sdram.sv"
-    LPF_FILE="ulx3s.lpf"
-    SPEED="6"
-else if [ "$BOARD" = "BOARD_BLUE_WHALE" ] ; then
-    echo "Running on Blue Whale."
-    RAM_FILE="psram.sv"
-    LPF_FILE="blue_whale.lpf"
-    SPEED="8"
-fi
 fi
 
 if [ "$APP_NAME" = "mem_space_test" ] ; then

@@ -18,9 +18,9 @@
 /***********************************************************************************************************************
  * This module implements an SPI master flash reader with a wishbone interface.
  *
- * It supports single and quad SPI (QPI) modes. If QPI_MODE is defined it will switch from SPI to QPI during reset
- * and it will operate in QPI mode after the module exists the reset state. Once it operates in QPI mode, to switch
- * back to SPI mode you need to restart the board. QPI -> SPI is not supported.
+ * It supports single and quad SPI (QPI) modes. If ENABLE_QPI_MODE is defined it will switch from SPI to QPI during
+ * reset and it will operate in QPI mode after the module exists the reset state. Once it operates in QPI mode, to
+ * switch back to SPI mode you need to restart the board. QPI -> SPI is not supported.
  *
  * The following datasheet applies: https://www.issi.com/WW/pdf/25LP-WP128F.pdf
  *
@@ -163,7 +163,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
         endcase
     endtask
 
-`ifndef QPI_MODE
+`ifndef ENABLE_QPI_MODE
     //==================================================================================================================
     // Single wire RX SPI
     //==================================================================================================================
@@ -191,9 +191,9 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
             spi_rx_clks[30:0] <= spi_rx_clks[31:1];
         end
     endtask
-`endif  // QPI_MODE
+`endif  // ENABLE_QPI_MODE
 
-`ifdef QPI_MODE
+`ifdef ENABLE_QPI_MODE
     //==================================================================================================================
     // QUAD TX SPI
     //==================================================================================================================
@@ -262,7 +262,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
         end
     endtask
 
-`endif  // QPI_MODE
+`endif  // ENABLE_QPI_MODE
 
     //==================================================================================================================
     // The SPI master
@@ -285,7 +285,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
                 STATE_RESET: begin
                     if (~|reset_clks) begin
                         flash_csn <= 1'b1;
-`ifdef QPI_MODE
+`ifdef ENABLE_QPI_MODE
                         if (qpi_mode) begin
                             state_m <= STATE_IDLE;
                         end else begin
@@ -300,7 +300,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
                     end
                 end
 
-`ifdef QPI_MODE
+`ifdef ENABLE_QPI_MODE
                 STATE_QPI_START: begin
 `ifdef D_FLASH_MASTER
                     $display($time, " FLASH_MASTER: Entering QPI mode...");
@@ -333,7 +333,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
                     $display($time, " FLASH_MASTER: Entered QPI mode.");
 `endif
                 end
-`endif  // QPI_MODE
+`endif // ENABLE_QPI_MODE
 
                 STATE_IDLE: begin
                     if (sync_stb_i & sync_cyc_i & ~ack_o) begin
@@ -341,7 +341,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
                         $display($time, " FLASH_MASTER: Read @[%h].", addr_i);
 `endif
                         // Setup the Tx (command + 3 bytes of address) and the dummy cycles count
-`ifdef QPI_MODE
+`ifdef ENABLE_QPI_MODE
                         spi_buffer <= {8'h0B, addr_i};
                         spi_dummy_clks <= 8'h20;  // 6 cycles
                         spi_tx_clks <= 32'h0000_0080;  // 8 nibbles
@@ -354,7 +354,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
                         endcase
 
                         fpga_out_en <= 1'b1;
-`else  // QPI_MODE
+`else // ENABLE_QPI_MODE
                         if (FLASH_CLK_PERIOD_NS > 13) begin
                             // Normal read is more efficient (no dummy cycles) for flash_clk up to 80 MHz.
                             spi_buffer <= {8'h03, addr_i};
@@ -372,7 +372,7 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
                             sel_i[0]: spi_rx_clks <= 32'h0000_0080;  // 8 bits
                             default:  spi_rx_clks <= 32'h0000_0080;  // 8 bits
                         endcase
-`endif  // QPI_MODE
+`endif // ENABLE_QPI_MODE
                         /*
                          * tCS (CE# Setup Time) is the minimum time interval between the falling edge of flash_csn
                          * and the rising edge of the flash_clk. tCS = 3ns. flash_csn is asserted one clock cycle
@@ -385,19 +385,19 @@ module flash_master #(parameter [31:0] FLASH_CLK_PERIOD_NS = 20) (
                 end
 
                 STATE_TX: begin
-`ifdef QPI_MODE
+`ifdef ENABLE_QPI_MODE
                     qpi_tx_task(STATE_RX);
 `else
                     spi_tx_task(STATE_RX);
-`endif
+`endif // ENABLE_QPI_MODE
                 end
 
                 STATE_RX: begin
-`ifdef QPI_MODE
+`ifdef ENABLE_QPI_MODE
                     qpi_rx_task(STATE_DONE);
 `else
                     spi_rx_task(STATE_DONE);
-`endif
+`endif // ENABLE_QPI_MODE
                 end
 
                 STATE_DONE: begin

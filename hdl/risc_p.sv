@@ -73,7 +73,7 @@ module risc_p (
     // For simulation use a period that is divisible by 4 (12, 16, 20).
     localparam CLK_PERIOD_NS = `CLK_PERIOD_NS;
 
-    // For SPI mode (QPI_MODE not defined) the minimum value is 16, for QPI_MODE the minimum value is 20.
+    // For SPI mode (ENABLE_QPI_MODE not defined) the minimum value is 16, for ENABLE_QPI_MODE the minimum value is 20.
     localparam FLASH_CLK_PERIOD_NS = 20;
 
     // The period of the IO/timer clock
