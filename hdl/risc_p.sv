@@ -1158,6 +1158,21 @@ module risc_p (
             end
 
             case (1'b1)
+                // Handle interrupts in the order of priority
+                io_interrupts_i[`IRQ_EXTERNAL]: begin
+                    pipeline_trap_mcause <= 32'h8000_0000 | 1 << `IRQ_EXTERNAL;
+                    pipeline_trap_mepc <= exec_next_addr_i;
+                    pipeline_trap_mtval <= 0;
+                    enter_trap_task;
+                end
+
+                io_interrupts_i[`IRQ_TIMER]: begin
+                    pipeline_trap_mcause <= 32'h8000_0000 | 1 << `IRQ_TIMER;
+                    pipeline_trap_mepc <= exec_next_addr_i;
+                    pipeline_trap_mtval <= 0;
+                    enter_trap_task;
+                end
+
                 exec_jmp_i: begin
                     `ifdef ENABLE_LED_BASE led[5] <= 1'b1; `endif
                     `ifdef ENABLE_LED_EXT led_a[12] <= 1'b1; `endif
@@ -1192,21 +1207,6 @@ module risc_p (
 `endif // SIMULATION
                 end
 
-                // Handle interrupts in the order of priority
-                io_interrupts_i[`IRQ_EXTERNAL]: begin
-                    pipeline_trap_mcause <= 32'h8000_0000 | 1 << `IRQ_EXTERNAL;
-                    pipeline_trap_mepc <= exec_next_addr_i;
-                    pipeline_trap_mtval <= 0;
-                    enter_trap_task;
-                end
-
-                io_interrupts_i[`IRQ_TIMER]: begin
-                    pipeline_trap_mcause <= 32'h8000_0000 | 1 << `IRQ_TIMER;
-                    pipeline_trap_mepc <= exec_next_addr_i;
-                    pipeline_trap_mtval <= 0;
-                    enter_trap_task;
-                end
-
                 exec_fencei_i: begin
                     // The program execution continues at exec_next_addr_i which is an incremental address (+2/+4)
                     `ifdef ENABLE_LED_BASE led[5] <= 1'b0; `endif
@@ -1214,7 +1214,6 @@ module risc_p (
                      * A simple implementation can flush the local instruction cache and the instruction pipeline when
                      * the FENCE.I is executed.
                      */
-                    // Flush the pipeline
                     flush_pipeline_task (1'b1);
                     pipeline_trap_mcause <= 0;
 
@@ -1225,7 +1224,7 @@ module risc_p (
                 end
 
                 default: begin
-                    // The program execution continues at exec_next_addr_i which is an incremental address (+2/+4)
+                    // The program execution continues with the next entry in the pipeline (there is no jump).
                     `ifdef ENABLE_LED_BASE led[5] <= 1'b0; `endif
                     `ifdef ENABLE_LED_EXT led_a[12] <= 1'b0; `endif
                     // Advance in the pipeline
