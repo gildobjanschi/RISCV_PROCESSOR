@@ -35,3 +35,22 @@ module DFF_META (input logic reset, input logic D, input logic clk, output logic
         end
     end
 endmodule
+
+//==================================================================================================================
+// Request
+//==================================================================================================================
+module DFF_REQUEST (input logic reset, input logic clk, input logic request_begin, input logic request_end,
+                        output logic request_pending);
+    logic in_progress;
+    assign request_pending = in_progress ? ~request_end : request_begin;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            in_progress <= 1'b0;
+        end else if (request_begin) begin
+            in_progress <= 1'b1;
+        end else if (request_end) begin
+            in_progress <= 1'b0;
+        end
+    end
+endmodule

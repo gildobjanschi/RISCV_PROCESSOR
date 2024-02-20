@@ -212,19 +212,19 @@ module risc_p (
     logic [31:0] io_interrupts_i;
 
     // Decoder ports
-    logic decoder_stb_o, decoder_cyc_o, decoder_load_rs1_rs2_i, decoder_ack_i, decoder_err_i;
+    logic decoder_stb_o, decoder_load_rs1_rs2_i, decoder_ack_i, decoder_err_i;
     logic [31:0] decoder_instruction_o, decoder_op_imm_i;
     logic [6:0] decoder_op_type_i;
     logic [4:0] decoder_op_rd_i, decoder_op_rs1_i, decoder_op_rs2_i;
 
     // Regfile ports
-    logic regfile_stb_read_o, regfile_cyc_read_o, regfile_ack_read_i;
-    logic regfile_stb_write_o, regfile_cyc_write_o, regfile_ack_write_i;
+    logic regfile_stb_read_o, regfile_ack_read_i;
+    logic regfile_stb_write_o, regfile_ack_write_i;
     logic [4:0] regfile_op_rs1_o, regfile_op_rs2_o, regfile_op_rd_o;
     logic [31:0] regfile_reg_rs1_i, regfile_reg_rs2_i, regfile_reg_rd_o;
 
     // Exec ports
-    logic exec_stb_o, exec_cyc_o, exec_instr_is_compressed_o, exec_ack_i, exec_err_i;
+    logic exec_stb_o, exec_instr_is_compressed_o, exec_ack_i, exec_err_i;
     logic exec_jmp_i, exec_mret_i, exec_fencei_i;
     logic [31:0] exec_instr_addr_o, exec_instr_o, exec_op_imm_o, exec_rs1_o, exec_rs2_o, exec_rd_i, exec_next_addr_i;
     logic [31:0] exec_trap_mcause_i, exec_trap_mtval_i;
@@ -303,7 +303,6 @@ module risc_p (
         .clk_i              (clk),
         .rst_i              (reset),
         .stb_i              (decoder_stb_o),
-        .cyc_i              (decoder_cyc_o),
         .instr_i            (decoder_instruction_o),
         .instr_op_type_o    (decoder_op_type_i),
         .instr_op_rd_o      (decoder_op_rd_i),
@@ -319,7 +318,6 @@ module risc_p (
         .rst_i              (reset),
         // Read
         .stb_read_i         (regfile_stb_read_o),
-        .cyc_read_i         (regfile_cyc_read_o),
         .op_rs1_i           (regfile_op_rs1_o),
         .op_rs2_i           (regfile_op_rs2_o),
         .ack_read_o         (regfile_ack_read_i),
@@ -327,7 +325,6 @@ module risc_p (
         .reg_rs2_o          (regfile_reg_rs2_i),
         // Write
         .stb_write_i        (regfile_stb_write_o),
-        .cyc_write_i        (regfile_cyc_write_o),
         .op_rd_i            (regfile_op_rd_o),
         .reg_rd_i           (regfile_reg_rd_o),
         .ack_write_o        (regfile_ack_write_i));
@@ -336,7 +333,6 @@ module risc_p (
         .clk_i              (clk),
         .rst_i              (reset),
         .stb_i              (exec_stb_o),
-        .cyc_i              (exec_cyc_o),
         // Instruction to be executed
         .instr_addr_i       (exec_instr_addr_o),
         .instr_i            (exec_instr_o),
@@ -420,6 +416,18 @@ module risc_p (
 `else
     DFF_META reset_meta_m (1'b0, btn[0], clk, reset_btn);
 `endif
+
+    logic decoder_pending_o;
+    DFF_REQUEST dff_request_decoder (.reset(reset), .clk(clk), .request_begin(decoder_stb_o),
+                                    .request_end(decoder_ack_i | decoder_err_i), .request_pending(decoder_pending_o));
+
+    logic regfile_read_pending_o;
+    DFF_REQUEST dff_request_regfile (.reset(reset), .clk(clk), .request_begin(regfile_stb_read_o),
+                                    .request_end(regfile_ack_read_i), .request_pending(regfile_read_pending_o));
+
+    logic exec_pending_o;
+    DFF_REQUEST dff_request_exec (.reset(reset), .clk(clk), .request_begin(exec_stb_o),
+                                    .request_end(exec_ack_i | exec_err_i), .request_pending(exec_pending_o));
     //==================================================================================================================
     // Pipeline FIFO variables
     //==================================================================================================================
@@ -514,10 +522,10 @@ module risc_p (
 `endif
                     // Reset your variables
                     {core_stb_o, core_cyc_o} <= 2'b00;
-                    {decoder_stb_o, decoder_cyc_o} <= 2'b00;
-                    {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b00;
-                    {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b00;
-                    {exec_stb_o, exec_cyc_o} <= 2'b00;
+                    decoder_stb_o <= 1'b0;
+                    regfile_stb_read_o <= 1'b0;
+                    regfile_stb_write_o <= 1'b0;
+                    exec_stb_o <= 1'b0;
 
                     writeback_op_rd <= 0;
 
@@ -642,7 +650,7 @@ module risc_p (
             pipeline_entry_status[decode_ptr] <= PL_E_INSTR_DECODE_PENDING;
 
             decoder_instruction_o <= pipeline_instr[decode_ptr];
-            {decoder_stb_o, decoder_cyc_o} <= 2'b11;
+            decoder_stb_o <= 1'b1;
 
             decode_pending_entry <= decode_ptr;
 
@@ -670,7 +678,7 @@ module risc_p (
 
             regfile_op_rs1_o <= pipeline_decoder_op[regfile_read_ptr][9:5];
             regfile_op_rs2_o <= pipeline_decoder_op[regfile_read_ptr][4:0];
-            {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b11;
+            regfile_stb_read_o <= 1'b1;
 
             regfile_read_pending_entry <= regfile_read_ptr;
 
@@ -707,8 +715,7 @@ module risc_p (
         exec_op_rs2_o <= pipeline_decoder_op[pipeline_rd_ptr][4:0];
         exec_rs1_o <= pipeline_rs1[pipeline_rd_ptr];
         exec_rs2_o <= pipeline_rs2[pipeline_rd_ptr];
-
-        {exec_stb_o, exec_cyc_o} <= 2'b11;
+        exec_stb_o <= 1'b1;
 
         // Exec LED on
         `ifdef ENABLE_LED_BASE led[3] <= 1'b1; `endif
@@ -718,6 +725,39 @@ module risc_p (
 `ifdef D_CORE_FINE
         $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", pipeline_rd_ptr,
                         pipeline_instr_addr[pipeline_rd_ptr]);
+`endif
+`ifdef D_STATS_FILE
+        stats_start_execution_time <= $time;
+`endif
+    endtask
+
+    //==================================================================================================================
+    // Exec pipeline task
+    //==================================================================================================================
+    task exec_imm_task (input [PIPELINE_BITS-1:0] entry, logic [4:0] op_rd, logic [31:0] rd);
+        pipeline_entry_status[entry] <= PL_E_EXEC_PENDING;
+
+        exec_instr_addr_o <= pipeline_instr_addr[entry];
+        exec_instr_o <= pipeline_instr[entry];
+        exec_instr_is_compressed_o <= pipeline_instr[entry][1:0] != 2'b11;
+        exec_op_imm_o <= pipeline_decoder_op[entry][53:22];
+        exec_op_type_o <= pipeline_decoder_op[entry][21:15];
+        exec_op_rd_o <= pipeline_decoder_op[entry][14:10];
+        exec_op_rs1_o <= pipeline_decoder_op[entry][9:5];
+        exec_op_rs2_o <= pipeline_decoder_op[entry][4:0];
+        exec_rs1_o <= (|op_rd & op_rd == pipeline_decoder_op[entry][9:5]) ? rd : pipeline_rs1[entry];
+        exec_rs2_o <= (|op_rd & op_rd == pipeline_decoder_op[entry][4:0]) ? rd : pipeline_rs2[entry];
+        exec_stb_o <= 1'b1;
+
+        // Exec LED on
+        led[3] <= 1'b1;
+        `ifdef ENABLE_LED_BASE led[3] <= 1'b1; `endif
+        `ifdef ENABLE_LED_EXT led_a[3] <= 1'b1; `endif
+        `ifdef ENABLE_LED_EXT led_a[11:5] <= pipeline_decoder_op[entry][21:15]; `endif
+
+`ifdef D_CORE_FINE
+        $display ($time, " CORE:    [%h] Execute (imm) instruction @[%h] -> PL_E_EXEC_PENDING.", entry,
+                    pipeline_instr_addr[entry]);
 `endif
 `ifdef D_STATS_FILE
         stats_start_execution_time <= $time;
@@ -943,6 +983,11 @@ module risc_p (
     // The running task
     //==================================================================================================================
     task running_task;
+        decoder_stb_o <= 1'b0;
+        regfile_stb_read_o <= 1'b0;
+        regfile_stb_write_o <= 1'b0;
+        exec_stb_o <= 1'b0;
+
         // ------------------------------ Handle instruction read transactions -----------------------------------------
         if (core_stb_o & core_cyc_o & core_ack_i) begin
             {core_stb_o, core_cyc_o} <= 2'b00;
@@ -997,8 +1042,7 @@ module risc_p (
         end
 
         // ------------------------------------ Handle decoder transactions --------------------------------------------
-        if (decoder_stb_o & decoder_cyc_o & decoder_ack_i) begin
-            {decoder_stb_o, decoder_cyc_o} <= 2'b00;
+        if (decoder_ack_i) begin
             // Decode instruction LED off
             `ifdef ENABLE_LED_BASE led[1] <= 1'b0; `endif
             `ifdef ENABLE_LED_EXT led_a[1] <= 1'b0; `endif
@@ -1021,13 +1065,14 @@ module risc_p (
                 end else begin // No need to read RS1 and RS2
                     pipeline_entry_status[decode_pending_entry] <= PL_E_REGFILE_READ;
                 end
+
+                decode_instruction_task;
             end else begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Ignoring decode complete.", decode_pending_entry);
 `endif
             end
-        end else if (decoder_stb_o & decoder_cyc_o & decoder_err_i) begin
-            {decoder_stb_o, decoder_cyc_o} <= 2'b00;
+        end else if (decoder_err_i) begin
             // Decode instruction LED off
             `ifdef ENABLE_LED_BASE led[1] <= 1'b0; `endif
             `ifdef ENABLE_LED_EXT led_a[1] <= 1'b0; `endif
@@ -1038,13 +1083,12 @@ module risc_p (
             // This exception may overwrite a pipeline trap detected during fetch since the instruction is an older one.
             pipeline_exception_task (decode_pending_entry, 1 << `EX_CODE_ILLEGAL_INSTRUCTION,
                                 pipeline_instr_addr[decode_pending_entry], decoder_instruction_o);
-        end else if (~(decoder_stb_o & decoder_cyc_o)) begin
+        end else if (~decoder_pending_o) begin
             decode_instruction_task;
         end
 
         // ------------------------------------ Handle regfile transactions --------------------------------------------
-        if (regfile_stb_read_o & regfile_cyc_read_o & regfile_ack_read_i) begin
-            {regfile_stb_read_o, regfile_cyc_read_o} <= 2'b00;
+        if (regfile_ack_read_i) begin
             // Regfile LED off
             `ifdef ENABLE_LED_BASE led[2] <= 1'b0; `endif
             `ifdef ENABLE_LED_EXT led_a[2] <= 1'b0; `endif
@@ -1084,18 +1128,19 @@ module risc_p (
                     pipeline_rs1[regfile_read_pending_entry] <= regfile_reg_rs1_i;
                     pipeline_rs2[regfile_read_pending_entry] <= regfile_reg_rs2_i;
                 end
+
+                regfile_read_task;
             end else begin
 `ifdef D_CORE_FINE
                 $display ($time, " CORE:    [%h] Ignoring regfile read complete.", regfile_read_pending_entry);
 `endif
             end
-        end else if (~(regfile_stb_read_o & regfile_cyc_read_o)) begin
+        end else if (~regfile_read_pending_o) begin
             regfile_read_task;
         end
 
         // -------------------------------------- Handle exec transactions ---------------------------------------------
-        if (exec_stb_o & exec_cyc_o & exec_ack_i) begin
-            {exec_stb_o, exec_cyc_o} <= 2'b00;
+        if (exec_ack_i) begin
             // Exec LED off
             `ifdef ENABLE_LED_BASE led[3] <= 1'b0; `endif
             `ifdef ENABLE_LED_EXT led_a[3] <= 1'b0; `endif
@@ -1128,7 +1173,7 @@ module risc_p (
                 regfile_op_rd_o <= exec_op_rd_o;
                 regfile_reg_rd_o <= exec_rd_i;
 
-                {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b11;
+                regfile_stb_write_o <= 1'b1;
                 `ifdef ENABLE_LED_BASE led[4] <= 1'b1; `endif
                 `ifdef ENABLE_LED_EXT led_a[4] <= 1'b1; `endif
 
@@ -1227,12 +1272,16 @@ module risc_p (
                     // The program execution continues with the next entry in the pipeline (there is no jump).
                     `ifdef ENABLE_LED_BASE led[5] <= 1'b0; `endif
                     `ifdef ENABLE_LED_EXT led_a[12] <= 1'b0; `endif
+
+                    if (pipeline_entry_status[next_pipeline_rd_ptr] == PL_E_REGFILE_READ) begin
+                        exec_imm_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
+                    end
+
                     // Advance in the pipeline
                     pipeline_rd_ptr <= next_pipeline_rd_ptr;
                 end
             endcase
-        end else if (exec_stb_o & exec_cyc_o & exec_err_i) begin
-            {exec_stb_o, exec_cyc_o} <= 2'b00;
+        end else if (exec_err_i) begin
             // Exec LED off
             `ifdef ENABLE_LED_BASE led[3] <= 1'b0; `endif
             `ifdef ENABLE_LED_EXT led_a[3] <= 1'b0; `endif
@@ -1304,7 +1353,7 @@ module risc_p (
             pipeline_trap_mepc <= exec_instr_addr_o;
             pipeline_trap_mtval <= exec_trap_mtval_i;
             enter_trap_task;
-        end else if (~(exec_stb_o & exec_cyc_o) & (pipeline_entry_status[pipeline_rd_ptr] == PL_E_REGFILE_READ)) begin
+        end else if (~exec_pending_o & (pipeline_entry_status[pipeline_rd_ptr] == PL_E_REGFILE_READ)) begin
             if (|pipeline_trap[pipeline_rd_ptr]) begin
                 /*
                  * Handle the exception that occured earlier in the pipeline (EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED,
@@ -1317,9 +1366,7 @@ module risc_p (
         end
 
         // ---------------------------------- Handle writeback transactions --------------------------------------------
-        if (regfile_stb_write_o & regfile_cyc_write_o & regfile_ack_write_i) begin
-            {regfile_stb_write_o, regfile_cyc_write_o} <= 2'b00;
-
+        if (regfile_ack_write_i) begin
             `ifdef ENABLE_LED_BASE led[4] <= 1'b0; `endif
             `ifdef ENABLE_LED_EXT led_a[4] <= 1'b0; `endif
         end
