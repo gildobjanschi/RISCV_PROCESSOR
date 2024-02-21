@@ -91,7 +91,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     output logic [31:0] trap_mtval_o,
     // Read/write RAM/ROM/IO data for l(b/h/w) s(b/h/w) instructions
     output logic [31:0] data_addr_o,
-    output logic [2:0] data_addr_tag_o,
+    output logic [`ADDR_TAG_BITS-1:0] data_addr_tag_o,
     output logic [31:0] data_data_o,
     output logic data_stb_o,
     output logic data_cyc_o,
@@ -125,7 +125,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     logic [31:0] tmp;
     logic [31:0] store_addr;
     logic [31:0] store_value;
-    logic [2:0] store_addr_tag;
+    logic [`ADDR_TAG_BITS-1:0] store_addr_tag;
 
     //==================================================================================================================
     // The first stage of the execution
@@ -378,7 +378,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h lb rdx%0d, rs1x%0d[%h] %h; load @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_imm_i, tmp);
 `endif
-                load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0001);
+                load_task (tmp, `ADDR_TAG_NONE, 4'b0001);
             end
 
             `INSTR_TYPE_LH: begin
@@ -392,7 +392,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     trap_mtval_o <= tmp;
                     {ack_o, err_o} <= 2'b01;
                 end else begin
-                    load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0011);
+                    load_task (tmp, `ADDR_TAG_NONE, 4'b0011);
                 end
             end
 
@@ -412,7 +412,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     trap_mtval_o <= tmp;
                     {ack_o, err_o} <= 2'b01;
                 end else begin
-                    load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b1111);
+                    load_task (tmp, `ADDR_TAG_NONE, 4'b1111);
                 end
             end
 
@@ -422,7 +422,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h lbu rdx%0d, rs1x%0d[%h] %h; load @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_imm_i, tmp);
 `endif
-                load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0001);
+                load_task (tmp, `ADDR_TAG_NONE, 4'b0001);
             end
 
             `INSTR_TYPE_LHU: begin
@@ -436,7 +436,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     trap_mtval_o <= tmp;
                     {ack_o, err_o} <= 2'b01;
                 end else begin
-                    load_task (tmp, `ADDR_TAG_MODE_NONE, 4'b0011);
+                    load_task (tmp, `ADDR_TAG_NONE, 4'b0011);
                 end
             end
 
@@ -446,7 +446,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h sb rs1x%0d[%h], rs2x%0d[%h] %h; store @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, instr_op_imm_i, tmp);
 `endif
-                store_task (tmp, `ADDR_TAG_MODE_NONE, rs2_i, 4'b0001);
+                store_task (tmp, `ADDR_TAG_NONE, rs2_i, 4'b0001);
             end
 
             `INSTR_TYPE_SH: begin
@@ -460,7 +460,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     trap_mtval_o <= tmp;
                     {ack_o, err_o} <= 2'b01;
                 end else begin
-                    store_task (tmp, `ADDR_TAG_MODE_NONE, rs2_i, 4'b0011);
+                    store_task (tmp, `ADDR_TAG_NONE, rs2_i, 4'b0011);
                 end
             end
 
@@ -480,7 +480,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                     trap_mtval_o <= tmp;
                     {ack_o, err_o} <= 2'b01;
                 end else begin
-                    store_task (tmp, `ADDR_TAG_MODE_NONE, rs2_i, 4'b1111);
+                    store_task (tmp, `ADDR_TAG_NONE, rs2_i, 4'b1111);
                 end
             end
 
@@ -900,7 +900,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h mret; load @[%h] ...", instr_addr_i, instr_i,
                                 CSR_BEGIN_ADDR | `CSR_EXIT_TRAP);
 `endif
-                load_task (CSR_BEGIN_ADDR | `CSR_EXIT_TRAP, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (CSR_BEGIN_ADDR | `CSR_EXIT_TRAP, `ADDR_TAG_CSR_INSTR, 4'b1111);
             end
 
             `INSTR_TYPE_WFI: begin
@@ -1098,7 +1098,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h csrrw rs1x%0d[%h]; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_imm_i, store_addr);
 `endif
-                load_task (store_addr, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (store_addr, `ADDR_TAG_CSR_INSTR, 4'b1111);
             end
 
             `INSTR_TYPE_CSRRS: begin
@@ -1107,7 +1107,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h csrrs rs1x%0d[%h]; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_imm_i, store_addr);
 `endif
-                load_task (store_addr, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (store_addr, `ADDR_TAG_CSR_INSTR, 4'b1111);
             end
 
             `INSTR_TYPE_CSRRC: begin
@@ -1116,7 +1116,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h csrrc rs1x%0d[%h]; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, rs1_i, instr_op_imm_i, store_addr);
 `endif
-                load_task (store_addr, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (store_addr, `ADDR_TAG_CSR_INSTR, 4'b1111);
             end
 
             `INSTR_TYPE_CSRRWI: begin
@@ -1125,7 +1125,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h csrrwi UIMM: %h; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, instr_op_imm_i, store_addr);
 `endif
-                load_task (store_addr, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (store_addr, `ADDR_TAG_CSR_INSTR, 4'b1111);
             end
 
             `INSTR_TYPE_CSRRSI: begin
@@ -1134,7 +1134,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h csrrsi UIMM: %h; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, instr_op_imm_i, store_addr);
 `endif
-                load_task (store_addr, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (store_addr, `ADDR_TAG_CSR_INSTR, 4'b1111);
             end
 
             `INSTR_TYPE_CSRRCI: begin
@@ -1143,7 +1143,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 $display($time, " [%h]: %h csrrci UIMM: %h; load CSR[%h] @[%h] ...", instr_addr_i, instr_i,
                             instr_op_rs1_i, instr_op_imm_i, store_addr);
 `endif
-                load_task (store_addr, `ADDR_TAG_MODE_NONE, 4'b1111);
+                load_task (store_addr, `ADDR_TAG_CSR_INSTR, 4'b1111);
             end
 
 `ifdef ENABLE_RV32A_EXT
@@ -1153,7 +1153,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_LRSC, 4'b1111);
             end
 
             `INSTR_TYPE_SC_W: begin
@@ -1162,7 +1162,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs2_i, rs1_i);
 `endif
-                store_task (rs1_i, {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}, rs2_i, 4'b1111);
+                store_task (rs1_i, `ADDR_TAG_MODE_LRSC, rs2_i, 4'b1111);
             end
 
             `INSTR_TYPE_AMOSWAP_W: begin
@@ -1171,7 +1171,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOADD_W: begin
@@ -1180,7 +1180,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOXOR_W: begin
@@ -1189,7 +1189,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOAND_W: begin
@@ -1198,7 +1198,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOOR_W: begin
@@ -1207,7 +1207,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOMIN_W: begin
@@ -1216,7 +1216,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOMAX_W: begin
@@ -1225,7 +1225,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOMINU_W: begin
@@ -1234,7 +1234,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 
             `INSTR_TYPE_AMOMAXU_W: begin
@@ -1243,7 +1243,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                             instr_addr_i, instr_i, instr_op_rd_i, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i,
                             instr_op_imm_i[1], instr_op_imm_i[0], rs1_i);
 `endif
-                load_task (rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}, 4'b1111);
+                load_task (rs1_i, `ADDR_TAG_MODE_AMO, 4'b1111);
             end
 `endif // ENABLE_RV32A_EXT
         endcase
@@ -1335,7 +1335,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRW: begin
                 if (instr_op_imm_i[11:10] != 2'b11) begin
-                    store_delayed_task(store_addr, `ADDR_TAG_MODE_NONE, rs1_i);
+                    store_delayed_task(store_addr, `ADDR_TAG_CSR_INSTR, rs1_i);
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, rs1_i, store_addr);
@@ -1355,7 +1355,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRS: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    store_delayed_task(store_addr, `ADDR_TAG_MODE_NONE, data_data_i | rs1_i);
+                    store_delayed_task(store_addr, `ADDR_TAG_CSR_INSTR, data_data_i | rs1_i);
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, data_data_i | rs1_i, store_addr);
@@ -1375,7 +1375,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRC: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    store_delayed_task(store_addr, `ADDR_TAG_MODE_NONE, data_data_i & ~rs1_i);
+                    store_delayed_task(store_addr, `ADDR_TAG_CSR_INSTR, data_data_i & ~rs1_i);
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, data_data_i & ~rs1_i, store_addr);
@@ -1395,7 +1395,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRWI: begin
                 if (instr_op_imm_i[11:10] != 2'b11) begin
-                    store_delayed_task(store_addr, `ADDR_TAG_MODE_NONE, instr_op_rs1_i);
+                    store_delayed_task(store_addr, `ADDR_TAG_CSR_INSTR, instr_op_rs1_i);
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...",
                                 data_addr_o, data_data_i, instr_op_rd_i, data_data_i, instr_op_rs1_i, store_addr);
@@ -1415,7 +1415,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRSI: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    store_delayed_task(store_addr, `ADDR_TAG_MODE_NONE, data_data_i | instr_op_rs1_i);
+                    store_delayed_task(store_addr, `ADDR_TAG_CSR_INSTR, data_data_i | instr_op_rs1_i);
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, data_data_i, data_data_i | instr_op_rs1_i, store_addr);
@@ -1435,7 +1435,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 
             `INSTR_TYPE_CSRRCI: begin
                 if ((instr_op_imm_i[11:10] != 2'b11) && (instr_op_rs1_i != 0)) begin
-                    store_delayed_task(store_addr, `ADDR_TAG_MODE_NONE, data_data_i & ~instr_op_rs1_i);
+                    store_delayed_task(store_addr, `ADDR_TAG_CSR_INSTR, data_data_i & ~instr_op_rs1_i);
 `ifdef D_EXEC
                     $display($time, "           :          @[%h] -> %8h; rdx%0d[%h]; store %h @[%h] ...", data_addr_o,
                                 data_data_i, instr_op_rd_i, data_data_i, data_data_i & ~instr_op_rs1_i, store_addr);
@@ -1475,7 +1475,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
-                store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, rs2_i);
+                store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, rs2_i);
             end
 
             `INSTR_TYPE_AMOADD_W: begin
@@ -1486,7 +1486,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
-                store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i + rs2_i);
+                store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i + rs2_i);
             end
 
             `INSTR_TYPE_AMOXOR_W: begin
@@ -1497,7 +1497,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
-                store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i ^ rs2_i);
+                store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i ^ rs2_i);
             end
 
             `INSTR_TYPE_AMOAND_W: begin
@@ -1508,7 +1508,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
-                store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i & rs2_i);
+                store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i & rs2_i);
             end
 
             `INSTR_TYPE_AMOOR_W: begin
@@ -1519,7 +1519,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
-                store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i | rs2_i);
+                store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i | rs2_i);
             end
 
             `INSTR_TYPE_AMOMIN_W: begin
@@ -1557,22 +1557,22 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO,
                                             data_data_i[30:0] < rs2_i[30:0] ? data_data_i : rs2_i);
                     end
 
                     2'b10: begin
                         // data_data_i is negative, rs2_i is positive
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i);
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i);
                     end
 
                     2'b01: begin
                         // data_data_i is positive, rs2_i is negative
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, rs2_i);
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, rs2_i);
                     end
 
                     2'b00: begin // Both are positive
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO,
                                             data_data_i < rs2_i ? data_data_i : rs2_i);
                     end
                 endcase
@@ -1614,22 +1614,22 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 (* parallel_case, full_case *)
                 case ({data_data_i[31], rs2_i[31]})
                     2'b11: begin // Both are negative
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO,
                                             data_data_i[30:0] > rs2_i[30:0] ? data_data_i : rs2_i);
                     end
 
                     2'b10: begin
                         // data_data_i is negative, rs2_i is positive
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, rs2_i);
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, rs2_i);
                     end
 
                     2'b01: begin
                         // data_data_i is positive, rs2_i is negative
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}, data_data_i);
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i);
                     end
 
                     2'b00: begin // Both are positive
-                        store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
+                        store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO,
                                             data_data_i > rs2_i ? data_data_i : rs2_i);
                     end
                 endcase
@@ -1643,8 +1643,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
-                store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
-                                    data_data_i < rs2_i ? data_data_i : rs2_i);
+                store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i < rs2_i ? data_data_i : rs2_i);
             end
 
             `INSTR_TYPE_AMOMAXU_W: begin
@@ -1655,8 +1654,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 rd_o <= |instr_op_rd_i ? data_data_i : 0;
 `endif
-                store_delayed_task(rs1_i, {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK},
-                                    data_data_i > rs2_i ? data_data_i : rs2_i);
+                store_delayed_task(rs1_i, `ADDR_TAG_MODE_AMO, data_data_i > rs2_i ? data_data_i : rs2_i);
             end
 `endif // ENABLE_RV32A_EXT
 
@@ -1841,7 +1839,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     //==================================================================================================================
     // Load task
     //==================================================================================================================
-    task load_task (input [31:0] addr, input [2:0] addr_tag, input [3:0] sel);
+    task load_task (input [31:0] addr, input [`ADDR_TAG_BITS-1:0] addr_tag, input [3:0] sel);
         data_addr_o <= addr;
         data_sel_o <= sel;
         data_we_o <= 1'b0;
@@ -1854,7 +1852,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     //==================================================================================================================
     // Store task
     //==================================================================================================================
-    task store_task (input [31:0] addr, input [2:0] addr_tag, input [31:0] io_data, input [3:0] sel);
+    task store_task (input [31:0] addr, input [`ADDR_TAG_BITS-1:0] addr_tag, input [31:0] io_data, input [3:0] sel);
         data_addr_o <= addr;
         data_sel_o <= sel;
         data_data_o <= io_data;
@@ -1868,7 +1866,7 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
     //==================================================================================================================
     // Store delayed task is used when a previous load or store completes.
     //==================================================================================================================
-    task store_delayed_task(input [31:0] addr, input [2:0] addr_tag, input [31:0] io_data);
+    task store_delayed_task(input [31:0] addr, input [`ADDR_TAG_BITS-1:0] addr_tag, input [31:0] io_data);
         store_addr <= addr;
         store_value <= io_data;
         store_addr_tag <= addr_tag;

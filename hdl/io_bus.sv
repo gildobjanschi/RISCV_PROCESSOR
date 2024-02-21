@@ -30,7 +30,7 @@ module io_bus #(
     input logic stb_i,
     input logic cyc_i,
     input logic [31:0] addr_i,
-    input logic [2:0] addr_tag_i,
+    input logic [`ADDR_TAG_BITS-1:0] addr_tag_i,
     input logic [31:0] data_i,
     input logic [3:0] sel_i,
     input logic we_i,
@@ -85,24 +85,27 @@ module io_bus #(
     logic sync_ack = 1'b0;
     assign ack_o = (sync_ack | io_ack_i) & stb_i;
 
+    logic [`ADDR_TAG_BITS-1:0] addr_tag_mode_masked;
+    assign addr_tag_mode_masked = addr_tag_i & `ADDR_TAG_MODE_MASK;
+
+    logic addr_match;
+    assign addr_match = addr_i == reservation_addr;
+
+    logic pass_cond;
+    assign pass_cond =  ((addr_tag_mode_masked == `ADDR_TAG_NONE) ||
+                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
+                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && we_i && addr_match) ||
+                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && ~we_i && ~addr_match) ||
+                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && we_i));
+
     // Control if transactions can start by gating the strobe and cycle of the IO.
     logic io_stb_o;
-    assign io_stb_o = stb_i &&
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_NONE) ||
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i == reservation_addr)) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}) && (addr_i != reservation_addr)) ||
-                    (addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}));
+    assign io_stb_o = stb_i & pass_cond;
 
     logic io_cyc_o;
-    assign io_cyc_o = cyc_i &&
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_NONE) ||
-                    ((addr_tag_i[2:1] == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i == reservation_addr)) ||
-                    ((addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_LOCK}) && (addr_i != reservation_addr)) ||
-                    (addr_tag_i == {`ADDR_TAG_MODE_AMO, `ADDR_TAG_UNLOCK}));
+    assign io_cyc_o = cyc_i & pass_cond;
 
-    assign data_tag_o = (addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && we_i && (addr_i != reservation_addr);
+    assign data_tag_o = (addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && we_i && ~addr_match;
 
     logic [31:0] reservation_addr;
     //==================================================================================================================
@@ -114,33 +117,33 @@ module io_bus #(
             sync_ack <= 1'b0;
         end else begin
             sync_ack <= sync_ack ? stb_i : cyc_i & stb_i & we_i &
-                            ((addr_tag_i == {`ADDR_TAG_MODE_LRSC, `ADDR_TAG_UNLOCK}) && (addr_i != reservation_addr));
+                            ((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && ~addr_match);
 
             if (cyc_i & stb_i & (sync_ack | io_ack_i)) begin
                 (* parallel_case, full_case *)
-                case (addr_tag_i[2:1])
-                    `ADDR_TAG_MODE_NONE: begin
+                case (addr_tag_mode_masked)
+                    `ADDR_TAG_NONE: begin
                         /*
                          * Invalidate the reservation if a regular store instruction writes to the reservation address.
                          */
-                        if (we_i && addr_i == reservation_addr) reservation_addr <= `INVALID_ADDR;
+                        if (we_i && addr_match) reservation_addr <= `INVALID_ADDR;
                     end
 
                     `ADDR_TAG_MODE_LRSC: begin
-                        if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
+                        if (~we_i) begin
 `ifdef D_IO_BUS
                             $display($time, " IO_BUS:    >>>> Register reservation @[%h]", addr_i);
 `endif
                             // Register the reservation for lr.w
                             reservation_addr <= addr_i;
-                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
+                        end else begin
                             /*
                              * Validate the reservation for sc.w. io_cyc_o and io_stb_o stay low and sync_ack
                              * is set above.
                              */
 `ifdef D_IO_BUS
                             $display($time, " IO_BUS:    <<<< Valid reservation: %h; release reservation @[%h]",
-                                        addr_i == reservation_addr, addr_i);
+                                        addr_match, addr_i);
 `endif
                             /*
                              * Regardless of success or failure, executing an sc.w instruction invalidates any
@@ -151,7 +154,7 @@ module io_bus #(
                     end
 
                     `ADDR_TAG_MODE_AMO: begin
-                        if (~we_i & (addr_tag_i[0] == `ADDR_TAG_LOCK)) begin
+                        if (~we_i) begin
                             if (reservation_addr == `INVALID_ADDR) begin
 `ifdef D_IO_BUS
                                 $display($time, " IO_BUS:    >>>> AMO lock @[%h]", addr_i);
@@ -160,7 +163,7 @@ module io_bus #(
                             end else begin
                                 // Wait until the address is unlocked.
                             end
-                        end else if (we_i & (addr_tag_i[0] == `ADDR_TAG_UNLOCK)) begin
+                        end else begin
 `ifdef D_IO_BUS
                             $display($time, " IO_BUS:    >>>> AMO unlock @[%h]", addr_i);
 `endif
@@ -177,5 +180,4 @@ module io_bus #(
         end
     end
 `endif // ENABLE_RV32A_EXT
-
 endmodule

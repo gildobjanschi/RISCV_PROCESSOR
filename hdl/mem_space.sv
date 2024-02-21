@@ -93,7 +93,7 @@ module mem_space #(
     input logic [3:0] data_sel_i,
     input logic data_we_i,
     input logic [31:0] data_addr_i,
-    input logic [2:0] data_addr_tag_i,
+    input logic [`ADDR_TAG_BITS-1:0] data_addr_tag_i,
     input logic [31:0] data_data_i,
     output logic data_ack_o,
     output logic data_err_o,
@@ -180,7 +180,7 @@ module mem_space #(
     //==================================================================================================================
     // RAM ports
     logic [31:0] ram_addr_o;
-    logic [2:0] ram_addr_tag_o;
+    logic [`ADDR_TAG_BITS-1:0] ram_addr_tag_o;
     logic [31:0] ram_data_o, ram_data_i;
     logic ram_stb_o, ram_cyc_o, ram_we_o, ram_ack_i, ram_data_tag_i;
     logic [3:0] ram_sel_o;
@@ -192,7 +192,7 @@ module mem_space #(
 
     // IO ports
     logic [31:0] io_addr_o;
-    logic [2:0] io_addr_tag_o;
+    logic [`ADDR_TAG_BITS-1:0] io_addr_tag_o;
     logic [31:0] io_data_o, io_data_i;
     logic io_stb_o, io_cyc_o, io_we_o, io_ack_i, io_err_i, io_data_tag_i;
     logic [3:0] io_sel_o;
@@ -330,17 +330,8 @@ module mem_space #(
             casex (data_addr_i[31:20])
                 // Flash (32'h0060_0000 to 32'h0100_0000)
                 12'h006, 12'h007, 12'h008, 12'h009, 12'h00a, 12'h00b, 12'h00c, 12'h00d, 12'h00e, 12'h00f: begin
-                    if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
-                        if (data_we_i) begin
-`ifdef D_MEM_SPACE
-                            $display($time, " MEM_SPACE:   --- Invalid data address. Flash is read only [%h]. ---",
-                                        data_addr_i);
-`endif
-                            data_new_transaction_q <= 1'b0;
-                            // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and
-                            // EX_STORE_ACCESS_FAULT for writes.
-                            {data_sync_ack_o, data_sync_err_o} <= 2'b01;
-                        end else begin
+                    if (~data_we_i) begin
+                        if (~flash_stb_o & ~flash_cyc_o & ~sync_flash_ack_i) begin
 `ifdef D_MEM_SPACE
                             $display($time, " MEM_SPACE: Reading flash data @[%h]", data_addr_i);
 `endif
@@ -352,9 +343,18 @@ module mem_space #(
                             data_access <= ACCESS_FLASH;
 
                             `ifdef ENABLE_LED_EXT led[9] <= 1'b1;`endif
+                        end else begin
+                            data_new_transaction_q <= 1'b1;
                         end
                     end else begin
-                        data_new_transaction_q <= 1'b1;
+`ifdef D_MEM_SPACE
+                        $display($time, " MEM_SPACE:   --- Invalid data address. Flash is read only [%h]. ---",
+                                    data_addr_i);
+`endif
+                        data_new_transaction_q <= 1'b0;
+                        // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and
+                        // EX_STORE_ACCESS_FAULT for writes.
+                        {data_sync_ack_o, data_sync_err_o} <= 2'b01;
                     end
                 end
 
@@ -415,24 +415,35 @@ module mem_space #(
 
                 // CSR (32'h400x_x000 to 32'h400x_xfff)
                 12'h400: begin
-                    if (~csr_stb_o & ~csr_cyc_o & ~csr_ack_i & ~csr_err_i) begin
+                    if (|(data_addr_tag_i & `ADDR_TAG_CSR_INSTR)) begin
+                        if (~csr_stb_o & ~csr_cyc_o & ~csr_ack_i & ~csr_err_i) begin
 `ifdef D_MEM_SPACE
-                        if (data_we_i) begin
-                            $display($time, " MEM_SPACE: Data CSR write @[%h]: %h", data_addr_i[11:0], data_data_i);
-                        end
+                            if (data_we_i) begin
+                                $display($time, " MEM_SPACE: Data CSR write @[%h]: %h", data_addr_i[11:0], data_data_i);
+                            end
 `endif
-                        csr_addr_o <= data_addr_i[11:0];
-                        csr_we_o <= data_we_i;
-                        // data_sel_i is ignored. We assume that 4 bytes are being r/w.
-                        csr_data_o <= data_data_i;
-                        {csr_stb_o, csr_cyc_o} <= 2'b11;
+                            csr_addr_o <= data_addr_i[11:0];
+                            csr_we_o <= data_we_i;
+                            // data_sel_i is ignored. We assume that 4 bytes are being r/w.
+                            csr_data_o <= data_data_i;
+                            {csr_stb_o, csr_cyc_o} <= 2'b11;
 
-                        data_new_transaction_q <= 1'b0;
-                        data_access <= ACCESS_CSR;
-                        `ifdef ENABLE_LED_EXT led[14] <= ~data_we_i;`endif
-                        `ifdef ENABLE_LED_EXT led[15] <= data_we_i;`endif
+                            data_new_transaction_q <= 1'b0;
+                            data_access <= ACCESS_CSR;
+                            `ifdef ENABLE_LED_EXT led[14] <= ~data_we_i;`endif
+                            `ifdef ENABLE_LED_EXT led[15] <= data_we_i;`endif
+                        end else begin
+                            data_new_transaction_q <= 1'b1;
+                        end
                     end else begin
-                        data_new_transaction_q <= 1'b1;
+`ifdef D_MEM_SPACE
+                        $display($time, " MEM_SPACE:   --- Invalid data address. CSR access restricted [%h]. ---",
+                                    data_addr_i);
+`endif
+                        data_new_transaction_q <= 1'b0;
+                        // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and
+                        // EX_STORE_ACCESS_FAULT for writes.
+                        {data_sync_ack_o, data_sync_err_o} <= 2'b01;
                     end
                 end
 
@@ -485,7 +496,7 @@ module mem_space #(
                          * Start the RAM transaction to read an instruction.
                          */
                         ram_addr_o <= core_addr_i;
-                        ram_addr_tag_o <= `ADDR_TAG_MODE_NONE;
+                        ram_addr_tag_o <= `ADDR_TAG_NONE;
                         ram_we_o <= 1'b0;
                         ram_sel_o <= 4'b1111;
                         {ram_stb_o, ram_cyc_o} <= 2'b11;
@@ -504,7 +515,7 @@ module mem_space #(
                 12'hc0x: begin
                     if (~io_stb_o & ~io_cyc_o & ~io_ack_i & ~io_err_i) begin
                         io_addr_o <= core_addr_i;
-                        io_addr_tag_o <= data_addr_tag_i;
+                        io_addr_tag_o <= `ADDR_TAG_NONE;
                         io_we_o <= core_we_i;
                         io_data_o <= core_data_i;
                         io_sel_o <= core_sel_i;

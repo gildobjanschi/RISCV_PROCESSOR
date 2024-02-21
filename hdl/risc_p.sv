@@ -205,7 +205,7 @@ module risc_p (
     wire [31:0] data_addr_w, data_data_i_w, data_data_o_w;
     wire [3:0] data_sel_w;
     wire data_we_w, data_stb_w, data_cyc_w, data_ack_w, data_err_w, data_data_tag_w;
-    wire [2:0] data_addr_tag_w;
+    wire [`ADDR_TAG_BITS-1:0] data_addr_tag_w;
     // Event counters
     logic [31:0] incr_event_counters_o;
     // IO interrupt

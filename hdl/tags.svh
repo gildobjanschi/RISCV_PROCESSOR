@@ -21,17 +21,16 @@
 `timescale 1ns/1ns
 `default_nettype none
 
-/*
- * Bit 0 define the locking/unlocking register reservation/invalidate reservation operation.
- */
-`define ADDR_TAG_LOCK           1'b1
-`define ADDR_TAG_UNLOCK         1'b0
+/* The number of bits used. This define is used for the tag variable bits. */
+`define ADDR_TAG_BITS           3
+/* All bits are off */
+`define ADDR_TAG_NONE           3'b000
 
-/*
- * Bit 1 and 2 of the address tag define the type of locking/reservation to be used in a R/W operation.
- */
-`define ADDR_TAG_MODE_LRSC      2'b01
-`define ADDR_TAG_MODE_AMO       2'b10
+/* Bit 0 of the address tag signifies an access to CSR registers. Only CSR instructions set this bit. */
+`define ADDR_TAG_CSR_INSTR      3'b001
 
-// No locking
-`define ADDR_TAG_MODE_NONE      3'b000
+/* Bit 1 and 2 of the address tag define the type of locking/reservation to be used in a R/W operation. */
+`define ADDR_TAG_MODE_LRSC      3'b010
+`define ADDR_TAG_MODE_AMO       3'b100
+/* This mask selects only the two mode flags above. */
+`define ADDR_TAG_MODE_MASK      3'b110
