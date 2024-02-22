@@ -177,7 +177,7 @@ module sim_top_risc_p;
     task save_signature_task (input [31:0] begin_addr, input [31:0] end_addr);
         begin_addr = begin_addr - `RAM_BEGIN_ADDR;
         end_addr = end_addr - `RAM_BEGIN_ADDR;
-        if (end_addr > end_addr) begin
+        if (end_addr > begin_addr) begin
             bin_full_name = `BIN_FILE_NAME;
             filename = {bin_full_name.substr(0, bin_full_name.len() - 4), "sig"};
 
