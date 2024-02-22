@@ -22,9 +22,10 @@ SIM_RAM_FILE=""
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
-# ENABLE_ZIFENCEI_EXT: Zifencei extension
+# ENABLE_ZIFENCEI_EXT: Zifencei extension.
+# ENABLE_ZICOND_EXT:   Zicond extension.
 # ENABLE_QPI_MODE:     Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_QPI_MODE"
+OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_QPI_MODE"
 
 while getopts "uwph" flag; do
     case "${flag}" in
@@ -193,3 +194,9 @@ doCompliance "amoxor.w-01";
 # Zifencei extension
 # The test assumes that the instruction memory is writtable which is not the case in this implementation.
 #doCompliance "Fencei";
+
+#Zicond extension
+doCompliance "czero.eqz-01";
+doCompliance "czero.nez-01";
+
+

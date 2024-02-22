@@ -44,21 +44,22 @@ fi
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
-# ENABLE_ZIFENCEI_EXT: Zifencei extension
+# ENABLE_ZIFENCEI_EXT: Zifencei extension.
+# ENABLE_ZICOND_EXT:   Zicond extension.
 # ENABLE_MHPM:         Enables support for High Performance Counters.
 # ENABLE_QPI_MODE:     Use quad SPI for flash.
 # ENABLE_LED_BASE      Enable LEDs on ULX3S or the ones on the BLUE_WHALE base board.
 # ENABLE_LED_EXT       Enable LEDs on the BLUE_WHALE extension board,
 if [ "$BOARD" = "BOARD_ULX3S" ] ; then
     echo "Running on ULX3S."
-    OPTIONS="$OPTIONS -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE -D ENABLE_LED_BASE"
+    OPTIONS="$OPTIONS -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE -D ENABLE_LED_BASE"
     echo "OPTIONS: $OPTIONS"
     RAM_FILE="sdram.sv"
     LPF_FILE="ulx3s.lpf"
     SPEED="6"
 else if [ "$BOARD" = "BOARD_BLUE_WHALE" ] ; then
     echo "Running on Blue Whale."
-    OPTIONS="$OPTIONS -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE -D ENABLE_LED_BASE -D ENABLE_LED_EXT"
+    OPTIONS="$OPTIONS -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE -D ENABLE_LED_BASE -D ENABLE_LED_EXT"
     echo "OPTIONS: $OPTIONS"
     RAM_FILE="psram.sv"
     LPF_FILE="blue_whale.lpf"

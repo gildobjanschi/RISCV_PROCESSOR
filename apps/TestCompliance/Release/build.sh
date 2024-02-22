@@ -72,7 +72,7 @@ build_test()
 
         if [ "$SIGNATURE" = "1" ] ; then
             echo "Generating signature with spike..."
-            spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr --misaligned --priv=msu +signature=../reference/$1.sig +signature-granularity=4 TestCompliance.elf
+            spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr_zicond --misaligned --priv=msu +signature=../reference/$1.sig +signature-granularity=4 TestCompliance.elf
             if [ $? -eq 0 ]; then
                 echo -e "\033[0;32mGenerated: ../reference/$1.sig\033[0m"
             else
@@ -212,3 +212,6 @@ build_test "amoxor.w-01";
 # The test assumes that the instruction memory is writtable which is not the case in this implementation.
 #build_test "Fencei";
 
+#Zicond extension
+build_test "czero.eqz-01";
+build_test "czero.nez-01";
