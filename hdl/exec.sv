@@ -188,7 +188,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 next_addr_o <= instr_imm_addr_comb;
 `endif
                 jmp_o <= 1'b1;
-
                 {ack_o, err_o} <= 2'b10;
             end
 
@@ -209,7 +208,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
                 next_addr_o <= {tmp[31:1], 1'b0};
 `endif
                 jmp_o <= 1'b1;
-
                 {ack_o, err_o} <= 2'b10;
             end
 

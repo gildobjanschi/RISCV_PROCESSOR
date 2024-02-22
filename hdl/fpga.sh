@@ -49,7 +49,7 @@ fi
 # ENABLE_MHPM:         Enables support for High Performance Counters.
 # ENABLE_QPI_MODE:     Use quad SPI for flash.
 # ENABLE_LED_BASE      Enable LEDs on ULX3S or the ones on the BLUE_WHALE base board.
-# ENABLE_LED_EXT       Enable LEDs on the BLUE_WHALE extension board,
+# ENABLE_LED_EXT       Enable LEDs on the BLUE_WHALE extension board.
 if [ "$BOARD" = "BOARD_ULX3S" ] ; then
     echo "Running on ULX3S."
     OPTIONS="$OPTIONS -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE -D ENABLE_LED_BASE"

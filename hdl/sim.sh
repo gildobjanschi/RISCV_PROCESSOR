@@ -33,8 +33,8 @@ helpFunction()
 
 # Flags added by default by the script
 #
-# SIMULATION:           Use simulation mode
-# CORE:                 Core debug messages
+# SIMULATION:           Use simulation mode.
+# CORE:                 Core debug messages.
 # CLK_PERIOD_NS:        The main clock period in nano seconds (can be overridden by the command line).
 # ENABLE_RV32M_EXT:     Multiply and divide instructions support.
 # ENABLE_RV32C_EXT:     Enables/disables support for handling compressed RISC-V instructions.
@@ -42,7 +42,7 @@ helpFunction()
 # ENABLE_ZIFENCEI_EXT:  Zifencei extension.
 # ENABLE_ZICOND_EXT:    Zicond extension.
 # ENABLE_MHPM:          Enables support for High Performance Counters.
-# ENABLE_QPI_MODE             Use quad SPI for flash.
+# ENABLE_QPI_MODE       Use quad SPI for flash.
 OPTIONS="-D SIMULATION -D D_CORE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE"
 
 BOARD=""
