@@ -930,6 +930,32 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 `endif // ENABLE_ZIFENCEI_EXT
 
+`ifdef ENABLE_ZICOND_EXT
+            `INSTR_TYPE_ZERO_EQZ: begin
+`ifdef D_EXEC
+                rd_o = |instr_op_rd_i ? (rs2_i == 0 ? 0 : rs1_i) : 0;
+                $display($time, " [%h]: %h czero.eqz rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
+                            instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
+`else
+                rd_o <= |instr_op_rd_i ? (rs2_i == 0 ? 0 : rs1_i) : 0;
+`endif
+                next_addr_o <= next_addr_comb;
+                {ack_o, err_o} <= 2'b10;
+            end
+
+            `INSTR_TYPE_ZERO_NEZ: begin
+`ifdef D_EXEC
+                rd_o = |instr_op_rd_i ? (rs2_i != 0 ? 0 : rs1_i) : 0;
+                $display($time, " [%h]: %h czero.nez rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
+                            instr_i, instr_op_rd_i, rd_o, instr_op_rs1_i, rs1_i, instr_op_rs2_i, rs2_i, next_addr_comb);
+`else
+                rd_o <= |instr_op_rd_i ? (rs2_i != 0 ? 0 : rs1_i) : 0;
+`endif
+                next_addr_o <= next_addr_comb;
+                {ack_o, err_o} <= 2'b10;
+            end
+`endif // ENABLE_ZICOND_EXT
+
 `ifdef ENABLE_RV32M_EXT
             `INSTR_TYPE_MUL: begin
 `ifdef D_EXEC

@@ -58,7 +58,7 @@ main-build: TestCompliance.elf secondary-outputs
 TestCompliance.elf: $(OBJS) $(USER_OBJS) makefile objects.mk $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GNU RISC-V Cross C Linker'
-	riscv-none-elf-gcc -march=rv32imac_zicsr_zifencei -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -g -nostartfiles -nodefaultlibs -nostdlib -Xlinker --gc-sections -Wl,-Map,"TestCompliance.map" --specs=nosys.specs -T ../link.ld -o "TestCompliance.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+	riscv-none-elf-gcc -march=rv32imac_zicsr_zifencei_zicond -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -g -nostartfiles -nodefaultlibs -nostdlib -Xlinker --gc-sections -Wl,-Map,"TestCompliance.map" --specs=nosys.specs -T ../link.ld -o "TestCompliance.elf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

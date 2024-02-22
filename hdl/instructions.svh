@@ -19,9 +19,10 @@
  * The supported instructions are listed herein. The optional extension enable flags are set in sim.sh and fpga.sh:
  *
  * # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
- * # ENABLE_ZIFENCEI_EXT: Zifencei extension
  * # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
  * # ENABLE_RV32A_EXT:    Atomic instructions support.
+ * # ENABLE_ZIFENCEI_EXT: Zifencei extension.
+ * # ENABLE_ZICOND_EXT:   Conditional operations.
  **********************************************************************************************************************/
 // RV32I instructions
 `define INSTR_TYPE_LUI      7'd1
@@ -67,8 +68,15 @@
 `define INSTR_TYPE_MRET     7'd41
 `define INSTR_TYPE_WFI      7'd42
 
+// Zifencei extension
 `ifdef ENABLE_ZIFENCEI_EXT
 `define INSTR_TYPE_FENCE_I  7'd43
+`endif
+
+// Zicond extension
+`ifdef ENABLE_ZICOND_EXT
+`define INSTR_TYPE_ZERO_EQZ 7'd44
+`define INSTR_TYPE_ZERO_NEZ 7'd45
 `endif
 
 // RV32M instructions

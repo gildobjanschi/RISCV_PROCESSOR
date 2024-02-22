@@ -239,6 +239,9 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_DIVU;
 `endif
+`ifdef ENABLE_ZICOND_EXT
+                            7'b0000111: instr_op_type_o <= `INSTR_TYPE_ZERO_EQZ;
+`endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
@@ -260,6 +263,9 @@ module decoder (
                             7'b0000000: instr_op_type_o <= `INSTR_TYPE_AND;
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_REMU;
+`endif
+`ifdef ENABLE_ZICOND_EXT
+                            7'b0000111: instr_op_type_o <= `INSTR_TYPE_ZERO_NEZ;
 `endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
