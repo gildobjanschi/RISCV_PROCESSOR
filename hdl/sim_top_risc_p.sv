@@ -195,6 +195,10 @@ module sim_top_risc_p;
                             filename);
                 exit_code = 1;
             end
+        end else begin
+            $display ($time, " SIM:                                   FAIL [Cannot generate signature file: %s.]",
+                        filename);
+            exit_code = 1;
         end
     endtask
 `endif
