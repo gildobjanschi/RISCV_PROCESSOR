@@ -119,6 +119,47 @@ doCompliance "sw-align-01";
 doCompliance "xor-01";
 doCompliance "xori-01";
 
+: << COMMENT
+# Zba extension
+doCompliance "sh1add-01";
+doCompliance "sh2add-01";
+doCompliance "sh3add-01";
+
+# Zbb extension
+doCompliance "clz-01";
+doCompliance "cpop-01";
+doCompliance "ctz-01";
+doCompliance "max-01";
+doCompliance "maxu-01";
+doCompliance "min-01";
+doCompliance "minu-01";
+doCompliance "orcb_32-01";
+doCompliance "orn-01";
+doCompliance "rev8_32-01";
+doCompliance "rol-01";
+doCompliance "ror-01";
+doCompliance "rori-01";
+doCompliance "sext.b-01";
+doCompliance "sext.h-01";
+doCompliance "xnor-01";
+doCompliance "zext.h_32-01";
+
+# Zbc extension
+doCompliance "clmul-01";
+doCompliance "clmulh-01";
+doCompliance "clmulr-01";
+
+# Zbs extension
+doCompliance "bclr-01";
+doCompliance "bclri-01";
+doCompliance "bext-01";
+doCompliance "bexti-01";
+doCompliance "binv-01";
+doCompliance "binvi-01";
+doCompliance "bset-01";
+doCompliance "bseti-01";
+COMMENT
+
 # Priviledged tests
 doCompliance "ebreak";
 doCompliance "ecall";

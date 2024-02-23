@@ -52,7 +52,7 @@ build_test()
 
         if [ "$SIGNATURE" = "1" ] ; then
             echo "Generating signature with spike..."
-            spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr_zicond --misaligned --priv=msu +signature=../reference/$2.sig +signature-granularity=4 TestCompliance.elf
+            spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr_zicond_zba_zbb_zbc_zbs --misaligned --priv=msu +signature=../reference/$2.sig +signature-granularity=4 TestCompliance.elf
             if [ $? -eq 0 ]; then
                 echo -e "\033[0;32mGenerated: ../reference/$2.sig\033[0m"
             else
@@ -116,6 +116,45 @@ build_test "rv32i_m/I/src" "sub-01";
 build_test "rv32i_m/I/src" "sw-align-01";
 build_test "rv32i_m/I/src" "xor-01";
 build_test "rv32i_m/I/src" "xori-01";
+
+# Zba extension
+build_test "rv32i_m/B/src" "sh1add-01";
+build_test "rv32i_m/B/src" "sh2add-01";
+build_test "rv32i_m/B/src" "sh3add-01";
+
+# Zbb extension
+build_test "rv32i_m/B/src" "clz-01";
+build_test "rv32i_m/B/src" "cpop-01";
+build_test "rv32i_m/B/src" "ctz-01";
+build_test "rv32i_m/B/src" "max-01";
+build_test "rv32i_m/B/src" "maxu-01";
+build_test "rv32i_m/B/src" "min-01";
+build_test "rv32i_m/B/src" "minu-01";
+build_test "rv32i_m/B/src" "orcb_32-01";
+build_test "rv32i_m/B/src" "orn-01";
+build_test "rv32i_m/B/src" "rev8_32-01";
+build_test "rv32i_m/B/src" "rol-01";
+build_test "rv32i_m/B/src" "ror-01";
+build_test "rv32i_m/B/src" "rori-01";
+build_test "rv32i_m/B/src" "sext.b-01";
+build_test "rv32i_m/B/src" "sext.h-01";
+build_test "rv32i_m/B/src" "xnor-01";
+build_test "rv32i_m/B/src" "zext.h_32-01";
+
+# Zbc extension
+build_test "rv32i_m/B/src" "clmul-01";
+build_test "rv32i_m/B/src" "clmulh-01";
+build_test "rv32i_m/B/src" "clmulr-01";
+
+# Zbs extension
+build_test "rv32i_m/B/src" "bclr-01";
+build_test "rv32i_m/B/src" "bclri-01";
+build_test "rv32i_m/B/src" "bext-01";
+build_test "rv32i_m/B/src" "bexti-01";
+build_test "rv32i_m/B/src" "binv-01";
+build_test "rv32i_m/B/src" "binvi-01";
+build_test "rv32i_m/B/src" "bset-01";
+build_test "rv32i_m/B/src" "bseti-01";
 
 # Priviledged tests
 build_test "rv32i_m/privilege/src" "ebreak";

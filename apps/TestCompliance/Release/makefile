@@ -6,7 +6,7 @@ OBJS := src/obj.o
 $(OBJS): ../src/$(target).S
 	@echo 'Building file: $<'
 	@echo 'Invoking: GNU RISC-V Cross Assembler'
-	riscv-none-elf-gcc -march=rv32imac_zicsr_zifencei_zicond -mabi=ilp32 -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -g -x assembler-with-cpp -I../src/env -MMD -MP -MF"$(@:obj.o=dep.d)" -MT"$@" -c -o "$@" "$<"
+	riscv-none-elf-gcc -march=rv32imac_zicsr_zifencei_zicond_zba_zbb_zbc_zbs -mabi=ilp32 -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -g -x assembler-with-cpp -I../src/env -MMD -MP -MF"$(@:obj.o=dep.d)" -MT"$@" -c -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
@@ -33,7 +33,7 @@ main-build: TestCompliance.elf secondary-outputs
 TestCompliance.elf: $(OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GNU RISC-V Cross C Linker'
-	riscv-none-elf-gcc -march=rv32imac_zicsr_zifencei_zicond -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -g -nostartfiles -nodefaultlibs -nostdlib -Xlinker --gc-sections -Wl,-Map,"TestCompliance.map" --specs=nosys.specs -T ../link.ld -o "TestCompliance.elf" $(OBJS)
+	riscv-none-elf-gcc -march=rv32imac_zicsr_zifencei_zicond_zba_zbb_zbc_zbs -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -g -nostartfiles -nodefaultlibs -nostdlib -Xlinker --gc-sections -Wl,-Map,"TestCompliance.map" --specs=nosys.specs -T ../link.ld -o "TestCompliance.elf" $(OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
