@@ -25,24 +25,6 @@ while getopts "lesh" flag; do
     esac
 done
 
-OUTPUT_FILE=src/subdir.mk
-
-build_subdirmk()
-{
-    echo "#subdir.mk" > $OUTPUT_FILE
-
-    echo "S_UPPER_SRCS += \\" >> $OUTPUT_FILE
-    echo "../src/$1.S" >> $OUTPUT_FILE
-    echo $'\n' >> $OUTPUT_FILE
-    echo "OBJS += \\" >> $OUTPUT_FILE
-    echo "./src/$1.o" >> $OUTPUT_FILE
-    echo $'\n' >> $OUTPUT_FILE
-    echo "S_UPPER_DEPS += \\" >> $OUTPUT_FILE
-    echo "./src/$1.d" >> $OUTPUT_FILE
-    echo $'\n' >> $OUTPUT_FILE
-    cat subdir_frag.mk >> $OUTPUT_FILE
-}
-
     mkdir -p src
 
     rm -f src/*
@@ -62,156 +44,154 @@ build_subdirmk()
 build_test()
 {
     make clean
+    make target="$1/$2" all
 
-    build_subdirmk $1;
-
-    make all
     if [ $? -eq 0 ]; then
-        echo -e "\033[0;32mGenerated: $1.bin\033[0m"
-        mv TestCompliance.bin $1.bin
+        echo -e "\033[0;32mGenerated: $2.bin\033[0m"
+        mv TestCompliance.bin $2.bin
 
         if [ "$SIGNATURE" = "1" ] ; then
             echo "Generating signature with spike..."
-            spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr_zicond --misaligned --priv=msu +signature=../reference/$1.sig +signature-granularity=4 TestCompliance.elf
+            spike -m0x600000:16777216,0x80000000:8388608 --isa=RV32IMAC_zifencei_zicsr_zicond --misaligned --priv=msu +signature=../reference/$2.sig +signature-granularity=4 TestCompliance.elf
             if [ $? -eq 0 ]; then
-                echo -e "\033[0;32mGenerated: ../reference/$1.sig\033[0m"
+                echo -e "\033[0;32mGenerated: ../reference/$2.sig\033[0m"
             else
-                echo -e "\033[0;31mCannot generate signature ../reference/$1.sig\033[0m"
+                echo -e "\033[0;31mCannot generate signature ../reference/$2.sig\033[0m"
             fi
         fi
 
         if [ "$LST" = "1" ] ; then
-            echo -e "\033[0;32mGenerated: $1.lst\033[0m"
-            mv TestCompliance.lst $1.lst
+            echo -e "\033[0;32mGenerated: $2.lst\033[0m"
+            mv TestCompliance.lst $2.lst
         fi
 
         if [ "$ELF" = "1" ] ; then
-            mv TestCompliance.elf $1.elf
-            echo -e "\033[0;32mGenerated: $1.elf\033[0m"
+            mv TestCompliance.elf $2.elf
+            echo -e "\033[0;32mGenerated: $2.elf\033[0m"
         fi
     else
-        echo -e "\033[0;31mCannot generate $1.bin\033[0m"
+        echo -e "\033[0;31mCannot generate $2.bin\033[0m"
     fi
 
     echo "=================================================================================================================================================="
 }
 
 # Base ISA
-build_test "add-01";
-build_test "addi-01";
-build_test "and-01";
-build_test "andi-01";
-build_test "auipc-01";
-build_test "beq-01";
-build_test "bge-01";
-build_test "bgeu-01";
-build_test "blt-01";
-build_test "bltu-01";
-build_test "bne-01";
-build_test "fence-01";
-build_test "jal-01";
-build_test "jalr-01";
-build_test "lb-align-01";
-build_test "lbu-align-01";
-build_test "lh-align-01";
-build_test "lhu-align-01";
-build_test "lui-01";
-build_test "lw-align-01";
-build_test "or-01";
-build_test "ori-01";
-build_test "sb-align-01";
-build_test "sh-align-01";
-build_test "sll-01";
-build_test "slli-01";
-build_test "slt-01";
-build_test "slti-01";
-build_test "sltiu-01";
-build_test "sltu-01";
-build_test "sra-01";
-build_test "srai-01";
-build_test "srl-01";
-build_test "srli-01";
-build_test "sub-01";
-build_test "sw-align-01";
-build_test "xor-01";
-build_test "xori-01";
+build_test "rv32i_m/I/src" "add-01";
+build_test "rv32i_m/I/src" "addi-01";
+build_test "rv32i_m/I/src" "and-01";
+build_test "rv32i_m/I/src" "andi-01";
+build_test "rv32i_m/I/src" "auipc-01";
+build_test "rv32i_m/I/src" "beq-01";
+build_test "rv32i_m/I/src" "bge-01";
+build_test "rv32i_m/I/src" "bgeu-01";
+build_test "rv32i_m/I/src" "blt-01";
+build_test "rv32i_m/I/src" "bltu-01";
+build_test "rv32i_m/I/src" "bne-01";
+build_test "rv32i_m/I/src" "fence-01";
+build_test "rv32i_m/I/src" "jal-01";
+build_test "rv32i_m/I/src" "jalr-01";
+build_test "rv32i_m/I/src" "lb-align-01";
+build_test "rv32i_m/I/src" "lbu-align-01";
+build_test "rv32i_m/I/src" "lh-align-01";
+build_test "rv32i_m/I/src" "lhu-align-01";
+build_test "rv32i_m/I/src" "lui-01";
+build_test "rv32i_m/I/src" "lw-align-01";
+build_test "rv32i_m/I/src" "misalign1-jalr-01";
+build_test "rv32i_m/I/src" "or-01";
+build_test "rv32i_m/I/src" "ori-01";
+build_test "rv32i_m/I/src" "sb-align-01";
+build_test "rv32i_m/I/src" "sh-align-01";
+build_test "rv32i_m/I/src" "sll-01";
+build_test "rv32i_m/I/src" "slli-01";
+build_test "rv32i_m/I/src" "slt-01";
+build_test "rv32i_m/I/src" "slti-01";
+build_test "rv32i_m/I/src" "sltiu-01";
+build_test "rv32i_m/I/src" "sltu-01";
+build_test "rv32i_m/I/src" "sra-01";
+build_test "rv32i_m/I/src" "srai-01";
+build_test "rv32i_m/I/src" "srl-01";
+build_test "rv32i_m/I/src" "srli-01";
+build_test "rv32i_m/I/src" "sub-01";
+build_test "rv32i_m/I/src" "sw-align-01";
+build_test "rv32i_m/I/src" "xor-01";
+build_test "rv32i_m/I/src" "xori-01";
 
 # Priviledged tests
-build_test "ebreak";
-build_test "ecall";
-build_test "misalign1-jalr-01";
-build_test "misalign2-jalr-01";
-build_test "misalign-beq-01";
-build_test "misalign-bge-01";
-build_test "misalign-bgeu-01";
-build_test "misalign-blt-01";
-build_test "misalign-bltu-01";
-build_test "misalign-bne-01";
-build_test "misalign-jal-01";
+build_test "rv32i_m/privilege/src" "ebreak";
+build_test "rv32i_m/privilege/src" "ecall";
+build_test "rv32i_m/privilege/src" "misalign2-jalr-01";
+build_test "rv32i_m/privilege/src" "misalign-beq-01";
+build_test "rv32i_m/privilege/src" "misalign-bge-01";
+build_test "rv32i_m/privilege/src" "misalign-bgeu-01";
+build_test "rv32i_m/privilege/src" "misalign-blt-01";
+build_test "rv32i_m/privilege/src" "misalign-bltu-01";
+build_test "rv32i_m/privilege/src" "misalign-bne-01";
+build_test "rv32i_m/privilege/src" "misalign-jal-01";
 # These tests are not supported since a word and a half word need to be aligned at even addresses.
-#build_test "misalign-lh-01";
-#build_test "misalign-lhu-01";
-#build_test "misalign-lw-01";
-#build_test "misalign-sh-01";
-#build_test "misalign-sw-01";
+#build_test "rv32i_m/privilege/src" "misalign-lh-01";
+#build_test "rv32i_m/privilege/src" "misalign-lhu-01";
+#build_test "rv32i_m/privilege/src" "misalign-lw-01";
+#build_test "rv32i_m/privilege/src" "misalign-sh-01";
+#build_test "rv32i_m/privilege/src" "misalign-sw-01";
+# Zicsr extension
+build_test "rv32i_m/privilege/src" "csr-01";
 
 # Compressed extension
-build_test "cadd-01";
-build_test "caddi-01";
-build_test "caddi16sp-01";
-build_test "caddi4spn-01";
-build_test "cand-01";
-build_test "candi-01";
-build_test "cbeqz-01";
-build_test "cbnez-01";
-build_test "cebreak-01";
-build_test "cj-01";
-build_test "cjal-01";
-build_test "cjalr-01";
-build_test "cjr-01";
-build_test "cli-01";
-build_test "clui-01";
-build_test "clw-01";
-build_test "clwsp-01";
-build_test "cmv-01";
-build_test "cnop-01";
-build_test "cor-01";
-build_test "cslli-01";
-build_test "csrai-01";
-build_test "csrli-01";
-build_test "csub-01";
-build_test "csw-01";
-build_test "cswsp-01";
-build_test "cxor-01";
+build_test "rv32i_m/C/src" "cadd-01";
+build_test "rv32i_m/C/src" "caddi-01";
+build_test "rv32i_m/C/src" "caddi16sp-01";
+build_test "rv32i_m/C/src" "caddi4spn-01";
+build_test "rv32i_m/C/src" "cand-01";
+build_test "rv32i_m/C/src" "candi-01";
+build_test "rv32i_m/C/src" "cbeqz-01";
+build_test "rv32i_m/C/src" "cbnez-01";
+build_test "rv32i_m/C/src" "cebreak-01";
+build_test "rv32i_m/C/src" "cj-01";
+build_test "rv32i_m/C/src" "cjal-01";
+build_test "rv32i_m/C/src" "cjalr-01";
+build_test "rv32i_m/C/src" "cjr-01";
+build_test "rv32i_m/C/src" "cli-01";
+build_test "rv32i_m/C/src" "clui-01";
+build_test "rv32i_m/C/src" "clw-01";
+build_test "rv32i_m/C/src" "clwsp-01";
+build_test "rv32i_m/C/src" "cmv-01";
+build_test "rv32i_m/C/src" "cnop-01";
+build_test "rv32i_m/C/src" "cor-01";
+build_test "rv32i_m/C/src" "cslli-01";
+build_test "rv32i_m/C/src" "csrai-01";
+build_test "rv32i_m/C/src" "csrli-01";
+build_test "rv32i_m/C/src" "csub-01";
+build_test "rv32i_m/C/src" "csw-01";
+build_test "rv32i_m/C/src" "cswsp-01";
+build_test "rv32i_m/C/src" "cxor-01";
 
 # Multiply/Divide extension
-build_test "mul-01";
-build_test "mulh-01";
-build_test "mulhsu-01";
-build_test "mulhu-01";
-build_test "div-01";
-build_test "divu-01";
-build_test "rem-01";
-build_test "remu-01";
-
-# Zicsr extension
-build_test "csr-01";
+build_test "rv32i_m/M/src" "mul-01";
+build_test "rv32i_m/M/src" "mulh-01";
+build_test "rv32i_m/M/src" "mulhsu-01";
+build_test "rv32i_m/M/src" "mulhu-01";
+build_test "rv32i_m/M/src" "div-01";
+build_test "rv32i_m/M/src" "divu-01";
+build_test "rv32i_m/M/src" "rem-01";
+build_test "rv32i_m/M/src" "remu-01";
 
 # Atomic extension
-build_test "amoadd.w-01";
-build_test "amoand.w-01";
-build_test "amomax.w-01";
-build_test "amomaxu.w-01";
-build_test "amomin.w-01";
-build_test "amominu.w-01";
-build_test "amoor.w-01";
-build_test "amoswap.w-01";
-build_test "amoxor.w-01";
+build_test "rv32i_m/A/src" "amoadd.w-01";
+build_test "rv32i_m/A/src" "amoand.w-01";
+build_test "rv32i_m/A/src" "amomax.w-01";
+build_test "rv32i_m/A/src" "amomaxu.w-01";
+build_test "rv32i_m/A/src" "amomin.w-01";
+build_test "rv32i_m/A/src" "amominu.w-01";
+build_test "rv32i_m/A/src" "amoor.w-01";
+build_test "rv32i_m/A/src" "amoswap.w-01";
+build_test "rv32i_m/A/src" "amoxor.w-01";
 
 # Zifencei extension
 # The test assumes that the instruction memory is writtable which is not the case in this implementation.
-#build_test "Fencei";
+#build_test "rv32i_m/Zifencei/src" "Fencei";
 
 #Zicond extension
-build_test "czero.eqz-01";
-build_test "czero.nez-01";
+build_test "rv32i_m/Zicond/src" "czero.eqz-01";
+build_test "rv32i_m/Zicond/src" "czero.nez-01";
+

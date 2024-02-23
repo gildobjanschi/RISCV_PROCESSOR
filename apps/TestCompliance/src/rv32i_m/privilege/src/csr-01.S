@@ -84,8 +84,10 @@ signature_x5_1:
 
 tsig_begin_canary:
 CANARY;
+#ifdef rvtest_mtrap_routine
 mtrap_sigptr:
     .fill 64*(XLEN/32),4,0xdeadbeef
+#endif
 tsig_end_canary:
 CANARY;
 

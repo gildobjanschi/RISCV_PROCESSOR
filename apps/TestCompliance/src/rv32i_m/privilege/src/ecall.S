@@ -4,7 +4,7 @@
 // -----------
 //
 // This assembly file tests the ecall instruction of the RISC-V I extension.
-// 
+//
 
 #include "model_test.h"
 #include "arch_test.h"
@@ -23,14 +23,14 @@ RVTEST_CODE_BEGIN
 
     # ---------------------------------------------------------------------------------------------
     LA(     x1,test_A_res)
-    
+
     LI(     x2,0x11111111)
     ecall
     nop
     nop
     sw      x0, 0(x1)
     sw      x2, 4(x1)
-    
+
     RVMODEL_IO_WRITE_STR(x30, "# Test part A - test ECALL\n");
 
     RVMODEL_IO_WRITE_STR(x30, "# Test End\n")
@@ -62,6 +62,7 @@ test_A_res:
 mtrap_sigptr:
   .fill 4, 4, 0xdeadbeef
 #endif
+
 #ifdef rvtest_gpr_save
 gpr_save:
   .fill 32*(XLEN/32), 4, 0xdeadbeef
