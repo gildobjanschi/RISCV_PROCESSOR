@@ -56,6 +56,8 @@ module multiplier (
     logic [31:0] op_2_abs;
     logic [4:0] bit_index;
 
+    logic [31:0] interm_op;
+    assign interm_op = (op_1_abs & {32{op_2_abs[bit_index]}}) << bit_index;
     // State machine
     localparam STATE_START      = 2'b00;
     localparam STATE_MUL        = 2'b01;
@@ -87,7 +89,7 @@ module multiplier (
                 end
 
                 STATE_MUL: begin
-                    result_t <= result_t + ((op_1_abs & {32{op_2_abs[bit_index]}}) << bit_index);
+                    result_t <= result_t + interm_op;
                     bit_index <= bit_index + 1;
                     if (&bit_index) begin
                         if ((op_1_i[31] & op_1_is_signed_i) ^ (op_2_i[31] & op_2_is_signed_i)) begin
