@@ -2,7 +2,7 @@
 
 The RISC-V microcontroller is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA.
 It works on the [ULX3S ECP5 85F](https://radiona.org/ulx3s/), a commercially available ECP5 board.
-The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division, atomic, zicsr, zicond and zifencei extensions. The Machine mode is implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
+The processor supports the [base 32-bit ISA](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view), compressed, multiplication/division, atomic, zicsr, zicond, zba, zbb, zbs and zifencei extensions. The Machine mode is implemented as described in the [RISC-V Priviledged Architecture document](https://drive.google.com/file/d/1EMip5dZlnypTk7pt4WWUKmtjUKTOkBqh/view).
 
 The project includes a simulator that can execute RISC-V application code using the actual SystemVerilog design.
 
@@ -52,7 +52,7 @@ The source code for the TestC, Console and Dhrystone RISC-V C code applications 
 * Dhrystone is a performance evaluation application that enables you to view printf output of this application with a serial communication program.
 
 ### Simulation
-Before running the instructions test script you need to build the test binaries (over 90 .bin files).
+Before running the instructions test script you need to build the test binaries (over 100 .bin files).
 
 Build the [RISC V architecture test](https://github.com/riscv-non-isa/riscv-arch-test) binaries:
 
