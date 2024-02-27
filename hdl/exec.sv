@@ -524,21 +524,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `ifdef D_EXEC
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], instr_op_imm_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o = |instr_op_rd_i ? 1 : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o = 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o = |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
-                    end
+                    2'b11: rd_o = |instr_op_rd_i ? (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0) : 0;
+                    2'b10: rd_o = |instr_op_rd_i ? 1 : 0;
+                    2'b01: rd_o = 0;
+                    2'b00: rd_o = |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
                 endcase
 
                 $display($time, " [%h]: %h slti rdx%0d[%h], rs1x%0d[%h], imm: %h; PC: [%h]", instr_addr_i, instr_i,
@@ -546,21 +535,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], instr_op_imm_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o <= |instr_op_rd_i ? 1 : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o <= 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o <= |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
-                    end
+                    2'b11: rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < instr_op_imm_i[30:0] ? 1 : 0) : 0;
+                    2'b10: rd_o <= |instr_op_rd_i ? 1 : 0;
+                    2'b01: rd_o <= 0;
+                    2'b00: rd_o <= |instr_op_rd_i ? (rs1_i < instr_op_imm_i ? 1 : 0) : 0;
                 endcase
 `endif
                 next_addr_o <= next_addr_comb;
@@ -728,21 +706,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `ifdef D_EXEC
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o = |instr_op_rd_i ? 1 : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o = 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o = |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
-                    end
+                    2'b11: rd_o = |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0) : 0;
+                    2'b10: rd_o = |instr_op_rd_i ? 1 : 0;
+                    2'b01: rd_o = 0;
+                    2'b00: rd_o = |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
                 endcase
 
                 $display($time, " [%h]: %h slt rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i, instr_i,
@@ -750,21 +717,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o <= |instr_op_rd_i ? 1 : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o <= 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o <= |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
-                    end
+                    2'b11: rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? 1 : 0) : 0;
+                    2'b10: rd_o <= |instr_op_rd_i ? 1 : 0;
+                    2'b01: rd_o <= 0;
+                    2'b00: rd_o <= |instr_op_rd_i ? (rs1_i < rs2_i ? 1 : 0) : 0;
                 endcase
 `endif
                 next_addr_o <= next_addr_comb;
@@ -1020,21 +976,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `ifdef D_EXEC
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o = |instr_op_rd_i ? rs2_i : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o = |instr_op_rd_i ? rs1_i : 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
+                    2'b11: rd_o = |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
+                    2'b10: rd_o = |instr_op_rd_i ? rs2_i : 0;
+                    2'b01: rd_o = |instr_op_rd_i ? rs1_i : 0;
+                    2'b00: rd_o = |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
                 endcase
 
                 $display($time, " [%h]: %h max rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
@@ -1043,21 +988,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o <= |instr_op_rd_i ? rs2_i : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o <= |instr_op_rd_i ? rs1_i : 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
+                    2'b11: rd_o <= |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
+                    2'b10: rd_o <= |instr_op_rd_i ? rs2_i : 0;
+                    2'b01: rd_o <= |instr_op_rd_i ? rs1_i : 0;
+                    2'b00: rd_o <= |instr_op_rd_i ? (rs1_i[30:0] > rs2_i[30:0] ? rs1_i : rs2_i) : 0;
                 endcase
 `endif
                 next_addr_o <= next_addr_comb;
@@ -1082,21 +1016,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `ifdef D_EXEC
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o = |instr_op_rd_i ? rs2_i : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o = |instr_op_rd_i ? rs1_i : 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o = |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
+                    2'b11: rd_o = |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
+                    2'b10: rd_o = |instr_op_rd_i ? rs2_i : 0;
+                    2'b01: rd_o = |instr_op_rd_i ? rs1_i : 0;
+                    2'b00: rd_o = |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
                 endcase
 
                 $display($time, " [%h]: %h min rdx%0d[%h], rs1x%0d[%h] rs2x%0d[%h]; PC: [%h]", instr_addr_i,
@@ -1105,21 +1028,10 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
 `else
                 (* parallel_case, full_case *)
                 case ({rs1_i[31], rs2_i[31]})
-                    2'b11: begin // Both are negative
-                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
-
-                    2'b10: begin
-                        rd_o <= |instr_op_rd_i ? rs1_i : 0;
-                    end
-
-                    2'b01: begin
-                        rd_o <= |instr_op_rd_i ? rs2_i : 0;
-                    end
-
-                    2'b00: begin // Both are positive
-                        rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
-                    end
+                    2'b11: rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
+                    2'b10: rd_o <= |instr_op_rd_i ? rs1_i : 0;
+                    2'b01: rd_o <= |instr_op_rd_i ? rs2_i : 0;
+                    2'b00: rd_o <= |instr_op_rd_i ? (rs1_i[30:0] < rs2_i[30:0] ? rs1_i : rs2_i) : 0;
                 endcase
 `endif
                 next_addr_o <= next_addr_comb;
@@ -2378,7 +2290,6 @@ module exec #(parameter [31:0] CSR_BEGIN_ADDR = 32'h40000000) (
             end
 `endif // ENABLE_RV32A_EXT
 */
-
             `INSTR_TYPE_CSRRW, `INSTR_TYPE_CSRRS, `INSTR_TYPE_CSRRC,
             `INSTR_TYPE_CSRRWI, `INSTR_TYPE_CSRRSI, `INSTR_TYPE_CSRRCI, `INSTR_TYPE_MRET: begin
                 trap_mcause_o[`EX_CODE_ILLEGAL_INSTRUCTION] <= 1'b1;
