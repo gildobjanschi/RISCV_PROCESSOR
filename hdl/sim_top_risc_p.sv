@@ -270,10 +270,10 @@ module sim_top_risc_p;
 `endif // ENABLE_MHPM
 `endif // TEST_MODE
 `ifdef D_STATS_FILE
-                $fclose(risc_p_m.fd);
+                $fclose (risc_p_m.fd);
 `endif
                 // Finish the simulation
-                $finish(exit_code);
+                $finish (exit_code);
             end
         end
     end

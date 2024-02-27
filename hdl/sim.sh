@@ -39,11 +39,14 @@ helpFunction()
 # ENABLE_RV32M_EXT:     Multiply and divide instructions support.
 # ENABLE_RV32C_EXT:     Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:     Atomic instructions support.
+# ENABLE_ZBA_EXT, ENABLE_ZBB_EXT, ENABLE_ZBC_EXT, ENABLE_ZBS_EXT    : Bit manipulation extensions.
 # ENABLE_ZIFENCEI_EXT:  Zifencei extension.
 # ENABLE_ZICOND_EXT:    Zicond extension.
 # ENABLE_MHPM:          Enables support for High Performance Counters.
 # ENABLE_QPI_MODE       Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D D_CORE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE"
+OPTIONS="-D SIMULATION -D D_CORE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT \
+                -D ENABLE_ZBA_EXT -D ENABLE_ZBB_EXT -D ENABLE_ZBS_EXT \
+                -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_MHPM -D ENABLE_QPI_MODE"
 
 BOARD=""
 APP_NAME=""
@@ -88,13 +91,19 @@ fi
 
 if [ "$APP_NAME" = "mem_space_test" ] ; then
     echo "Memory space test."
-    iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE uart_tx.sv uart_rx.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv mem_space_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_mem_space_test.sv
+    iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestBlob/TestBlob.bin\" -o $OUTPUT_FILE \
+                uart_tx.sv uart_rx.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv \
+                mem_space.sv ecp5pll.sv mem_space_test.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE \
+                sim_top_mem_space_test.sv
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi
 else if [ "$APP_NAME" = "risc_p" ] ; then
     echo "Running RISC-V."
-    iverilog -g2005-sv -D $BOARD $OPTIONS -o $OUTPUT_FILE uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
+    iverilog -g2005-sv -D $BOARD $OPTIONS -o $OUTPUT_FILE \
+                uart_tx.sv uart_rx.sv decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv \
+                $RAM_FILE io.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv \
+                sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
     if [ $? -eq 0 ]; then
         vvp $OUTPUT_FILE
     fi

@@ -23,6 +23,7 @@
  * # ENABLE_RV32A_EXT:    Atomic instructions support.
  * # ENABLE_ZIFENCEI_EXT: Zifencei extension.
  * # ENABLE_ZICOND_EXT:   Conditional operations.
+ * # ENABLE_ZBA_EXT, ENABLE_ZBB_EXT, ENABLE_ZBC_EXT, ENABLE_ZBS_EXT    : Bit manipulation extensions.
  **********************************************************************************************************************/
 // RV32I instructions
 `define INSTR_TYPE_LUI      7'd1
@@ -112,4 +113,51 @@
 `define INSTR_TYPE_AMOMAX_W     7'd72
 `define INSTR_TYPE_AMOMINU_W    7'd73
 `define INSTR_TYPE_AMOMAXU_W    7'd74
+`endif
+
+// Zba instructions
+`ifdef ENABLE_ZBA_EXT
+`define INSTR_TYPE_SH1ADD   7'd75
+`define INSTR_TYPE_SH2ADD   7'd76
+`define INSTR_TYPE_SH3ADD   7'd77
+`endif
+
+// Zbb instructions
+`ifdef ENABLE_ZBB_EXT
+`define INSTR_TYPE_CLZ      7'd78
+`define INSTR_TYPE_CPOP     7'd79
+`define INSTR_TYPE_CTZ      7'd80
+`define INSTR_TYPE_MAX      7'd81
+`define INSTR_TYPE_MAXU     7'd82
+`define INSTR_TYPE_MIN      7'd83
+`define INSTR_TYPE_MINU     7'd84
+`define INSTR_TYPE_ORC_B    7'd85
+`define INSTR_TYPE_ORN      7'd86
+`define INSTR_TYPE_REV8     7'd87
+`define INSTR_TYPE_ROL      7'd88
+`define INSTR_TYPE_ROR      7'd89
+`define INSTR_TYPE_RORI     7'd90
+`define INSTR_TYPE_SEXT_B   7'd91
+`define INSTR_TYPE_SEXT_H   7'd92
+`define INSTR_TYPE_XNOR     7'd93
+`define INSTR_TYPE_ZEXT_H   7'd94
+`endif
+
+// Zbc instructions
+`ifdef ENABLE_ZBC_EXT
+`define INSTR_TYPE_CLMUL    7'd95
+`define INSTR_TYPE_CLMULH   7'd96
+`define INSTR_TYPE_CLMULR   7'd97
+`endif
+
+// Zbs instructions
+`ifdef ENABLE_ZBS_EXT
+`define INSTR_TYPE_BCLR     7'd98
+`define INSTR_TYPE_BCLRI    7'd99
+`define INSTR_TYPE_BEXT     7'd100
+`define INSTR_TYPE_BEXTI    7'd101
+`define INSTR_TYPE_BINV     7'd102
+`define INSTR_TYPE_BINVI    7'd103
+`define INSTR_TYPE_BSET     7'd104
+`define INSTR_TYPE_BSETI    7'd105
 `endif

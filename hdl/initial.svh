@@ -85,12 +85,12 @@
 
 `ifdef TEST_MODE
         #25000000
-        $display($time, " SIM:\033[0;31m                                  FAIL [Simulation timeout]\033[0m");
+        $display($time, " SIM:\033[0;31m         FAIL [Simulation timeout]\033[0m");
 `elsif SIMULATION
         #150000000
 
         $display($time, " SIM: ---------------------- Simulation end [Timeout] ------------------------");
 `endif // SIMULATION
 
-        $finish(1);
+        $finish (1);
     end

@@ -22,10 +22,14 @@ SIM_RAM_FILE=""
 # ENABLE_RV32M_EXT:    Multiply and divide instructions support.
 # ENABLE_RV32C_EXT:    Enables/disables support for handling compressed RISC-V instructions.
 # ENABLE_RV32A_EXT:    Atomic instructions support.
+# ENABLE_ZBA_EXT, ENABLE_ZBB_EXT, ENABLE_ZBC_EXT, ENABLE_ZBS_EXT    : Bit manipulation extensions.
 # ENABLE_ZIFENCEI_EXT: Zifencei extension.
 # ENABLE_ZICOND_EXT:   Zicond extension.
 # ENABLE_QPI_MODE:     Use quad SPI for flash.
-OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_QPI_MODE"
+OPTIONS="-D SIMULATION -D TEST_MODE -D CLK_PERIOD_NS=20 \
+                -D ENABLE_RV32M_EXT -D ENABLE_RV32C_EXT -D ENABLE_RV32A_EXT \
+                -D ENABLE_ZBA_EXT -D ENABLE_ZBB_EXT -D ENABLE_ZBS_EXT \
+                -D ENABLE_ZIFENCEI_EXT -D ENABLE_ZICOND_EXT -D ENABLE_QPI_MODE"
 
 while getopts "uwph" flag; do
     case "${flag}" in
@@ -58,15 +62,23 @@ doCompliance()
     fi
 
     if test -f "../apps/TestCompliance/Release/$1.bin" ; then
-        iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1.bin\" -o $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
+        iverilog -g2005-sv -D $BOARD $OPTIONS -D BIN_FILE_NAME=\"../apps/TestCompliance/Release/$1.bin\" -o \
+                $OUTPUT_FILE decoder.sv regfile.sv exec.sv multiplier.sv divider.sv utils.sv flash_master.sv $RAM_FILE \
+                io.sv uart_tx.sv uart_rx.sv timer.sv csr.sv io_bus.sv ram_bus.sv mem_space.sv ecp5pll.sv risc_p.sv \
+                sim_trellis.sv sim_flash_slave.sv $SIM_RAM_FILE sim_top_risc_p.sv
         if [ $? -eq 0 ]; then
+            rm -rf ../apps/TestCompliance/Release/$1.sig
             vvp $OUTPUT_FILE
             if [ $? -eq 0 ]; then
-                diff --text ../apps/TestCompliance/reference/$1.sig ../apps/TestCompliance/Release/$1.sig
-                if [ $? -eq 0 ]; then
-                    echo -e "\033[0;32m                                  PASS\033[0m"
+                if test -f "../apps/TestCompliance/Release/$1.sig"; then
+                    diff --text ../apps/TestCompliance/reference/$1.sig ../apps/TestCompliance/Release/$1.sig
+                    if [ $? -eq 0 ]; then
+                        echo -e "\033[0;32m                                  PASS\033[0m"
+                    else
+                        echo -e "\033[0;31m                                  FAIL [Signature mismatch]\033[0m"
+                    fi
                 else
-                    echo -e "\033[0;31m                                  FAIL [Signature mismatch]\033[0m"
+                    echo -e "\033[0;31m                                  FAIL [Signature not generated]\033[0m"
                 fi
             else
                 echo -e "\033[0;31m                                  FAIL [Simulation failed]\033[0m"
@@ -119,7 +131,6 @@ doCompliance "sw-align-01";
 doCompliance "xor-01";
 doCompliance "xori-01";
 
-: << COMMENT
 # Zba extension
 doCompliance "sh1add-01";
 doCompliance "sh2add-01";
@@ -129,6 +140,7 @@ doCompliance "sh3add-01";
 doCompliance "clz-01";
 doCompliance "cpop-01";
 doCompliance "ctz-01";
+
 doCompliance "max-01";
 doCompliance "maxu-01";
 doCompliance "min-01";
@@ -144,11 +156,6 @@ doCompliance "sext.h-01";
 doCompliance "xnor-01";
 doCompliance "zext.h_32-01";
 
-# Zbc extension
-doCompliance "clmul-01";
-doCompliance "clmulh-01";
-doCompliance "clmulr-01";
-
 # Zbs extension
 doCompliance "bclr-01";
 doCompliance "bclri-01";
@@ -158,6 +165,13 @@ doCompliance "binv-01";
 doCompliance "binvi-01";
 doCompliance "bset-01";
 doCompliance "bseti-01";
+
+: << COMMENT
+# Not supported
+# Zbc extension
+doCompliance "clmul-01";
+doCompliance "clmulh-01";
+doCompliance "clmulr-01";
 COMMENT
 
 # Priviledged tests
@@ -239,5 +253,3 @@ doCompliance "amoxor.w-01";
 #Zicond extension
 doCompliance "czero.eqz-01";
 doCompliance "czero.nez-01";
-
-

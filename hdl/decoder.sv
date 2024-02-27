@@ -150,15 +150,42 @@ module decoder (
                         (* parallel_case, full_case *)
                         case (instr_i[31:25])
                             7'b0000000: instr_op_type_o <= `INSTR_TYPE_SLLI;
+`ifdef ENABLE_ZBB_EXT
+                            7'b0110000: begin
+                                (* parallel_case, full_case *)
+                                case (instr_i[24:20])
+                                    5'b00000: instr_op_type_o <= `INSTR_TYPE_CLZ;
+                                    5'b00001: instr_op_type_o <= `INSTR_TYPE_CTZ;
+                                    5'b00010: instr_op_type_o <= `INSTR_TYPE_CPOP;
+                                    5'b00100: instr_op_type_o <= `INSTR_TYPE_SEXT_B;
+                                    5'b00101: instr_op_type_o <= `INSTR_TYPE_SEXT_H;
+                                    default: {ack_o, err_o} <= 2'b01;
+                                endcase
+                            end
+`endif
+`ifdef ENABLE_ZBS_EXT
+                            7'b0010100: instr_op_type_o <= `INSTR_TYPE_BSETI;
+                            7'b0100100: instr_op_type_o <= `INSTR_TYPE_BCLRI;
+                            7'b0110100: instr_op_type_o <= `INSTR_TYPE_BINVI;
+`endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
 
                     3'b101: begin
                         (* parallel_case, full_case *)
-                        case (instr_i[31:25])
-                            7'b0000000: instr_op_type_o <= `INSTR_TYPE_SRLI;
-                            7'b0100000: instr_op_type_o <= `INSTR_TYPE_SRAI;
+                        (* parallel_case, full_case *)
+                        casex (instr_i[31:20])
+                            12'b0000000xxxxx: instr_op_type_o <= `INSTR_TYPE_SRLI;
+`ifdef ENABLE_ZBB_EXT
+                            12'b001010000111: instr_op_type_o <= `INSTR_TYPE_ORC_B;
+                            12'b011010011000: instr_op_type_o <= `INSTR_TYPE_REV8;
+                            12'b0110000xxxxx: instr_op_type_o <= `INSTR_TYPE_RORI;
+`endif
+`ifdef ENABLE_ZBS_EXT
+                            12'b0100100xxxxx: instr_op_type_o <= `INSTR_TYPE_BEXTI;
+`endif
+                            12'b0100000xxxxx: instr_op_type_o <= `INSTR_TYPE_SRAI;
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
@@ -194,6 +221,17 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_MULH;
 `endif
+`ifdef ENABLE_ZBC_EXT
+                            7'b0000101: instr_op_type_o <= `INSTR_TYPE_CLMUL;
+`endif
+`ifdef ENABLE_ZBS_EXT
+                            7'b0010100: instr_op_type_o <= `INSTR_TYPE_BSET;
+                            7'b0100100: instr_op_type_o <= `INSTR_TYPE_BCLR;
+                            7'b0110100: instr_op_type_o <= `INSTR_TYPE_BINV;
+`endif
+`ifdef ENABLE_ZBB_EXT
+                            7'b0110000: instr_op_type_o <= `INSTR_TYPE_ROL;
+`endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
@@ -204,6 +242,12 @@ module decoder (
                             7'b0000000: instr_op_type_o <= `INSTR_TYPE_SLT;
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_MULHSU;
+`endif
+`ifdef ENABLE_ZBC_EXT
+                            7'b0000101: instr_op_type_o <= `INSTR_TYPE_CLMULR;
+`endif
+`ifdef ENABLE_ZBA_EXT
+                            7'b0010000: instr_op_type_o <= `INSTR_TYPE_SH1ADD;
 `endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
@@ -216,6 +260,9 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_MULHU;
 `endif
+`ifdef ENABLE_ZBC_EXT
+                            7'b0000101: instr_op_type_o <= `INSTR_TYPE_CLMULH;
+`endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
@@ -226,6 +273,14 @@ module decoder (
                             7'b0000000: instr_op_type_o <= `INSTR_TYPE_XOR;
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_DIV;
+`endif
+`ifdef ENABLE_ZBB_EXT
+                            7'b0000100: instr_op_type_o <= `INSTR_TYPE_ZEXT_H;
+                            7'b0000101: instr_op_type_o <= `INSTR_TYPE_MIN;
+                            7'b0100000: instr_op_type_o <= `INSTR_TYPE_XNOR;
+`endif
+`ifdef ENABLE_ZBA_EXT
+                            7'b0010000: instr_op_type_o <= `INSTR_TYPE_SH2ADD;
 `endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
@@ -239,6 +294,14 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_DIVU;
 `endif
+`ifdef ENABLE_ZBB_EXT
+                            7'b0000101: instr_op_type_o <= `INSTR_TYPE_MINU;
+                            7'b0110000: instr_op_type_o <= `INSTR_TYPE_ROR;
+`endif
+`ifdef ENABLE_ZBS_EXT
+                            7'b0100100: instr_op_type_o <= `INSTR_TYPE_BEXT;
+`endif
+
 `ifdef ENABLE_ZICOND_EXT
                             7'b0000111: instr_op_type_o <= `INSTR_TYPE_ZERO_EQZ;
 `endif
@@ -253,6 +316,13 @@ module decoder (
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_REM;
 `endif
+`ifdef ENABLE_ZBB_EXT
+                            7'b0000101: instr_op_type_o <= `INSTR_TYPE_MAX;
+                            7'b0100000: instr_op_type_o <= `INSTR_TYPE_ORN;
+`endif
+`ifdef ENABLE_ZBA_EXT
+                            7'b0010000: instr_op_type_o <= `INSTR_TYPE_SH3ADD;
+`endif
                             default: {ack_o, err_o} <= 2'b01;
                         endcase
                     end
@@ -263,6 +333,9 @@ module decoder (
                             7'b0000000: instr_op_type_o <= `INSTR_TYPE_AND;
 `ifdef ENABLE_RV32M_EXT
                             7'b0000001: instr_op_type_o <= `INSTR_TYPE_REMU;
+`endif
+`ifdef ENABLE_ZBB_EXT
+                            7'b0000101: instr_op_type_o <= `INSTR_TYPE_MAXU;
 `endif
 `ifdef ENABLE_ZICOND_EXT
                             7'b0000111: instr_op_type_o <= `INSTR_TYPE_ZERO_NEZ;
