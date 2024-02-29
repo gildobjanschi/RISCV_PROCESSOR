@@ -51,17 +51,18 @@ module multiplier (
     logic sync_ack_o = 1'b0;
     assign ack_o = sync_ack_o & stb_i;
 
-    logic [63:0] result_t;
+    logic [63:0] result_t, int_r;
     logic [31:0] op_1_abs;
     logic [31:0] op_2_abs;
     logic [4:0] bit_index;
 
     // State machine
-    localparam STATE_START      = 2'b00;
-    localparam STATE_MUL        = 2'b01;
-    localparam STATE_FINALIZE   = 2'b10;
-    localparam STATE_DONE       = 2'b11;
-    logic [1:0] state_m;
+    localparam STATE_START      = 3'b000;
+    localparam STATE_INT_R      = 3'b001;
+    localparam STATE_MUL        = 3'b010;
+    localparam STATE_FINALIZE   = 3'b011;
+    localparam STATE_DONE       = 3'b100;
+    logic [2:0] state_m;
 
     //==================================================================================================================
     // Multiplier
@@ -82,12 +83,17 @@ module multiplier (
 
                         bit_index <= 0;
                         result_t <= 0;
-                        state_m <= STATE_MUL;
+                        state_m <= STATE_INT_R;
                     end
                 end
 
+                STATE_INT_R: begin
+                    int_r <= (op_1_abs & {32{op_2_abs[bit_index]}}) << bit_index;
+                    state_m <= STATE_MUL;
+                end
+
                 STATE_MUL: begin
-                    result_t <= result_t + ((op_1_abs & {32{op_2_abs[bit_index]}}) << bit_index);
+                    result_t <= result_t + int_r;
                     bit_index <= bit_index + 1;
                     if (&bit_index) begin
                         if ((op_1_i[31] & op_1_is_signed_i) ^ (op_2_i[31] & op_2_is_signed_i)) begin
@@ -95,6 +101,8 @@ module multiplier (
                         end else begin
                             state_m <= STATE_DONE;
                         end
+                    end else begin
+                        state_m <= STATE_INT_R;
                     end
                 end
 
