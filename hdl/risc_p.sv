@@ -482,7 +482,7 @@ module risc_p (
     (* syn_ramstyle="auto" *)
     logic [31:0] i_cache_instr[0:CACHE_SIZE-1];
     (* syn_ramstyle="auto" *)
-    logic [31:0] i_cache_addr[0:CACHE_SIZE-1];
+    logic [31-CACHE_BITS-1:0] i_cache_addr[0:CACHE_SIZE-1];
     // Decoder cache
     // [53:22] imm; [21:15] op_type; [14:10] op_rd; [9:5] op_rs1; [4:0] op_rs2
     logic [53:0] i_cache_decoder_op[0:CACHE_SIZE-1];
@@ -492,9 +492,11 @@ module risc_p (
     logic [CACHE_SIZE-1:0] i_cache_decoder_load_rs1_rs2;
 
     logic [CACHE_BITS-1:0] i_cache_index, o_cache_index, d_cache_index;
+    logic [31-CACHE_BITS-1:0] fetch_address_msb, core_addr_msb;
     assign i_cache_index = fetch_address[CACHE_BITS:1];
+    assign fetch_address_msb = fetch_address[31:CACHE_BITS+1];
     assign o_cache_index = core_addr_o[CACHE_BITS:1];
-
+    assign core_addr_msb = core_addr_o[31:CACHE_BITS+1];
 `ifdef SIMULATION
     logic looping_instruction;
 `ifdef D_STATS_FILE
@@ -592,7 +594,7 @@ module risc_p (
                             fetch_address);
 `endif
             end
-        end else if (i_cache_has_instr[i_cache_index] & i_cache_addr[i_cache_index] == fetch_address) begin
+        end else if (i_cache_has_instr[i_cache_index] & (i_cache_addr[i_cache_index] == fetch_address_msb)) begin
             if (i_cache_has_decoded[i_cache_index]) begin
                 if (i_cache_decoder_load_rs1_rs2[i_cache_index]) begin
                     pipeline_entry_status[pipeline_wr_ptr] <= PL_E_INSTR_DECODED;
@@ -995,7 +997,7 @@ module risc_p (
             `ifdef ENABLE_LED_BASE led[0] <= 1'b0; `endif
 
             // Write the instruction into the cache.
-            i_cache_addr[o_cache_index] <= core_addr_o;
+            i_cache_addr[o_cache_index] <= core_addr_msb;
             i_cache_instr[o_cache_index] <= core_data_i;
             i_cache_compressed[o_cache_index] <= core_data_tag_i;
             i_cache_has_instr[o_cache_index] <= 1'b1;
