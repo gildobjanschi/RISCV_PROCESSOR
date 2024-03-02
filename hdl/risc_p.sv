@@ -1275,12 +1275,21 @@ module risc_p (
                     `ifdef ENABLE_LED_BASE led[5] <= 1'b0; `endif
                     `ifdef ENABLE_LED_EXT led_a[12] <= 1'b0; `endif
 
-                    if (pipeline_entry_status[next_pipeline_rd_ptr] == PL_E_REGFILE_READ) begin
-                        exec_imm_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
-                    end
-
                     // Advance in the pipeline
                     pipeline_rd_ptr <= next_pipeline_rd_ptr;
+
+                    if (pipeline_entry_status[next_pipeline_rd_ptr] == PL_E_REGFILE_READ) begin
+                        if (|pipeline_trap[next_pipeline_rd_ptr]) begin
+                            /*
+                            * Handle the exception that occured earlier in the pipeline
+                            * (EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED, EX_CODE_ILLEGAL_INSTRUCTION,
+                            * EX_CODE_INSTRUCTION_ACCESS_FAULT).
+                            */
+                            enter_trap_task;
+                        end else begin
+                            exec_imm_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
+                        end
+                    end
                 end
             endcase
         end else if (exec_err_i) begin
