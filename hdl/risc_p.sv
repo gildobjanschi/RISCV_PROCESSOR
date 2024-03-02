@@ -795,10 +795,10 @@ module risc_p (
     endtask
 
     //==================================================================================================================
-    // Store trap data if an exeption occurs in the pipeline (EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED,
-    // EX_CODE_ILLEGAL_INSTRUCTION, EX_CODE_INSTRUCTION_ACCESS_FAULT). The pipeline is frozen and the current entry
-    // is marked as "ready for execution". We let the instructions in the pipeline execute normally until the pipeline
-    // entry is encountered and then we handle the exception.
+    // Store trap data if an exeption occurs in the execution pipeline (EX_CODE_INSTRUCTION_ADDRESS_MISALIGNED,
+    // EX_CODE_ILLEGAL_INSTRUCTION, EX_CODE_INSTRUCTION_ACCESS_FAULT). The pipeline is no longer filled  and the
+    // current entry is marked as "ready for execution". We let the instructions in the pipeline execute normally until
+    // this pipeline entry is encountered and then we handle the exception.
     //==================================================================================================================
     task pipeline_exception_task (input [PIPELINE_BITS-1:0] entry, input [31:0] mcause, input [31:0] mepc,
                                 input [31:0] mtval);
