@@ -702,60 +702,31 @@ module risc_p (
     endtask
 
     //==================================================================================================================
-    // Exec task
-    //==================================================================================================================
-    task exec_task;
-        pipeline_entry_status[pipeline_rd_ptr] <= PL_E_EXEC_PENDING;
-
-        exec_instr_addr_o <= pipeline_instr_addr[pipeline_rd_ptr];
-        exec_instr_o <= pipeline_instr[pipeline_rd_ptr];
-        exec_instr_is_compressed_o <= pipeline_instr[pipeline_rd_ptr][1:0] != 2'b11;
-        exec_op_imm_o <= pipeline_decoder_op[pipeline_rd_ptr][53:22];
-        exec_op_type_o <= pipeline_decoder_op[pipeline_rd_ptr][21:15];
-        exec_op_rd_o <= pipeline_decoder_op[pipeline_rd_ptr][14:10];
-        exec_op_rs1_o <= pipeline_decoder_op[pipeline_rd_ptr][9:5];
-        exec_op_rs2_o <= pipeline_decoder_op[pipeline_rd_ptr][4:0];
-        exec_rs1_o <= pipeline_rs1[pipeline_rd_ptr];
-        exec_rs2_o <= pipeline_rs2[pipeline_rd_ptr];
-        exec_stb_o <= 1'b1;
-
-        // Exec LED on
-        `ifdef ENABLE_LED_BASE led[3] <= 1'b1; `endif
-        `ifdef ENABLE_LED_EXT led_a[3] <= 1'b1; `endif
-        `ifdef ENABLE_LED_EXT led_a[11:5] <= pipeline_decoder_op[pipeline_rd_ptr][21:15]; `endif
-
-`ifdef D_CORE_FINE
-        $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", pipeline_rd_ptr,
-                        pipeline_instr_addr[pipeline_rd_ptr]);
-`endif
-`ifdef D_STATS_FILE
-        stats_start_execution_time <= $time;
-`endif
-    endtask
-
-    //==================================================================================================================
     // Exec pipeline task
     //==================================================================================================================
-    task exec_imm_task (input [PIPELINE_BITS-1:0] entry, logic [4:0] op_rd, logic [31:0] rd);
+    task exec_task (input [PIPELINE_BITS-1:0] entry, logic [4:0] op_rd, logic [31:0] rd);
+        logic [53:0] decoder_op;
         pipeline_entry_status[entry] <= PL_E_EXEC_PENDING;
 
         exec_instr_addr_o <= pipeline_instr_addr[entry];
         exec_instr_o <= pipeline_instr[entry];
         exec_instr_is_compressed_o <= pipeline_instr[entry][1:0] != 2'b11;
-        exec_op_imm_o <= pipeline_decoder_op[entry][53:22];
-        exec_op_type_o <= pipeline_decoder_op[entry][21:15];
-        exec_op_rd_o <= pipeline_decoder_op[entry][14:10];
-        exec_op_rs1_o <= pipeline_decoder_op[entry][9:5];
-        exec_op_rs2_o <= pipeline_decoder_op[entry][4:0];
-        exec_rs1_o <= (|op_rd & op_rd == pipeline_decoder_op[entry][9:5]) ? rd : pipeline_rs1[entry];
-        exec_rs2_o <= (|op_rd & op_rd == pipeline_decoder_op[entry][4:0]) ? rd : pipeline_rs2[entry];
+
+        decoder_op = pipeline_decoder_op[entry];
+        exec_op_imm_o <= decoder_op[53:22];
+        exec_op_type_o <= decoder_op[21:15];
+        exec_op_rd_o <= decoder_op[14:10];
+        exec_op_rs1_o <= decoder_op[9:5];
+        exec_op_rs2_o <= decoder_op[4:0];
+        exec_rs1_o <= (|op_rd & op_rd == decoder_op[9:5]) ? rd : pipeline_rs1[entry];
+        exec_rs2_o <= (|op_rd & op_rd == decoder_op[4:0]) ? rd : pipeline_rs2[entry];
         exec_stb_o <= 1'b1;
 
         // Exec LED on
         led[3] <= 1'b1;
         `ifdef ENABLE_LED_BASE led[3] <= 1'b1; `endif
         `ifdef ENABLE_LED_EXT led_a[3] <= 1'b1; `endif
-        `ifdef ENABLE_LED_EXT led_a[11:5] <= pipeline_decoder_op[entry][21:15]; `endif
+        `ifdef ENABLE_LED_EXT led_a[11:5] <= decoder_op[21:15]; `endif
 
 `ifdef D_CORE_FINE
         $display ($time, " CORE:    [%h] Execute (imm) instruction @[%h] -> PL_E_EXEC_PENDING.", entry,
@@ -1287,7 +1258,7 @@ module risc_p (
                             */
                             enter_trap_task;
                         end else begin
-                            exec_imm_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
+                            exec_task (next_pipeline_rd_ptr, exec_op_rd_o, exec_rd_i);
                         end
                     end
                 end
@@ -1372,7 +1343,7 @@ module risc_p (
                  */
                 enter_trap_task;
             end else begin
-                exec_task;
+                exec_task (pipeline_rd_ptr, 0, 0);
             end
         end
 
