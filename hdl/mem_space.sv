@@ -40,7 +40,7 @@
  * core_we_i            -- 1 to write data, 0 to read.
  * core_addr_i          -- The address from where data is read/written.
  * core_data_i          -- The input data to write.
- * core_data_tag_o      -- The core data output tag
+ * core_data_tag_o      -- The core data output tag.
  * core_ack_o           -- The core transaction completes successfully on the posedge of this signal.
  * core_err_o           -- The core transaction completes with an error on the posedge of this signal.
  * core_data_o          -- The data that was read.
