@@ -729,7 +729,7 @@ module risc_p (
         `ifdef ENABLE_LED_EXT led_a[11:5] <= decoder_op[21:15]; `endif
 
 `ifdef D_CORE_FINE
-        $display ($time, " CORE:    [%h] Execute (imm) instruction @[%h] -> PL_E_EXEC_PENDING.", entry,
+        $display ($time, " CORE:    [%h] Execute instruction @[%h] -> PL_E_EXEC_PENDING.", entry,
                     pipeline_instr_addr[entry]);
 `endif
 `ifdef D_STATS_FILE
