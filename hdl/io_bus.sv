@@ -17,8 +17,8 @@
 `timescale 1ns / 1ns
 `default_nettype none
 
-`include "memory_map.svh"
 `ifdef ENABLE_RV32A_EXT
+`include "memory_map.svh"
 `include "tags.svh"
 `endif
 
@@ -92,11 +92,8 @@ module io_bus #(
     assign addr_match = addr_i == reservation_addr;
 
     logic pass_cond;
-    assign pass_cond =  ((addr_tag_mode_masked == `ADDR_TAG_NONE) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && we_i && addr_match) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && ~we_i && ~addr_match) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && we_i));
+    assign pass_cond = ~((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && we_i && ~addr_match) ||
+                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && ~we_i && addr_match);
 
     // Control if transactions can start by gating the strobe and cycle of the IO.
     logic io_stb_o;
@@ -179,5 +176,5 @@ module io_bus #(
             end
         end
     end
-`endif // ENABLE_RV32A_EXT
 endmodule
+`endif // ENABLE_RV32A_EXT

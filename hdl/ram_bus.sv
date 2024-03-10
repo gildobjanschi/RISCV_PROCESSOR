@@ -17,8 +17,8 @@
 `timescale 1ns / 1ns
 `default_nettype none
 
-`include "memory_map.svh"
 `ifdef ENABLE_RV32A_EXT
+`include "memory_map.svh"
 `include "tags.svh"
 `endif
 
@@ -68,7 +68,7 @@ module ram_bus #(
         .clk_i          (clk_i),
         .rst_i          (rst_i),
         .addr_i         (addr_i[24:1]),
-        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
+        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 1'b0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
 `ifdef ENABLE_RV32A_EXT
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
@@ -76,7 +76,7 @@ module ram_bus #(
         .stb_i          (stb_i),
         .cyc_i          (cyc_i),
 `endif
-        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
+        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 1'b0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
 `ifdef ENABLE_RV32A_EXT
         .ack_o          (ram_ack_i),
@@ -103,7 +103,7 @@ module ram_bus #(
         .clk_i          (clk_i),
         .rst_i          (rst_i),
         .addr_i         (addr_i[22:1]),
-        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
+        .data_i         (sel_i == 4'b0001 ? (addr_i[0] == 1'b0 ? {8'h0, data_i[7:0]} : {data_i[7:0], 8'h0}) : data_i),
 `ifdef ENABLE_RV32A_EXT
         .stb_i          (ram_stb_o),
         .cyc_i          (ram_cyc_o),
@@ -111,7 +111,7 @@ module ram_bus #(
         .stb_i          (stb_i),
         .cyc_i          (cyc_i),
 `endif
-        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 0 ? sel_i : 4'b0010) : sel_i),
+        .sel_i          (sel_i == 4'b0001 ? (addr_i[0] == 1'b0 ? sel_i : 4'b0010) : sel_i),
         .we_i           (we_i),
 `ifdef ENABLE_RV32A_EXT
         .ack_o          (ram_ack_i),
@@ -129,7 +129,7 @@ module ram_bus #(
         .psram_d        (psram_d));
 `endif // BOARD_ULX3S
 
-    assign data_o = sel_i == 4'b0001 ? (addr_i[0] == 0 ? ram_data_o[7:0] : ram_data_o[15:8]) : ram_data_o;
+    assign data_o = sel_i == 4'b0001 ? (addr_i[0] == 1'b0 ? ram_data_o[7:0] : ram_data_o[15:8]) : ram_data_o;
 
 `ifdef ENABLE_RV32A_EXT
     logic ram_ack_i;
@@ -144,13 +144,10 @@ module ram_bus #(
     assign addr_match = addr_i == reservation_addr;
 
     logic pass_cond;
-    assign pass_cond =  ((addr_tag_mode_masked == `ADDR_TAG_NONE) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && ~we_i) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && we_i && addr_match) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && ~we_i && ~addr_match) ||
-                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && we_i));
+    assign pass_cond = ~((addr_tag_mode_masked == `ADDR_TAG_MODE_LRSC) && we_i && ~addr_match) ||
+                        ((addr_tag_mode_masked == `ADDR_TAG_MODE_AMO) && ~we_i && addr_match);
 
-    // Control if transactions can start by gating the strobe and cycle of the RAM.
+    // Control if transactions can start by gating the strobe and cycle signals of the RAM.
     logic ram_stb_o;
     assign ram_stb_o = stb_i & pass_cond;
 
@@ -189,10 +186,6 @@ module ram_bus #(
                             // Register the reservation for lr.w
                             reservation_addr <= addr_i;
                         end else begin
-                            /*
-                             * Validate the reservation for sc.w. ram_cyc_o and ram_stb_o stay low and sync_ack
-                             * is set above.
-                             */
 `ifdef D_RAM_BUS
                             $display($time, " RAM_BUS:    <<<< Valid reservation: %h; release reservation @[%h]",
                                         addr_match, addr_i);
@@ -231,5 +224,5 @@ module ram_bus #(
             end
         end
     end
-`endif // ENABLE_RV32A_EXT
 endmodule
+`endif // ENABLE_RV32A_EXT
