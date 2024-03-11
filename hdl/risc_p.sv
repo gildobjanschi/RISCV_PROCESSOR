@@ -231,7 +231,7 @@ module risc_p (
     logic [6:0] exec_op_type_o;
     logic [4:0] exec_op_rd_o, exec_op_rs1_o, exec_op_rs2_o;
 
-    mem_space #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) mem_space_m(
+    mem_space #(.CLK_PERIOD_NS(CLK_PERIOD_NS)) mem_space_m (
         .clk_i              (clk),
         .rst_i              (reset),
         // Wishbone interface for reading instructions
