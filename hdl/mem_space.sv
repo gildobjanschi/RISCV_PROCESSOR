@@ -158,7 +158,7 @@ module mem_space #(
     assign data_err_o = data_sync_err_o & data_stb_i;
 
     logic core_prev_new_transaction, data_prev_new_transaction;
-    logic core_new_transaction_q, data_new_transaction_q, core_new_transaction, data_new_transaction;
+    logic core_pend_transaction_q, data_pend_transaction_q, core_new_transaction, data_new_transaction;
     assign core_new_transaction = core_stb_i & core_cyc_i & ~core_sync_ack_o & ~core_sync_err_o;
     assign data_new_transaction = data_stb_i & data_cyc_i & ~data_sync_ack_o & ~data_sync_err_o;
 
@@ -328,10 +328,10 @@ module mem_space #(
         core_prev_new_transaction <= core_new_transaction;
 
         // ----------------------------------------- Handle data transactions ------------------------------------------
-        if ((data_new_transaction & ~data_prev_new_transaction) | data_new_transaction_q) begin
+        if ((data_new_transaction & ~data_prev_new_transaction) | data_pend_transaction_q) begin
             // Latch the core transaction if one was started at the same time with the data transaction.
             // It will be processed in the next clock cycle.
-            if (core_new_transaction & ~core_prev_new_transaction) core_new_transaction_q <= 1'b1;
+            if (core_new_transaction & ~core_prev_new_transaction) core_pend_transaction_q <= 1'b1;
 
             (* parallel_case, full_case *)
             casex (data_addr_i[31:20])
@@ -346,19 +346,19 @@ module mem_space #(
                             flash_sel_o <= data_sel_i;
                             {flash_stb_o, flash_cyc_o} <= 2'b11;
 
-                            data_new_transaction_q <= 1'b0;
+                            data_pend_transaction_q <= 1'b0;
                             data_access[ACCESS_FLASH] <= 1'b1;
 
                             `ifdef ENABLE_LED_EXT led[9] <= 1'b1;`endif
                         end else begin
-                            data_new_transaction_q <= 1'b1;
+                            data_pend_transaction_q <= 1'b1;
                         end
                     end else begin
 `ifdef D_MEM_SPACE
                         $display($time, " MEM_SPACE:   --- Invalid data address. Flash is read only [%h]. ---",
                                     data_addr_i);
 `endif
-                        data_new_transaction_q <= 1'b0;
+                        data_pend_transaction_q <= 1'b0;
                         // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and
                         // EX_STORE_ACCESS_FAULT for writes.
                         {data_sync_ack_o, data_sync_err_o} <= 2'b01;
@@ -391,13 +391,13 @@ module mem_space #(
                         ram_data_o <= data_data_i;
                         {ram_stb_o, ram_cyc_o} <= 2'b11;
 
-                        data_new_transaction_q <= 1'b0;
+                        data_pend_transaction_q <= 1'b0;
                         data_access[ACCESS_RAM] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[10] <= ~data_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[11] <= data_we_i;`endif
                     end else begin
-                        data_new_transaction_q <= 1'b1;
+                        data_pend_transaction_q <= 1'b1;
                     end
                 end
 
@@ -411,13 +411,13 @@ module mem_space #(
                         io_sel_o <= data_sel_i;
                         {io_stb_o, io_cyc_o} <= 2'b11;
 
-                        data_new_transaction_q <= 1'b0;
+                        data_pend_transaction_q <= 1'b0;
                         data_access[ACCESS_IO] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[12] <= ~data_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[13] <= data_we_i;`endif
                     end else begin
-                        data_new_transaction_q <= 1'b1;
+                        data_pend_transaction_q <= 1'b1;
                     end
                 end
 
@@ -436,20 +436,20 @@ module mem_space #(
                             csr_data_o <= data_data_i;
                             {csr_stb_o, csr_cyc_o} <= 2'b11;
 
-                            data_new_transaction_q <= 1'b0;
+                            data_pend_transaction_q <= 1'b0;
                             data_access[ACCESS_CSR] <= 1'b1;
 
                             `ifdef ENABLE_LED_EXT led[14] <= ~data_we_i;`endif
                             `ifdef ENABLE_LED_EXT led[15] <= data_we_i;`endif
                         end else begin
-                            data_new_transaction_q <= 1'b1;
+                            data_pend_transaction_q <= 1'b1;
                         end
                     end else begin
 `ifdef D_MEM_SPACE
                         $display($time, " MEM_SPACE:   --- Invalid data address. CSR access restricted [%h]. ---",
                                     data_addr_i);
 `endif
-                        data_new_transaction_q <= 1'b0;
+                        data_pend_transaction_q <= 1'b0;
                         // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and
                         // EX_STORE_ACCESS_FAULT for writes.
                         {data_sync_ack_o, data_sync_err_o} <= 2'b01;
@@ -460,13 +460,13 @@ module mem_space #(
 `ifdef D_MEM_SPACE
                     $display($time, " MEM_SPACE:   --- Invalid data address [%h]. ---", data_addr_i);
 `endif
-                    data_new_transaction_q <= 1'b0;
+                    data_pend_transaction_q <= 1'b0;
                     // The upstream module will infer an EX_LOAD_ACCESS_FAULT for reads and EX_STORE_ACCESS_FAULT for
                     // writes.
                     {data_sync_ack_o, data_sync_err_o} <= 2'b01;
                 end
             endcase
-        end else if ((core_new_transaction & ~core_prev_new_transaction) | core_new_transaction_q) begin
+        end else if ((core_new_transaction & ~core_prev_new_transaction) | core_pend_transaction_q) begin
             // ----------------------------------------- Handle core transactions --------------------------------------
             (* parallel_case, full_case *)
             casex (core_addr_i[31:20])
@@ -481,12 +481,12 @@ module mem_space #(
                         flash_sel_o <= core_sel_i;
                         {flash_stb_o, flash_cyc_o} <= 2'b11;
 
-                        core_new_transaction_q <= 1'b0;
+                        core_pend_transaction_q <= 1'b0;
                         core_access[ACCESS_FLASH] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[1] <= 1'b1;`endif
                     end else begin
-                        core_new_transaction_q <= 1'b1;
+                        core_pend_transaction_q <= 1'b1;
                     end
                 end
 
@@ -510,13 +510,13 @@ module mem_space #(
                         ram_sel_o <= 4'b1111;
                         {ram_stb_o, ram_cyc_o} <= 2'b11;
 
-                        core_new_transaction_q <= 1'b0;
+                        core_pend_transaction_q <= 1'b0;
                         core_access[ACCESS_RAM] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[2] <= ~core_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[3] <= core_we_i;`endif
                     end else begin
-                        core_new_transaction_q <= 1'b1;
+                        core_pend_transaction_q <= 1'b1;
                     end
                 end
 
@@ -534,13 +534,13 @@ module mem_space #(
                             $display($time, " MEM_SPACE: Core IO write %0d @[%h]", core_data_i, core_addr_i[23:0]);
                         end
 `endif
-                        core_new_transaction_q <= 1'b0;
+                        core_pend_transaction_q <= 1'b0;
                         core_access[ACCESS_IO] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[6] <= ~core_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[7] <= core_we_i;`endif
                     end else begin
-                        core_new_transaction_q <= 1'b1;
+                        core_pend_transaction_q <= 1'b1;
                     end
                 end
 
@@ -558,13 +558,13 @@ module mem_space #(
                         csr_data_o <= core_data_i;
                         {csr_stb_o, csr_cyc_o} <= 2'b11;
 
-                        core_new_transaction_q <= 1'b0;
+                        core_pend_transaction_q <= 1'b0;
                         core_access[ACCESS_CSR] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[4] <= ~core_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[5] <= core_we_i;`endif
                     end else begin
-                        core_new_transaction_q <= 1'b1;
+                        core_pend_transaction_q <= 1'b1;
                     end
                 end
 
@@ -572,7 +572,7 @@ module mem_space #(
 `ifdef D_MEM_SPACE
                     $display($time, " MEM_SPACE:    --- Invalid instruction address [%h]. ---", core_addr_i);
 `endif
-                    core_new_transaction_q <= 1'b0;
+                    core_pend_transaction_q <= 1'b0;
                     // The upstream module will infer an EX_INSTRUCTION_ACCESS_FAULT
                     {core_sync_ack_o, core_sync_err_o} <= 2'b01;
                 end
@@ -741,8 +741,8 @@ module mem_space #(
 
             {core_access, data_access} <= {4'b0000, 4'b0000};
 
-            core_new_transaction_q <= 1'b0;
-            data_new_transaction_q <= 1'b0;
+            core_pend_transaction_q <= 1'b0;
+            data_pend_transaction_q <= 1'b0;
 
             core_prev_new_transaction <= 1'b0;
             data_prev_new_transaction <= 1'b0;
