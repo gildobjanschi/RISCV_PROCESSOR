@@ -32,7 +32,7 @@
 module mem_space_test(
     input logic clk_in,
     output logic [7:0] led,
-    input logic [2:0] btn,
+    input logic [1:0] btn,
     // SPI flash wires
     output logic flash_csn,
 `ifdef SIMULATION

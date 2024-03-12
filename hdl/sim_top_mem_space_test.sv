@@ -27,7 +27,7 @@
 module sim_top_mem_space_test;
 
     logic [7:0] led;
-    logic [2:0] btn;
+    logic [1:0] btn;
     // Flash wires
     wire flash_csn;
     wire flash_clk;
