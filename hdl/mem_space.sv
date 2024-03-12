@@ -162,14 +162,16 @@ module mem_space #(
     assign core_new_transaction = core_stb_i & core_cyc_i & ~core_sync_ack_o & ~core_sync_err_o;
     assign data_new_transaction = data_stb_i & data_cyc_i & ~data_sync_ack_o & ~data_sync_err_o;
 
-    localparam ACCESS_NONE  = 3'b000;
-    localparam ACCESS_FLASH = 3'b001;
-    localparam ACCESS_RAM   = 3'b010;
-    localparam ACCESS_IO    = 3'b011;
-    localparam ACCESS_CSR   = 3'b100;
-    logic [2:0] core_access, data_access;
+    // The index of the bit indicating which resource is being access by the core or by the data path.
+    localparam ACCESS_FLASH = 2'b00;
+    localparam ACCESS_RAM   = 2'b01;
+    localparam ACCESS_IO    = 2'b10;
+    localparam ACCESS_CSR   = 2'b11;
+    logic [3:0] core_access, data_access;
 
+`ifdef ENABLE_MHPM
     logic [31:0] incr_internal_event_counters;
+`endif
     // Wishbone flip flop for handling cross domain flash ack
     logic sync_flash_ack_i, sync_flash_ack_i_pulse;
     DFF_META dff_meta_flash_ack (.reset(rst_i), .D(flash_ack_i), .clk(clk_i), .Q(sync_flash_ack_i),
@@ -297,7 +299,11 @@ module mem_space #(
         .ack_o                  (csr_ack_i),
         .err_o                  (csr_err_i),
         .data_o                 (csr_data_i),
+`ifdef ENABLE_MHPM
         .incr_event_counters_i  (incr_event_counters_i | incr_internal_event_counters),
+`else
+        .incr_event_counters_i  (incr_event_counters_i),
+`endif
         // Interrupt that occured(from IO)
         .io_interrupts_i        (io_interrupts_i),
         // Interrupts pending (to the core)
@@ -307,8 +313,9 @@ module mem_space #(
     // The memory space processor.
     //==================================================================================================================
     task mem_space_task;
+`ifdef ENABLE_MHPM
         incr_internal_event_counters <= 0;
-
+`endif
         // Reflect the status of IRQs
         `ifdef ENABLE_LED_EXT led[8] <= |io_interrupts_o;`endif
 
@@ -340,7 +347,7 @@ module mem_space #(
                             {flash_stb_o, flash_cyc_o} <= 2'b11;
 
                             data_new_transaction_q <= 1'b0;
-                            data_access <= ACCESS_FLASH;
+                            data_access[ACCESS_FLASH] <= 1'b1;
 
                             `ifdef ENABLE_LED_EXT led[9] <= 1'b1;`endif
                         end else begin
@@ -385,7 +392,7 @@ module mem_space #(
                         {ram_stb_o, ram_cyc_o} <= 2'b11;
 
                         data_new_transaction_q <= 1'b0;
-                        data_access <= ACCESS_RAM;
+                        data_access[ACCESS_RAM] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[10] <= ~data_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[11] <= data_we_i;`endif
@@ -405,7 +412,8 @@ module mem_space #(
                         {io_stb_o, io_cyc_o} <= 2'b11;
 
                         data_new_transaction_q <= 1'b0;
-                        data_access <= ACCESS_IO;
+                        data_access[ACCESS_IO] <= 1'b1;
+
                         `ifdef ENABLE_LED_EXT led[12] <= ~data_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[13] <= data_we_i;`endif
                     end else begin
@@ -429,7 +437,8 @@ module mem_space #(
                             {csr_stb_o, csr_cyc_o} <= 2'b11;
 
                             data_new_transaction_q <= 1'b0;
-                            data_access <= ACCESS_CSR;
+                            data_access[ACCESS_CSR] <= 1'b1;
+
                             `ifdef ENABLE_LED_EXT led[14] <= ~data_we_i;`endif
                             `ifdef ENABLE_LED_EXT led[15] <= data_we_i;`endif
                         end else begin
@@ -473,7 +482,7 @@ module mem_space #(
                         {flash_stb_o, flash_cyc_o} <= 2'b11;
 
                         core_new_transaction_q <= 1'b0;
-                        core_access <= ACCESS_FLASH;
+                        core_access[ACCESS_FLASH] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[1] <= 1'b1;`endif
                     end else begin
@@ -502,7 +511,7 @@ module mem_space #(
                         {ram_stb_o, ram_cyc_o} <= 2'b11;
 
                         core_new_transaction_q <= 1'b0;
-                        core_access <= ACCESS_RAM;
+                        core_access[ACCESS_RAM] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[2] <= ~core_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[3] <= core_we_i;`endif
@@ -526,7 +535,7 @@ module mem_space #(
                         end
 `endif
                         core_new_transaction_q <= 1'b0;
-                        core_access <= ACCESS_IO;
+                        core_access[ACCESS_IO] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[6] <= ~core_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[7] <= core_we_i;`endif
@@ -550,7 +559,7 @@ module mem_space #(
                         {csr_stb_o, csr_cyc_o} <= 2'b11;
 
                         core_new_transaction_q <= 1'b0;
-                        core_access <= ACCESS_CSR;
+                        core_access[ACCESS_CSR] <= 1'b1;
 
                         `ifdef ENABLE_LED_EXT led[4] <= ~core_we_i;`endif
                         `ifdef ENABLE_LED_EXT led[5] <= core_we_i;`endif
@@ -577,25 +586,25 @@ module mem_space #(
 `ifdef D_MEM_SPACE
             $display($time, " MEM_SPACE: Flash data @[%h]: %h", flash_addr_o, flash_data_i);
 `endif
-            if (core_access == ACCESS_FLASH) begin
+            if (core_access[ACCESS_FLASH]) begin
                 core_data_o <= flash_data_i;
                 core_data_tag_o <= flash_data_i[1:0] != 2'b11;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 
-                core_access <= ACCESS_NONE;
+                core_access[ACCESS_FLASH] <= 1'b0;
 
                 `ifdef ENABLE_LED_EXT led[1] <= 1'b0;`endif
             end else begin
                 data_data_o <= flash_data_i;
                 {data_sync_ack_o, data_sync_err_o} <= 2'b10;
 
-                data_access <= ACCESS_NONE;
+                data_access[ACCESS_FLASH] <= 1'b0;
 
                 `ifdef ENABLE_LED_EXT led[9] <= 1'b0;`endif
             end
 
 `ifdef ENABLE_MHPM
-            if (core_access == ACCESS_FLASH) begin
+            if (core_access[ACCESS_FLASH]) begin
                 incr_internal_event_counters[`EVENT_INSTR_FROM_ROM] <= 1'b1;
             end else begin
                 incr_internal_event_counters[`EVENT_LOAD_FROM_ROM] <= 1'b1;
@@ -608,12 +617,12 @@ module mem_space #(
             // The transaction is complete
             {ram_stb_o, ram_cyc_o} <= 2'b00;
 
-            if (core_access == ACCESS_RAM) begin
+            if (core_access[ACCESS_RAM]) begin
                 core_data_o <= ram_data_i;
                 core_data_tag_o <= ram_data_i[1:0] != 2'b11;
                 {core_sync_ack_o, core_sync_err_o} <= 2'b10;
 
-                core_access <= ACCESS_NONE;
+                core_access[ACCESS_RAM] <= 1'b0;
 
 `ifdef ENABLE_MHPM
                 incr_internal_event_counters[`EVENT_INSTR_FROM_RAM] <= 1'b1;
@@ -625,7 +634,7 @@ module mem_space #(
                 data_data_tag_o <= ram_data_tag_i;
                 {data_sync_ack_o, data_sync_err_o} <= 2'b10;
 
-                data_access <= ACCESS_NONE;
+                data_access[ACCESS_RAM] <= 1'b0;
 
 `ifdef ENABLE_MHPM
                 if (~ram_we_o) begin
@@ -652,11 +661,11 @@ module mem_space #(
                 $display($time, " MEM_SPACE: IO read @[%h]: %0d", io_addr_o, io_data_i);
             end
 `endif
-            if (core_access == ACCESS_IO) begin
+            if (core_access[ACCESS_IO]) begin
                 core_data_o <= io_data_i;
                 {core_sync_ack_o, core_sync_err_o} <= {io_ack_i, io_err_i};
 
-                core_access <= ACCESS_NONE;
+                core_access[ACCESS_IO] <= 1'b0;
 
                 `ifdef ENABLE_LED_EXT led[6] <= 1'b0;`endif
                 `ifdef ENABLE_LED_EXT led[7] <= 1'b0;`endif
@@ -665,7 +674,7 @@ module mem_space #(
                 data_data_tag_o <= io_addr_tag_o;
                 {data_sync_ack_o, data_sync_err_o} <= {io_ack_i, io_err_i};
 
-                data_access <= ACCESS_NONE;
+                data_access[ACCESS_IO] <= 1'b0;
 
                 `ifdef ENABLE_LED_EXT led[12] <= 1'b0;`endif
                 `ifdef ENABLE_LED_EXT led[13] <= 1'b0;`endif
@@ -689,11 +698,11 @@ module mem_space #(
                 $display($time, " MEM_SPACE: CSR read @[%h]: %h", csr_addr_o, csr_data_i);
             end
 `endif
-            if (core_access == ACCESS_CSR) begin
+            if (core_access[ACCESS_CSR]) begin
                 core_data_o <= csr_data_i;
                 {core_sync_ack_o, core_sync_err_o} <= {csr_ack_i, csr_err_i};
 
-                core_access <= ACCESS_NONE;
+                core_access[ACCESS_CSR] <= 1'b0;
 
                 `ifdef ENABLE_LED_EXT led[4] <= 1'b0;`endif
                 `ifdef ENABLE_LED_EXT led[5] <= 1'b0;`endif
@@ -701,7 +710,7 @@ module mem_space #(
                 data_data_o <= csr_data_i;
                 {data_sync_ack_o, data_sync_err_o} <= {csr_ack_i, csr_err_i};
 
-                data_access <= ACCESS_NONE;
+                data_access[ACCESS_CSR] <= 1'b0;
 
                 `ifdef ENABLE_LED_EXT led[14] <= 1'b0;`endif
                 `ifdef ENABLE_LED_EXT led[15] <= 1'b0;`endif
@@ -730,7 +739,7 @@ module mem_space #(
             {io_stb_o, io_cyc_o} <= 2'b00;
             {csr_stb_o, csr_cyc_o} <= 2'b00;
 
-            {core_access, data_access} <= {ACCESS_NONE, ACCESS_NONE};
+            {core_access, data_access} <= {4'b0000, 4'b0000};
 
             core_new_transaction_q <= 1'b0;
             data_new_transaction_q <= 1'b0;
