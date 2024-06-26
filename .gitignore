@@ -1,3 +1,4 @@
+.DS_Store
 /hdl/abc.history
 /hdl/out.*
 /hdl/*.kate-swp
