@@ -1,4 +1,4 @@
-# RISC-V_micro - A 32-bit RISC-V Microcontroller
+# RISC-V_PROCESSOR - A 32-bit RISC-V Microcontroller
 
 The RISC-V microcontroller is a 32-bit RISC-V processor developed in SystemVerilog targeted to Lattice Semiconductor ECP5 FPGA.
 It works on the [ULX3S ECP5 85F](https://radiona.org/ulx3s/), a commercially available ECP5 board.
