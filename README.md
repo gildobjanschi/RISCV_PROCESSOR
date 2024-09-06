@@ -276,7 +276,7 @@ The diagram below will help you understand the architecture of the processor and
 
 ![Block Diagram](block_diagram.png)
 
-Please see more detail on the project [wiki pages](https://github.com/gildobjanschi/RISC-V_micro/wiki).
+Please see more detail on the project [wiki pages](https://github.com/gildobjanschi/RISCV_PROCESSOR/wiki).
 
 ## More work needed
 I appreciate feedback for bug fixes and improvements. There are a few area where I would like to see performace improvements:
